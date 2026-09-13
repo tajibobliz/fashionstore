@@ -1,26 +1,59 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  // Valida email + password contra la BD. Devuelve el usuario (sin hash) o null.
+  async validateUser(email: string, password: string): Promise<any> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return null;
+
+    const passwordValido = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordValido) return null;
+
+    // Excluimos el passwordHash de lo que devolvemos
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
   }
 
-  findAll() {
-    return `This action returns all auth`;
+  // Genera el JWT con los datos clave del usuario.
+  async login(user: any) {
+    const payload = {
+      sub: user.idUsuario,
+      email: user.email,
+      rol: user.rol?.nombre,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        idUsuario: user.idUsuario,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol?.nombre,
+      },
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+  // Registra un cliente nuevo y devuelve el JWT directamente (login automático).
+  async register(dto: RegisterDto) {
+    const nuevo = await this.usersService.create({
+      nombre: dto.nombre,
+      apellido: dto.apellido,
+      email: dto.email,
+      password: dto.password,
+      telefono: dto.telefono,
+      rolNombre: 'CLIENTE', // registro público siempre es cliente
+    });
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    return this.login(nuevo);
   }
 }
