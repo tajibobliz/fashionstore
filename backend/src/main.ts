@@ -5,11 +5,16 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    origin: true, // Permite cualquier origen en desarrollo
+    credentials: true,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,           // Elimina propiedades no declaradas en el DTO
-      forbidNonWhitelisted: true, // Devuelve error si vienen propiedades extra
-      transform: true,           // Convierte tipos automáticamente (string → number, etc.)
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
