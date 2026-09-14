@@ -93,7 +93,7 @@ export class AuthService {
     return { message: 'Sesión cerrada' };
   }
 
-  // El registro principal crea encargados y devuelve los tokens de sesión.
+ // Registro público: crea un cliente y devuelve los tokens de sesión.
   async register(dto: RegisterDto) {
     const nuevo = await this.usersService.create({
       nombre: dto.nombre,
@@ -101,7 +101,7 @@ export class AuthService {
       email: dto.email,
       password: dto.password,
       telefono: dto.telefono,
-      rolNombre: 'ENCARGADO', // El servidor fija el rol del registro principal.
+      rolNombre: 'CLIENTE', // Registro público crea clientes finales.
     });
 
     return this.login(nuevo);
