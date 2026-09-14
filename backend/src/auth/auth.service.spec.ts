@@ -19,6 +19,13 @@ describe('Refresh sessions', () => {
     service = new AuthService(users as UsersService, { sign: () => 'jwt' } as unknown as JwtService,
       repo as Repository<RefreshSession>, { get: () => undefined } as unknown as ConfigService);
   });
+  it('principal registration fixes ENCARGADO even if a caller supplies another role', async () => {
+    users.create = jest.fn(async () => ({ ...user, rol: { nombre: 'ENCARGADO' } }));
+    const result = await service.register({ nombre: 'Ana', email: user.email, password: 'secret123', rolNombre: 'ADMIN' } as any);
+    expect(users.create).toHaveBeenCalledWith({ nombre: 'Ana', email: user.email, password: 'secret123', apellido: undefined, telefono: undefined, rolNombre: 'ENCARGADO' });
+    expect(result.user.rol).toBe('ENCARGADO');
+    expect(result.refresh_token).toMatch(/^[a-f0-9]{96}$/);
+  });
   it('stores only a hash of the random token', async () => {
     const result = await service.login(user);
     expect(result.refresh_token).toMatch(/^[a-f0-9]{96}$/);

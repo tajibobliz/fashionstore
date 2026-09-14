@@ -1,4 +1,7 @@
 # Logs
+.env.production
+.env.development.local
+.env.production.local
 # Pruebas de navegador
 test-results/
 playwright-report/

@@ -93,7 +93,7 @@ export class AuthService {
     return { message: 'Sesión cerrada' };
   }
 
-  // Registra un cliente nuevo y devuelve el JWT directamente (login automático).
+  // El registro principal crea encargados y devuelve los tokens de sesión.
   async register(dto: RegisterDto) {
     const nuevo = await this.usersService.create({
       nombre: dto.nombre,
@@ -101,7 +101,7 @@ export class AuthService {
       email: dto.email,
       password: dto.password,
       telefono: dto.telefono,
-      rolNombre: 'CLIENTE', // registro público siempre es cliente
+      rolNombre: 'ENCARGADO', // El servidor fija el rol del registro principal.
     });
 
     return this.login(nuevo);

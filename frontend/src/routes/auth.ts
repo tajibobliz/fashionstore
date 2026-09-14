@@ -1,7 +1,8 @@
-import type { Role } from '../features/auth/types'
-
+﻿import type { Role } from '../features/auth/types'
 export function getSessionPath(role: Role) {
-  if (role === 'ADMIN' || role === 'ENCARGADO') return '/panel'
-  if (role === 'CAJERO') return '/pos'
-  return '/tienda'
+  if (role === 'ADMIN') return '/dashboard/admin'
+  if (role === 'ENCARGADO') return '/dashboard/encargado'
+  if (role === 'CAJERO') return '/dashboard/cajero'
+  if (role === 'CLIENTE') return '/tienda'
+  return '/'
 }

@@ -12,7 +12,7 @@ const services = [
   { icon: Package, title: 'Inventario conectado', desc: 'Nuestro equipo consulta las existencias por talla, color y sucursal desde un solo lugar.' },
 ]
 const steps = [
-  { label: 'Crea tu cuenta', desc: 'Regístrate con tu nombre y correo electrónico.' },
+  { label: 'Descubre Fashionstore', desc: 'Conoce nuestras prendas y encuentra tu inspiración.' },
   { label: 'Descubre el catálogo', desc: 'Explora las prendas y encuentra lo que va contigo.' },
   { label: 'Encuentra tu estilo', desc: 'Conoce los detalles, las tallas y los colores de cada producto.' },
   { label: 'Visítanos en tienda', desc: 'Encuentra una sucursal y recibe atención de nuestro equipo.' },
@@ -46,7 +46,7 @@ export default function Home() {
         <div className={styles.stepsImg}><img src="/images/seller.png" alt="Ilustración de atención y gestión de una tienda" width="640" height="640" loading="lazy" /></div>
         <div className={styles.stepsContent}><p className={styles.sectionTag}>Así de simple</p><h2>Descubre tu próximo <span className={styles.highlight}>look en 4 pasos</span></h2>
           <div className={styles.stepsList}>{steps.map((step, index) => <div key={step.label} className={styles.stepItem}><span className={styles.stepNum}>{index + 1}</span><div><strong>{step.label}</strong><p>{step.desc}</p></div></div>)}</div>
-          <Link to={isAuthenticated ? destination : '/register'} className={styles.btnOrange}>{isAuthenticated ? 'Ir a mi espacio' : 'Crear mi cuenta'} <ArrowRight size={16} /></Link>
+          <Link to={isAuthenticated ? destination : '/register'} className={styles.btnOrange}>{isAuthenticated ? 'Ir a mi espacio' : 'Registrar mi negocio'} <ArrowRight size={16} /></Link>
         </div>
       </section>
       <section id="stores" className={styles.analyticsSection}>
@@ -57,12 +57,12 @@ export default function Home() {
         </div>
         <div className={styles.analyticsImg}><img src="/images/analytics.png" alt="Ilustración del espacio de gestión de la tienda" loading="lazy" width="640" height="640" /></div>
       </section>
-      <section className={styles.ctaBanner}><h2>Encuentra lo que te hace sentir tú.</h2><p>Tu próximo capítulo de estilo empieza en Fashionstore.</p><Link to={isAuthenticated ? destination : '/register'} className={styles.btnWhite}>{isAuthenticated ? 'Volver a mi espacio' : 'Quiero ser parte'}</Link></section>
+      <section className={styles.ctaBanner}><h2>Encuentra lo que te hace sentir tú.</h2><p>Tu próximo capítulo de estilo empieza en Fashionstore.</p><Link to={isAuthenticated ? destination : '/register'} className={styles.btnWhite}>{isAuthenticated ? 'Volver a mi espacio' : 'Registrar mi negocio'}</Link></section>
     </main>
     <footer className={styles.footer}><div className={styles.footerGrid}>
       <div><Brand className={styles.logo} /><p className={styles.footerDesc}>Moda femenina con esencia propia.<br />Online y en nuestras tiendas.</p></div>
       <div><strong>Descubre</strong><ul><li><a href="#services">La experiencia</a></li><li><a href="#steps">Cómo funciona</a></li></ul></div>
-      <div><strong>Tu cuenta</strong><ul><li><Link to={destination}>Mi espacio</Link></li><li><Link to="/register">Crear cuenta</Link></li></ul></div>
+      <div><strong>Tu cuenta</strong><ul><li><Link to={destination}>Mi espacio</Link></li><li><Link to="/register">Registrar negocio</Link></li></ul></div>
       <div><strong>En tienda</strong><ul><li><a href="#stores">Nuestras sucursales</a></li><li><Link to="/login">Acceso del equipo</Link></li></ul></div>
     </div><div className={styles.footerBottom}><p>© {new Date().getFullYear()} Fashionstore. Todos los derechos reservados.</p></div></footer>
   </div>

@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import { Role } from '../auth/enums/role.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +9,15 @@ import { Rol } from './entities/rol.entity';
 
 @Injectable()
 export class UsersService {
+  async createByStaff(dto: CreateUserDto, actorRole: Role) {
+    const permitted = actorRole === Role.ADMIN ||
+      (actorRole === Role.ENCARGADO && [Role.CAJERO, Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre)) ||
+      (actorRole === Role.CAJERO && [Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre));
+    if (!permitted) throw new ForbiddenException('No tienes permiso para crear usuarios con ese rol');
+    const user = await this.create(dto);
+    return { idUsuario: user.idUsuario, nombre: user.nombre, email: user.email, rol: user.rol.nombre };
+  }
+
   constructor(
     @InjectRepository(Usuario)
     private readonly usuarioRepo: Repository<Usuario>,

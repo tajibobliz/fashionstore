@@ -55,21 +55,23 @@ test('login envía credenciales y token, restaura sesión y permite logout', asy
   expect(await page.evaluate(() => sessionStorage.getItem('fashionstore.refresh_token'))).toBeNull()
 })
 
-test('registro crea una clienta y abre la tienda', async ({ page }) => {
+test('registro principal crea ENCARGADO y abre su dashboard', async ({ page }) => {
+  await page.route('**/inventory/inventarios', route => route.fulfill({ json: [] }))
   await page.route('**/catalog/productos', route => route.fulfill({ json: [] }))
   await page.route('**/auth/register', async route => {
     expect(route.request().postDataJSON()).toEqual({ nombre: 'María', email: user.email, password: 'secret123' })
-    await route.fulfill({ json: session })
+    await route.fulfill({ json: { ...session, user: { ...user, rol: 'ENCARGADO' } } })
   })
   await page.goto('/register')
   await page.getByLabel('Nombre', { exact: true }).fill('María')
   await page.getByLabel('Correo electrónico').fill(user.email)
   await page.getByLabel('Contraseña', { exact: true }).fill('secret123')
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click()
-  await expect(page).toHaveURL(/\/tienda$/)
+  await expect(page).toHaveURL(/\/dashboard\/encargado$/)
 })
 
 test('token expirado se renueva y abre POS para cajero', async ({ page }) => {
+  await page.route('**/catalog/productos', route => route.fulfill({ json: [] }))
   await page.addInitScript(({ access_token, refresh_token }) => {
     sessionStorage.setItem('fashionstore.access_token', access_token)
     sessionStorage.setItem('fashionstore.refresh_token', refresh_token)
@@ -86,7 +88,7 @@ test('token expirado se renueva y abre POS para cajero', async ({ page }) => {
     await route.fulfill({ json: [] })
   })
   await page.goto('/login')
-  await expect(page).toHaveURL(/\/pos$/)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Punto de venta')
+  await expect(page).toHaveURL(/\/dashboard\/cajero$/)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard CAJERO')
   expect(await page.evaluate(() => sessionStorage.getItem('fashionstore.refresh_token'))).toBe('b'.repeat(96))
 })
