@@ -18,5 +18,6 @@ import { VarianteProducto } from '../catalog/entities/variante-producto.entity';
   ],
   controllers: [InventoryController],
   providers: [InventoryService],
+  exports: [InventoryService],
 })
 export class InventoryModule {}

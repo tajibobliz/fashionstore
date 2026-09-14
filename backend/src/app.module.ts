@@ -8,6 +8,11 @@ import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { ReservationsModule } from './reservations/reservations.module';
+import { CartModule } from './cart/cart.module';
+import { SalesModule } from './sales/sales.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ReturnsModule } from './returns/returns.module';
 
 @Module({
   imports: [
@@ -33,6 +38,11 @@ import { InventoryModule } from './inventory/inventory.module';
     BranchesModule,
     CatalogModule,
     InventoryModule,
+    ReservationsModule,
+    CartModule,
+    SalesModule,
+    PaymentsModule,
+    ReturnsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
