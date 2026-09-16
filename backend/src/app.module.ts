@@ -13,6 +13,10 @@ import { CartModule } from './cart/cart.module';
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReturnsModule } from './returns/returns.module';
+import { ArModule } from './ar/ar.module';
+import { AiModule } from './ai/ai.module';
+import { ReportsModule } from './reports/reports.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
   imports: [
@@ -43,6 +47,10 @@ import { ReturnsModule } from './returns/returns.module';
     SalesModule,
     PaymentsModule,
     ReturnsModule,
+    ArModule,
+    AiModule,
+    ReportsModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
