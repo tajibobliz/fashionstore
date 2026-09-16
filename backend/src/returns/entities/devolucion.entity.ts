@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -24,15 +25,15 @@ export class Devolucion {
 
   @ManyToOne(() => Venta, { eager: true })
   @JoinColumn({ name: 'id_venta' })
-  venta: Venta;
+  venta: Relation<Venta>;
 
   @ManyToOne(() => Usuario, { eager: true })
   @JoinColumn({ name: 'id_usuario_registra' })
-  usuarioRegistra: Usuario;
+  usuarioRegistra: Relation<Usuario>;
 
   @OneToMany(() => DetalleDevolucion, (detalle) => detalle.devolucion, {
     cascade: true,
     eager: true,
   })
-  detalles: DetalleDevolucion[];
+  detalles: Relation<DetalleDevolucion[]>;
 }

@@ -1,5 +1,4 @@
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -38,8 +37,14 @@ export class CreatePromocionDto {
   estado?: boolean;
 
   @IsArray()
-  @ArrayMinSize(1)
+  @IsOptional()
   @IsInt({ each: true })
   @IsPositive({ each: true })
-  idsProductos: number[];
+  idsProductos?: number[];
+
+  @IsOptional() @IsArray() @IsInt({ each: true }) @IsPositive({ each: true })
+  idsCategorias?: number[];
+
+  @IsOptional() @IsArray() @IsInt({ each: true }) @IsPositive({ each: true })
+  idsTemporadas?: number[];
 }

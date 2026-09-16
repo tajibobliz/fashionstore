@@ -8,6 +8,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProductoDto {
   @IsInt()
@@ -35,6 +36,20 @@ export class CreateProductoDto {
   @IsNumber()
   @Min(0)
   precio: number;
+
+  /** Precio único aplicable a ventas MAYORISTA. */
+  @ApiPropertyOptional({ example: 120, minimum: 0, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precioMayorista?: number;
+
+  /** Cantidad mínima del producto requerida para venta MAYORISTA. */
+  @ApiPropertyOptional({ example: 12, minimum: 1, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  cantidadMinimaMayorista?: number;
 
   @IsOptional()
   @IsString()

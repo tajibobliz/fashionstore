@@ -17,12 +17,16 @@ import { ArModule } from './ar/ar.module';
 import { AiModule } from './ai/ai.module';
 import { ReportsModule } from './reports/reports.module';
 import { PromotionsModule } from './promotions/promotions.module';
+import { WarehousesModule } from './warehouses/warehouses.module';
+import { PosModule } from './pos/pos.module';
+import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnvironment,
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -33,8 +37,16 @@ import { PromotionsModule } from './promotions/promotions.module';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
+        ssl: databaseSsl(config.get<string>('DATABASE_SSL')),
         autoLoadEntities: true,
-        synchronize: true,
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: config.get<string>('DB_MIGRATIONS_RUN') === 'true' || config.get<string>('NODE_ENV') === 'production',
+        synchronize:
+          config.get<string>('NODE_ENV') === 'production'
+            ? false
+            : config.get<string>('DB_SYNCHRONIZE') !== undefined
+            ? config.get<string>('DB_SYNCHRONIZE') === 'true'
+            : false,
       }),
     }),
     UsersModule,
@@ -51,6 +63,8 @@ import { PromotionsModule } from './promotions/promotions.module';
     AiModule,
     ReportsModule,
     PromotionsModule,
+    WarehousesModule,
+    PosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

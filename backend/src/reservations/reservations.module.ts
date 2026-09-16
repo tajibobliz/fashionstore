@@ -9,6 +9,8 @@ import { VarianteProducto } from '../catalog/entities/variante-producto.entity';
 import { Inventario } from '../inventory/entities/inventario.entity';
 import { MovimientoInventario } from '../inventory/entities/movimiento-inventario.entity';
 import { InventoryModule } from '../inventory/inventory.module';
+import { Almacen } from '../warehouses/entities/almacen.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -19,8 +21,10 @@ import { InventoryModule } from '../inventory/inventory.module';
       VarianteProducto,
       Inventario,
       MovimientoInventario,
+      Almacen,
     ]),
     InventoryModule,
+    UsersModule,
   ],
   controllers: [ReservationsController],
   providers: [ReservationsService],

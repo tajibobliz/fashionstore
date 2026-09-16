@@ -16,11 +16,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { BranchAccessService } from '../users/branch-access.service';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SalesController {
-  constructor(private readonly service: SalesService) {}
+  constructor(private readonly service: SalesService, private readonly access: BranchAccessService) {}
 
   // Cliente compra desde su carrito (digital)
   @Post('from-cart')
@@ -30,9 +31,9 @@ export class SalesController {
 
   // Cajero registra venta presencial
   @Post('presencial')
-  @Roles(Role.CAJERO, Role.ADMIN)
+  @Roles(Role.CAJERO, Role.ADMIN,Role.ENCARGADO,Role.ENCARGADO_SUCURSAL)
   createPresencial(@Request() req: any, @Body() dto: CreateVentaPresencialDto) {
-    return this.service.createPresencial(req.user.idUsuario, dto);
+    return this.service.createPresencial(req.user, dto);
   }
 
   // Mis ventas (cliente)
@@ -43,14 +44,14 @@ export class SalesController {
 
   // Todas las ventas (admin/encargado)
   @Get()
-  @Roles(Role.ADMIN, Role.ENCARGADO)
-  findAll() {
-    return this.service.findAll();
+  @Roles(Role.ADMIN, Role.ENCARGADO,Role.ENCARGADO_SUCURSAL)
+  async findAll(@Request()req:any) {
+    const ids=await this.access.accessibleBranchIds(req.user);return ids===null?this.service.findAll():this.service.findAllByBranches(ids);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    const item=await this.service.findOneAuthorized(id, req.user);if([Role.ENCARGADO_SUCURSAL,Role.CAJERO].includes(req.user.rol))await this.access.assertCanAccess(req.user,item.sucursal.idSucursal);return item;
   }
 
   // Confirmar venta pendiente (después de pago aprobado)
@@ -62,7 +63,7 @@ export class SalesController {
 
   // Cancelar venta pendiente
   @Patch(':id/cancelar')
-  cancelar(@Param('id', ParseIntPipe) id: number) {
-    return this.service.cancelar(id);
+  cancelar(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.service.cancelarAuthorized(id, req.user);
   }
 }

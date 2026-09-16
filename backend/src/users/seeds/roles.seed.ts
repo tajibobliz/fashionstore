@@ -13,22 +13,19 @@ export class RolesSeed implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const count = await this.rolRepo.count();
-
-    if (count > 0) {
-      this.logger.log('Roles ya existen, seed omitido.');
-      return;
-    }
-
     const roles = [
       { nombre: 'CLIENTE', descripcion: 'Cliente final que compra productos' },
       { nombre: 'ADMIN', descripcion: 'Administrador del sistema' },
       { nombre: 'ENCARGADO', descripcion: 'Encargado de sucursal' },
+      { nombre: 'ENCARGADO_SUCURSAL', descripcion: 'Encargado limitado a sucursales asignadas' },
       { nombre: 'CAJERO', descripcion: 'Cajero de punto de venta' },
       { nombre: 'PROVEEDOR', descripcion: 'Proveedor de productos' },
     ];
 
-    await this.rolRepo.save(roles);
-    this.logger.log(`${roles.length} roles insertados correctamente.`);
+    for (const role of roles) {
+      const existente = await this.rolRepo.findOne({ where: { nombre: role.nombre } });
+      if (!existente) await this.rolRepo.save(this.rolRepo.create(role));
+    }
+    this.logger.log('Roles verificados correctamente.');
   }
 }

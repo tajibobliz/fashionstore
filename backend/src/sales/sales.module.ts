@@ -10,6 +10,10 @@ import { Producto } from '../catalog/entities/producto.entity';
 import { Inventario } from '../inventory/entities/inventario.entity';
 import { MovimientoInventario } from '../inventory/entities/movimiento-inventario.entity';
 import { Carrito } from '../cart/entities/carrito.entity';
+import { Almacen } from '../warehouses/entities/almacen.entity';
+import { PosModule } from '../pos/pos.module';
+import { UsersModule } from '../users/users.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 
 @Module({
   imports: [
@@ -22,7 +26,11 @@ import { Carrito } from '../cart/entities/carrito.entity';
       Inventario,
       MovimientoInventario,
       Carrito,
+      Almacen,
     ]),
+    PosModule,
+    UsersModule,
+    PromotionsModule,
   ],
   controllers: [SalesController],
   providers: [SalesService],

@@ -6,12 +6,14 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from './entities/user.entity';
 import { Rol } from './entities/rol.entity';
+import { UsuarioSucursal } from './entities/usuario-sucursal.entity';
+import { Sucursal } from '../branches/entities/sucursal.entity';
 
 @Injectable()
 export class UsersService {
   async createByStaff(dto: CreateUserDto, actorRole: Role) {
     const permitted = actorRole === Role.ADMIN ||
-      (actorRole === Role.ENCARGADO && [Role.CAJERO, Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre)) ||
+      (actorRole === Role.ENCARGADO && [Role.ENCARGADO_SUCURSAL, Role.CAJERO, Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre)) ||
       (actorRole === Role.CAJERO && [Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre));
     if (!permitted) throw new ForbiddenException('No tienes permiso para crear usuarios con ese rol');
     const user = await this.create(dto);
@@ -23,11 +25,23 @@ export class UsersService {
     private readonly usuarioRepo: Repository<Usuario>,
     @InjectRepository(Rol)
     private readonly rolRepo: Repository<Rol>,
+    @InjectRepository(UsuarioSucursal) private readonly usuarioSucursalRepo: Repository<UsuarioSucursal>,
+    @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
   ) {}
 
   // Busca un usuario por email (usado para login)
   async findByEmail(email: string): Promise<Usuario | null> {
     return this.usuarioRepo.findOne({ where: { email } });
+  }
+
+  // Solo autenticación necesita cargar el hash, oculto por defecto en la entidad.
+  async findByEmailWithPassword(email: string): Promise<Usuario | null> {
+    return this.usuarioRepo
+      .createQueryBuilder('usuario')
+      .addSelect('usuario.passwordHash')
+      .leftJoinAndSelect('usuario.rol', 'rol')
+      .where('usuario.email = :email', { email })
+      .getOne();
   }
 
   // Busca un usuario por id
@@ -74,5 +88,32 @@ export class UsersService {
   // Devuelve todos los usuarios (para el CRUD del admin)
   async findAll(): Promise<Usuario[]> {
     return this.usuarioRepo.find();
+  }
+
+  async assignBranch(idUsuario: number, idSucursal: number) {
+    const [usuario, sucursal] = await Promise.all([
+      this.findById(idUsuario),
+      this.sucursalRepo.findOne({ where: { idSucursal } }),
+    ]);
+    if (!sucursal) throw new NotFoundException(`Sucursal ${idSucursal} no encontrada`);
+    let assignment = await this.usuarioSucursalRepo.findOne({
+      where: { usuario: { idUsuario }, sucursal: { idSucursal } },
+    });
+    if (assignment) assignment.estado = true;
+    else assignment = this.usuarioSucursalRepo.create({ usuario, sucursal, estado: true });
+    return this.usuarioSucursalRepo.save(assignment);
+  }
+
+  listBranches(idUsuario: number) {
+    return this.usuarioSucursalRepo.find({ where: { usuario: { idUsuario } } });
+  }
+
+  async deactivateBranch(idUsuario: number, idSucursal: number) {
+    const assignment = await this.usuarioSucursalRepo.findOne({
+      where: { usuario: { idUsuario }, sucursal: { idSucursal } },
+    });
+    if (!assignment) throw new NotFoundException('Asignación no encontrada');
+    assignment.estado = false;
+    return this.usuarioSucursalRepo.save(assignment);
   }
 }

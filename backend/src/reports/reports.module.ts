@@ -8,6 +8,9 @@ import { Reserva } from '../reservations/entities/reserva.entity';
 import { Inventario } from '../inventory/entities/inventario.entity';
 import { Producto } from '../catalog/entities/producto.entity';
 import { Usuario } from '../users/entities/user.entity';
+import { Pago } from '../payments/entities/pago.entity';
+import { TurnoCaja } from '../pos/entities/turno-caja.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -18,7 +21,10 @@ import { Usuario } from '../users/entities/user.entity';
       Inventario,
       Producto,
       Usuario,
+      Pago,
+      TurnoCaja,
     ]),
+    UsersModule,
   ],
   controllers: [ReportsController],
   providers: [ReportsService],

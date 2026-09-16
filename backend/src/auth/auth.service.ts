@@ -23,7 +23,7 @@ export class AuthService {
 
   // Valida email + password contra la BD. Devuelve el usuario (sin hash) o null.
   async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.usersService.findByEmailWithPassword(email);
     if (!user || !user.estado) return null;
 
     const passwordValido = await bcrypt.compare(password, user.passwordHash);

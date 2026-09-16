@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -25,11 +26,11 @@ export class Carrito {
 
   @ManyToOne(() => Usuario, { eager: true })
   @JoinColumn({ name: 'id_usuario' })
-  usuario: Usuario;
+  usuario: Relation<Usuario>;
 
   @OneToMany(() => DetalleCarrito, (detalle) => detalle.carrito, {
     cascade: true,
     eager: true,
   })
-  detalles: DetalleCarrito[];
+  detalles: Relation<DetalleCarrito[]>;
 }

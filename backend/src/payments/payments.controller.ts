@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
@@ -23,18 +24,19 @@ export class PaymentsController {
 
   // Registra un pago (lo hace el sistema/frontend después de la pasarela)
   @Post()
-  create(@Body() dto: CreatePagoDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreatePagoDto, @Request() req: any) {
+    return this.service.create(dto, req.user);
   }
 
   // Actualiza estado (típicamente lo hace un webhook de la pasarela o el cajero)
   @Patch(':id/estado')
-  @Roles(Role.ADMIN, Role.CAJERO)
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO)
   updateEstado(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEstadoPagoDto,
+    @Request() req: any,
   ) {
-    return this.service.updateEstado(id, dto);
+    return this.service.updateEstado(id, dto, req.user);
   }
 
   @Get()
@@ -44,12 +46,12 @@ export class PaymentsController {
   }
 
   @Get('venta/:idVenta')
-  findByVenta(@Param('idVenta', ParseIntPipe) idVenta: number) {
-    return this.service.findByVenta(idVenta);
+  findByVenta(@Param('idVenta', ParseIntPipe) idVenta: number, @Request() req: any) {
+    return this.service.findByVentaAuthorized(idVenta, req.user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.service.findOneAuthorized(id, req.user);
   }
 }

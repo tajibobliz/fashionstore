@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -25,9 +26,9 @@ export class DetalleCarrito {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'id_carrito' })
-  carrito: Carrito;
+  carrito: Relation<Carrito>;
 
   @ManyToOne(() => VarianteProducto, { eager: true })
   @JoinColumn({ name: 'id_variante' })
-  variante: VarianteProducto;
+  variante: Relation<VarianteProducto>;
 }

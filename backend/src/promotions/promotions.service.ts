@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Promocion } from './entities/promocion.entity';
 import { Producto } from '../catalog/entities/producto.entity';
 import { CreatePromocionDto } from './dto/create-promocion.dto';
 import { UpdatePromocionDto } from './dto/update-promocion.dto';
+import { Categoria } from '../catalog/entities/categoria.entity';
+import { Temporada } from '../catalog/entities/temporada.entity';
 
 @Injectable()
 export class PromotionsService {
@@ -13,14 +15,18 @@ export class PromotionsService {
     private readonly promocionRepo: Repository<Promocion>,
     @InjectRepository(Producto)
     private readonly productoRepo: Repository<Producto>,
+    @InjectRepository(Categoria) private readonly categoriaRepo: Repository<Categoria>,
+    @InjectRepository(Temporada) private readonly temporadaRepo: Repository<Temporada>,
   ) {}
 
   async create(dto: CreatePromocionDto) {
-    const productos = await this.productoRepo.findBy({
-      idProducto: In(dto.idsProductos),
-    });
+    const idsProductos = dto.idsProductos ?? [], idsCategorias = dto.idsCategorias ?? [], idsTemporadas = dto.idsTemporadas ?? [];
+    if (!idsProductos.length && !idsCategorias.length && !idsTemporadas.length) throw new BadRequestException('La promoción debe asociarse a productos, categorías o temporadas');
+    const productos = idsProductos.length ? await this.productoRepo.findBy({ idProducto: In(idsProductos) }) : [];
+    const categorias = idsCategorias.length ? await this.categoriaRepo.findBy({ idCategoria: In(idsCategorias) }) : [];
+    const temporadas = idsTemporadas.length ? await this.temporadaRepo.findBy({ idTemporada: In(idsTemporadas) }) : [];
 
-    if (productos.length !== dto.idsProductos.length) {
+    if (productos.length !== idsProductos.length || categorias.length !== idsCategorias.length || temporadas.length !== idsTemporadas.length) {
       throw new NotFoundException('Algunos productos no fueron encontrados');
     }
 
@@ -31,6 +37,8 @@ export class PromotionsService {
       fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
       estado: dto.estado ?? true,
       productos,
+      categorias,
+      temporadas,
     });
 
     return this.promocionRepo.save(promocion);
@@ -46,6 +54,8 @@ export class PromotionsService {
     return this.promocionRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.productos', 'prod')
+      .leftJoinAndSelect('p.categorias', 'cat')
+      .leftJoinAndSelect('p.temporadas', 'temp')
       .where('p.estado = :estado', { estado: true })
       .andWhere('(p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy)', { hoy })
       .andWhere('(p.fecha_fin IS NULL OR p.fecha_fin >= :hoy)', { hoy })
@@ -65,11 +75,16 @@ export class PromotionsService {
     const hoy = new Date();
     return this.promocionRepo
       .createQueryBuilder('p')
-      .innerJoin('p.productos', 'prod')
-      .where('prod.id_producto = :idProducto', { idProducto })
+      .leftJoin('p.productos', 'prod')
+      .leftJoin('p.categorias', 'cat')
+      .leftJoin('p.temporadas', 'temp')
+      .leftJoin(Producto, 'target', 'target.id_producto=:idProducto', { idProducto })
+      .leftJoin('target.coleccion', 'col')
+      .where('(prod.id_producto=:idProducto OR cat.id_categoria=target.id_categoria OR temp.id_temporada=col.id_temporada)', { idProducto })
       .andWhere('p.estado = :estado', { estado: true })
       .andWhere('(p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy)', { hoy })
       .andWhere('(p.fecha_fin IS NULL OR p.fecha_fin >= :hoy)', { hoy })
+      .orderBy('p.porcentaje', 'DESC')
       .getMany();
   }
 
@@ -90,6 +105,16 @@ export class PromotionsService {
         throw new NotFoundException('Algunos productos no fueron encontrados');
       }
       promo.productos = productos;
+    }
+    if (dto.idsCategorias) {
+      const categorias = await this.categoriaRepo.findBy({ idCategoria: In(dto.idsCategorias) });
+      if (categorias.length !== dto.idsCategorias.length) throw new NotFoundException('Algunas categorías no fueron encontradas');
+      promo.categorias = categorias;
+    }
+    if (dto.idsTemporadas) {
+      const temporadas = await this.temporadaRepo.findBy({ idTemporada: In(dto.idsTemporadas) });
+      if (temporadas.length !== dto.idsTemporadas.length) throw new NotFoundException('Algunas temporadas no fueron encontradas');
+      promo.temporadas = temporadas;
     }
 
     return this.promocionRepo.save(promo);

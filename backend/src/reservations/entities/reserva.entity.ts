@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,6 +11,7 @@ import {
 import { Usuario } from '../../users/entities/user.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
 import { DetalleReserva } from './detalle-reserva.entity';
+import { Almacen } from '../../warehouses/entities/almacen.entity';
 
 export type EstadoReserva = 'PENDIENTE' | 'PREPARADA' | 'ATENDIDA' | 'CANCELADA';
 
@@ -20,6 +22,10 @@ export class Reserva {
 
   @Column({ length: 50, unique: true })
   codigo: string;
+
+  /** UUID generado por el cliente para reintentos seguros. */
+  @Column({ name: 'client_request_id', type: 'uuid', nullable: true })
+  clientRequestId: string | null;
 
   @CreateDateColumn({ name: 'fecha_reserva' })
   fechaReserva: Date;
@@ -32,15 +38,19 @@ export class Reserva {
 
   @ManyToOne(() => Usuario, { eager: true })
   @JoinColumn({ name: 'id_usuario' })
-  usuario: Usuario;
+  usuario: Relation<Usuario>;
 
   @ManyToOne(() => Sucursal, { eager: true })
   @JoinColumn({ name: 'id_sucursal' })
-  sucursal: Sucursal;
+  sucursal: Relation<Sucursal>;
 
   @OneToMany(() => DetalleReserva, (detalle) => detalle.reserva, {
     cascade: true,
     eager: true,
   })
-  detalles: DetalleReserva[];
+  detalles: Relation<DetalleReserva[]>;
+
+  @ManyToOne(() => Almacen, { eager: true, nullable: true })
+  @JoinColumn({ name: 'id_almacen_origen' })
+  almacenOrigen: Relation<Almacen> | null;
 }

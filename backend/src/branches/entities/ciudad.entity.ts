@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Sucursal } from './sucursal.entity';
 
@@ -10,5 +11,5 @@ export class Ciudad {
   nombre: string;
 
   @OneToMany(() => Sucursal, (sucursal) => sucursal.ciudad)
-  sucursales: Sucursal[];
+  sucursales: Relation<Sucursal[]>;
 }

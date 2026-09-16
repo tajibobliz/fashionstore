@@ -9,7 +9,7 @@ describe('InventoryController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InventoryController],
       providers: [InventoryService],
-    }).compile();
+    }).useMocker(() => ({})).compile();
 
     controller = module.get<InventoryController>(InventoryController);
   });

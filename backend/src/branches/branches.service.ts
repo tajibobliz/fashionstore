@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Ciudad } from './entities/ciudad.entity';
 import { Sucursal } from './entities/sucursal.entity';
 import { CreateCiudadDto } from './dto/create-ciudad.dto';
 import { UpdateCiudadDto } from './dto/update-ciudad.dto';
 import { CreateSucursalDto } from './dto/create-sucursal.dto';
 import { UpdateSucursalDto } from './dto/update-sucursal.dto';
+import { Almacen } from '../warehouses/entities/almacen.entity';
 
 @Injectable()
 export class BranchesService {
@@ -15,6 +16,7 @@ export class BranchesService {
     private readonly ciudadRepo: Repository<Ciudad>,
     @InjectRepository(Sucursal)
     private readonly sucursalRepo: Repository<Sucursal>,
+    private readonly dataSource: DataSource,
   ) {}
 
   // ===== CIUDADES =====
@@ -57,7 +59,11 @@ export class BranchesService {
       estado: dto.estado ?? true,
       ciudad,
     });
-    return this.sucursalRepo.save(sucursal);
+    return this.dataSource.transaction(async manager => {
+      const saved = await manager.save(sucursal);
+      await manager.save(manager.create(Almacen,{sucursal:saved,codigo:'PRINCIPAL',nombre:'Almacén Principal',estado:true}));
+      return saved;
+    });
   }
 
   findAllSucursales() {

@@ -16,11 +16,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { BranchAccessService } from '../users/branch-access.service';
 
 @Controller('reservations')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReservationsController {
-  constructor(private readonly service: ReservationsService) {}
+  constructor(private readonly service: ReservationsService, private readonly access: BranchAccessService) {}
 
   // Cliente crea una reserva
   @Post()
@@ -36,30 +37,36 @@ export class ReservationsController {
 
   // Admin/encargado ven todas
   @Get()
-  @Roles(Role.ADMIN, Role.ENCARGADO)
-  findAll() {
-    return this.service.findAll();
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  async findAll(@Request() req:any) {
+    const ids=await this.access.accessibleBranchIds(req.user);return ids===null?this.service.findAll():this.service.findAllByBranches(ids);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    const item=await this.service.findOneAuthorized(id, req.user);if([Role.ENCARGADO_SUCURSAL,Role.CAJERO].includes(req.user.rol))await this.access.assertCanAccess(req.user,item.sucursal.idSucursal);return item;
   }
 
   // Encargado cambia el estado (PREPARADA, ATENDIDA)
   @Patch(':id/estado')
-  @Roles(Role.ADMIN, Role.ENCARGADO)
-  updateEstado(
+  @Roles(Role.ADMIN, Role.ENCARGADO,Role.ENCARGADO_SUCURSAL)
+  async updateEstado(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEstadoReservaDto,
+    @Request()req:any,
   ) {
+    const item=await this.service.findOne(id);await this.access.assertCanAccess(req.user,item.sucursal.idSucursal);
     return this.service.updateEstado(id, dto);
   }
 
   // Cancelar reserva (cliente propio o admin)
   @Patch(':id/cancel')
-  cancel(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
-    const esAdmin = req.user.rol === 'ADMIN';
-    return this.service.cancel(id, req.user.idUsuario, esAdmin);
+  async cancel(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    if (req.user.rol === Role.ENCARGADO_SUCURSAL) {
+      const reserva = await this.service.findOne(id);
+      await this.access.assertCanAccess(req.user, reserva.sucursal.idSucursal);
+    }
+    const esPrivilegiado = [Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL].includes(req.user.rol);
+    return this.service.cancel(id, req.user.idUsuario, esPrivilegiado);
   }
 }

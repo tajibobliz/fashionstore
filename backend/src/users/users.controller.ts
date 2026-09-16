@@ -7,6 +7,7 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,6 +15,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
+import { AssignBranchDto } from './dto/assign-branch.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,5 +38,23 @@ export class UsersController {
   @Roles(Role.ADMIN)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findById(id);
+  }
+
+  @Post(':id/sucursales')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  assignBranch(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignBranchDto) {
+    return this.usersService.assignBranch(id, dto.idSucursal);
+  }
+
+  @Get(':id/sucursales')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  listBranches(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.listBranches(id);
+  }
+
+  @Delete(':id/sucursales/:idSucursal')
+  @Roles(Role.ADMIN, Role.ENCARGADO)
+  deactivateBranch(@Param('id', ParseIntPipe) id: number, @Param('idSucursal', ParseIntPipe) idSucursal: number) {
+    return this.usersService.deactivateBranch(id, idSucursal);
   }
 }

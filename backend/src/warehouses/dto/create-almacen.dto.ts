@@ -1,0 +1,7 @@
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
+export class CreateAlmacenDto {
+  @IsInt() @IsPositive() idSucursal: number;
+  @IsString() @IsNotEmpty() @MaxLength(50) codigo: string;
+  @IsString() @IsNotEmpty() @MaxLength(120) nombre: string;
+  @IsOptional() @IsBoolean() estado?: boolean;
+}

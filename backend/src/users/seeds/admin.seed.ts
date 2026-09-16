@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from '../entities/user.entity';
 import { Rol } from '../entities/rol.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AdminSeed implements OnModuleInit {
@@ -14,10 +15,16 @@ export class AdminSeed implements OnModuleInit {
     private readonly usuarioRepo: Repository<Usuario>,
     @InjectRepository(Rol)
     private readonly rolRepo: Repository<Rol>,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
-    const email = 'admin@fashionstore.com';
+    const email = this.config.get<string>('ADMIN_EMAIL');
+    const password = this.config.get<string>('ADMIN_PASSWORD');
+    if (!email || !password) {
+      this.logger.warn('Seed de administrador omitido: configura ADMIN_EMAIL y ADMIN_PASSWORD.');
+      return;
+    }
 
     const existe = await this.usuarioRepo.findOne({ where: { email } });
     if (existe) {
@@ -31,11 +38,11 @@ export class AdminSeed implements OnModuleInit {
       return;
     }
 
-    const passwordHash = await bcrypt.hash('admin123', 10);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const admin = this.usuarioRepo.create({
-      nombre: 'Administrador',
-      apellido: 'Sistema',
+      nombre: this.config.get<string>('ADMIN_NAME') || 'Administrador',
+      apellido: this.config.get<string>('ADMIN_LAST_NAME') || 'Sistema',
       email,
       passwordHash,
       estado: true,
@@ -43,6 +50,6 @@ export class AdminSeed implements OnModuleInit {
     });
 
     await this.usuarioRepo.save(admin);
-    this.logger.log(`Admin creado: ${email} / admin123`);
+    this.logger.log(`Administrador creado: ${email}`);
   }
 }

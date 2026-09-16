@@ -8,13 +8,17 @@ import {
 } from 'typeorm';
 import { Venta } from '../../sales/entities/venta.entity';
 
-export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'QR' | 'TRANSFERENCIA';
+export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'QR' | 'TRANSFERENCIA' | 'CONTRAPAGO';
 export type EstadoPago = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'ANULADO';
 
 @Entity('pago')
 export class Pago {
   @PrimaryGeneratedColumn({ name: 'id_pago' })
   idPago: number;
+
+  /** UUID generado por el cliente para reintentos seguros. */
+  @Column({ name: 'client_request_id', type: 'uuid', nullable: true })
+  clientRequestId: string | null;
 
   @Column({ length: 30 })
   metodo: MetodoPago;

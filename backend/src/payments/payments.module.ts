@@ -5,11 +5,13 @@ import { PaymentsController } from './payments.controller';
 import { Pago } from './entities/pago.entity';
 import { Venta } from '../sales/entities/venta.entity';
 import { SalesModule } from '../sales/sales.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Pago, Venta]),
     SalesModule,
+    UsersModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

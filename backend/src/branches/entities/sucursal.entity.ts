@@ -1,3 +1,4 @@
+import type { Relation } from 'typeorm';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -28,5 +29,5 @@ export class Sucursal {
 
   @ManyToOne(() => Ciudad, (ciudad) => ciudad.sucursales, { eager: true })
   @JoinColumn({ name: 'id_ciudad' })
-  ciudad: Ciudad;
+  ciudad: Relation<Ciudad>;
 }

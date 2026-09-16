@@ -7,7 +7,9 @@ import {
   IsString,
   MaxLength,
   Min,
+  IsUUID,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePagoDto {
   @IsInt()
@@ -15,8 +17,15 @@ export class CreatePagoDto {
   idVenta: number;
 
   @IsString()
-  @IsIn(['EFECTIVO', 'TARJETA', 'QR', 'TRANSFERENCIA'])
+  @ApiProperty({ enum: ['EFECTIVO', 'TARJETA', 'QR', 'TRANSFERENCIA', 'CONTRAPAGO'] })
+  @IsIn(['EFECTIVO', 'TARJETA', 'QR', 'TRANSFERENCIA', 'CONTRAPAGO'])
   metodo: string;
+
+  /** UUID generado por el cliente para permitir reintentos seguros. */
+  @ApiPropertyOptional({ format: 'uuid', description: 'UUID generado por el cliente para reintentos seguros' })
+  @IsOptional()
+  @IsUUID()
+  clientRequestId?: string;
 
   @IsNumber()
   @Min(0.01)
