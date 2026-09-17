@@ -15,7 +15,7 @@ function DashboardRedirect() {
  return <Navigate to={user ? getSessionPath(user.rol) : '/login'} replace />
 }
 export default function App() {
- const roles: DashboardRole[] = ['ADMIN', 'ENCARGADO', 'CAJERO']
+ const roles: DashboardRole[] = ['ADMIN', 'ENCARGADO', 'ENCARGADO_SUCURSAL', 'CAJERO']
  return <BrowserRouter><Routes>
  <Route path="/" element={<Home />} />
  <Route path="/login" element={<AuthForm key="login" mode="login" />} />

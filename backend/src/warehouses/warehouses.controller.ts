@@ -11,8 +11,10 @@ import { BranchAccessService } from '../users/branch-access.service';
 @Controller('warehouses') @UseGuards(JwtAuthGuard, RolesGuard)
 export class WarehousesController {
   constructor(private readonly service: WarehousesService, private readonly access: BranchAccessService) {}
-  @Post() @Roles(Role.ADMIN, Role.ENCARGADO) create(@Body() dto: CreateAlmacenDto){return this.service.create(dto);}
-  @Get() @Roles(Role.ADMIN, Role.ENCARGADO) findAll(){return this.service.findAll();}
+  @Post() @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  async create(@Body() dto: CreateAlmacenDto, @Request() req: any) { await this.access.assertCanAccess(req.user, dto.idSucursal); return this.service.create(dto); }
+  @Get() @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  async findAll(@Request() req: any) { return this.service.findAllAuthorized(req.user); }
   @Get('sucursal/:idSucursal') @Roles(Role.ADMIN,Role.ENCARGADO,Role.ENCARGADO_SUCURSAL)
   async byBranch(@Param('idSucursal',ParseIntPipe) id:number,@Request() req:any){await this.access.assertCanAccess(req.user,id);return this.service.findBySucursal(id);}
   @Get(':id') @Roles(Role.ADMIN,Role.ENCARGADO,Role.ENCARGADO_SUCURSAL)

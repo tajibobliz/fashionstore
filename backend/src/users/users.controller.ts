@@ -23,7 +23,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ENCARGADO, Role.CAJERO)
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO)
   create(@Body() dto: CreateUserDto, @Request() req: { user: { rol: Role } }) {
     return this.usersService.createByStaff(dto, req.user.rol);
   }

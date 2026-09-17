@@ -1,4 +1,4 @@
-export type Role = 'CLIENTE' | 'ADMIN' | 'ENCARGADO' | 'CAJERO' | 'PROVEEDOR'
+export type Role = 'CLIENTE' | 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO' | 'PROVEEDOR'
 
 export interface AuthUser {
   idUsuario: number

@@ -1,0 +1,2 @@
+import { api } from './axios'
+export const recommendationsApi = { recommendations: () => api.get('/ai/recomendaciones').then(r => r.data), popular: () => api.get('/ai/populares').then(r => r.data), similar: (idProducto: number) => api.get(`/ai/similares/${idProducto}`).then(r => r.data), alsoBought: (idProducto: number) => api.get(`/ai/tambien-compraron/${idProducto}`).then(r => r.data), chat: (consulta: string) => api.post('/ai/chat', { consulta }).then(r => r.data) }

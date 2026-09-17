@@ -20,7 +20,7 @@ export function useDashboardData(role: DashboardRole, section: string) {
  const [result, setResult] = useState<{ key: string; data: Partial<Record<Resource, Row[]>>; errors: Partial<Record<Resource, string>> }>({ key: '', data: {}, errors: {} })
  useEffect(() => {
   const controller = new AbortController()
-  const resources: Resource[] = section in resourceUrls ? [section as Resource] : section ? [] : role === 'ADMIN' ? ['catalogo', 'sucursales', 'inventario', 'usuarios'] : ['catalogo', 'inventario']
+  const resources: Resource[] = role === 'ENCARGADO_SUCURSAL' ? [] : section in resourceUrls ? [section as Resource] : section ? [] : role === 'ADMIN' ? ['catalogo', 'sucursales', 'inventario', 'usuarios'] : ['catalogo', 'inventario']
   void Promise.allSettled(resources.map(resource => api.get<Row[]>(resourceUrls[resource], { signal: controller.signal }))).then(responses => {
    if (controller.signal.aborted) return
    const data: Partial<Record<Resource, Row[]>> = {}

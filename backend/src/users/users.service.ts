@@ -14,6 +14,7 @@ export class UsersService {
   async createByStaff(dto: CreateUserDto, actorRole: Role) {
     const permitted = actorRole === Role.ADMIN ||
       (actorRole === Role.ENCARGADO && [Role.ENCARGADO_SUCURSAL, Role.CAJERO, Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre)) ||
+      (actorRole === Role.ENCARGADO_SUCURSAL && dto.rolNombre === Role.CAJERO) ||
       (actorRole === Role.CAJERO && [Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre));
     if (!permitted) throw new ForbiddenException('No tienes permiso para crear usuarios con ese rol');
     const user = await this.create(dto);

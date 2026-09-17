@@ -1,0 +1,3 @@
+import { api } from './axios'; import type { Ciudad, CreateCiudadRequest, CreateSucursalRequest, Sucursal } from '../types/branch'
+const crud = <T, C>(base: string) => ({ list: () => api.get<T[]>(base).then(r => r.data), get: (id: number) => api.get<T>(`${base}/${id}`).then(r => r.data), create: (body: C) => api.post<T>(base, body).then(r => r.data), update: (id: number, body: Partial<C>) => api.patch<T>(`${base}/${id}`, body).then(r => r.data), remove: (id: number) => api.delete(`${base}/${id}`).then(r => r.data) })
+export const branchesApi = { cities: crud<Ciudad, CreateCiudadRequest>('/branches/ciudades'), branches: crud<Sucursal, CreateSucursalRequest>('/branches/sucursales') }

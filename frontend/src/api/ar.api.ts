@@ -1,0 +1,2 @@
+import { api } from './axios'
+export const arApi = { products: () => api.get('/ar/productos').then(r => r.data), uploadResource: (body: FormData) => api.post('/ar/recurso', body).then(r => r.data), removeResource: (idProducto: number) => api.delete(`/ar/recurso/${idProducto}`).then(r => r.data), interactions: (body: { idProducto: number }) => api.post('/ar/interaccion', body).then(r => r.data), mine: () => api.get('/ar/mis-pruebas').then(r => r.data), top: () => api.get('/ar/top-pruebas').then(r => r.data) }

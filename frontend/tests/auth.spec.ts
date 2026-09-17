@@ -55,19 +55,21 @@ test('login envía credenciales y token, restaura sesión y permite logout', asy
   expect(await page.evaluate(() => sessionStorage.getItem('fashionstore.refresh_token'))).toBeNull()
 })
 
-test('registro principal crea ENCARGADO y abre su dashboard', async ({ page }) => {
+test('registro público crea CLIENTE y abre la tienda', async ({ page }) => {
   await page.route('**/inventory/inventarios', route => route.fulfill({ json: [] }))
   await page.route('**/catalog/productos', route => route.fulfill({ json: [] }))
   await page.route('**/auth/register', async route => {
     expect(route.request().postDataJSON()).toEqual({ nombre: 'María', email: user.email, password: 'secret123' })
-    await route.fulfill({ json: { ...session, user: { ...user, rol: 'ENCARGADO' } } })
+    await route.fulfill({ json: session })
   })
   await page.goto('/register')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Crea tu cuenta')
+  await expect(page.getByText('Regístrate como cliente para comprar, reservar y acceder a la tienda.')).toBeVisible()
   await page.getByLabel('Nombre', { exact: true }).fill('María')
   await page.getByLabel('Correo electrónico').fill(user.email)
   await page.getByLabel('Contraseña', { exact: true }).fill('secret123')
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click()
-  await expect(page).toHaveURL(/\/dashboard\/encargado$/)
+  await expect(page).toHaveURL(/\/tienda$/)
 })
 
 test('token expirado se renueva y abre POS para cajero', async ({ page }) => {

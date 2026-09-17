@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 const cases = [
  { role: 'ADMIN', path: '/dashboard/admin', menu: 'Usuarios y roles' },
  { role: 'ENCARGADO', path: '/dashboard/encargado', menu: 'Mi equipo de cajeros' },
+ { role: 'ENCARGADO_SUCURSAL', path: '/dashboard/encargado-sucursal', menu: 'Inventario' },
  { role: 'CAJERO', path: '/dashboard/cajero', menu: 'Clientes y proveedores' },
  { role: 'CLIENTE', path: '/tienda', menu: '' },
  { role: 'PROVEEDOR', path: '/', menu: '' },
@@ -23,14 +24,14 @@ for (const entry of cases) {
   await expect(page).toHaveURL(new RegExp(entry.path + '$'))
   if (entry.menu) {
    await expect(page.getByRole('navigation', { name: 'Menú del dashboard' }).getByRole('link', { name: entry.menu })).toBeVisible()
-   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Dashboard ${entry.role}`)
+   await expect(page.getByRole('heading', { level: 1 })).toHaveText(entry.role === 'ENCARGADO_SUCURSAL' ? 'Panel de Sucursal' : `Dashboard ${entry.role}`)
    await expect(page.getByRole('status')).toHaveCount(0)
    await page.screenshot({ path: `test-results/dashboard-${entry.role}.png`, fullPage: true })
    await page.setViewportSize({ width: 390, height: 844 })
    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
    await page.getByRole('button', { name: 'Abrir menú' }).click()
    await page.getByRole('navigation', { name: 'Menú del dashboard' }).getByRole('link', { name: entry.menu }).click()
-   if (entry.role !== 'ADMIN') await expect(page.getByRole('button', { name: 'Registrar usuario' })).toBeVisible()
+   if (entry.role === 'ENCARGADO' || entry.role === 'CAJERO') await expect(page.getByRole('button', { name: 'Registrar usuario' })).toBeVisible()
   } else await expect(page.getByRole('navigation', { name: 'Menú del dashboard' })).toHaveCount(0)
   for (const other of cases.filter(item => item.menu && item.role !== entry.role)) {
    await page.goto(other.path)

@@ -1,0 +1,2 @@
+import type { DateRangeParams, PaginationParams } from './common'; import type { MetodoPago } from './payment'; import type { ModalidadComercial, TipoVenta } from './sale'
+export interface ReportFilters extends DateRangeParams, PaginationParams { idSucursal?: number; idAlmacen?: number; tipoVenta?: TipoVenta; modalidadComercial?: ModalidadComercial; metodoPago?: MetodoPago; idCajero?: number; idCaja?: number; idTurno?: number }
