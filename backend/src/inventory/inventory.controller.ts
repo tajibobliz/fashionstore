@@ -35,8 +35,11 @@ export class InventoryController {
   }
 
   @Get('inventarios')
-  @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO)
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO, Role.CLIENTE)
   async findAllInventarios(@Request() req:any) {
+    // CLIENTE elige una sucursal en ecommerce; no tiene asignación laboral.
+    // El frontend usa esta lectura para mostrar únicamente la existencia de la sucursal elegida.
+    if (req.user.rol === Role.CLIENTE) return this.service.findAllInventarios();
     const ids=await this.access.accessibleBranchIds(req.user);
     return ids===null?this.service.findAllInventarios():this.service.findInventariosByBranches(ids);
   }

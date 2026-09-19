@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Usuario } from '../../users/entities/user.entity';
 import { DetalleCarrito } from './detalle-carrito.entity';
+import { Sucursal } from '../../branches/entities/sucursal.entity';
 
 export type EstadoCarrito = 'ACTIVO' | 'CONVERTIDO' | 'ABANDONADO' | 'CANCELADO';
 
@@ -27,6 +28,10 @@ export class Carrito {
   @ManyToOne(() => Usuario, { eager: true })
   @JoinColumn({ name: 'id_usuario' })
   usuario: Relation<Usuario>;
+
+  @ManyToOne(() => Sucursal, { eager: true, nullable: true })
+  @JoinColumn({ name: 'id_sucursal' })
+  sucursal: Relation<Sucursal> | null;
 
   @OneToMany(() => DetalleCarrito, (detalle) => detalle.carrito, {
     cascade: true,

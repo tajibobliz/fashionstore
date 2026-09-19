@@ -104,6 +104,10 @@ export class UsersService {
     return this.usuarioRepo.find();
   }
 
+  findClientes(query = '') {
+    return this.usuarioRepo.createQueryBuilder('usuario').leftJoinAndSelect('usuario.rol', 'rol').where("rol.nombre = 'CLIENTE'" ).andWhere('usuario.estado = true').andWhere('(LOWER(usuario.nombre) LIKE LOWER(:query) OR LOWER(usuario.apellido) LIKE LOWER(:query) OR LOWER(usuario.email) LIKE LOWER(:query))', { query: `%${query}%` }).orderBy('usuario.nombre', 'ASC').take(20).getMany();
+  }
+
   async assignBranch(idUsuario: number, idSucursal: number) {
     const [usuario, sucursal] = await Promise.all([
       this.findById(idUsuario),

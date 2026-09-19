@@ -25,15 +25,15 @@ export class CartService {
   ) {}
 
   // Devuelve el carrito activo del usuario. Si no tiene, lo crea.
-  async getMyCart(idUsuario: number): Promise<Carrito> {
+  async getMyCart(idUsuario: number, idSucursal: number): Promise<Carrito> {
     let carrito = await this.carritoRepo.findOne({
-      where: { usuario: { idUsuario }, estado: 'ACTIVO' },
+      where: { usuario: { idUsuario }, sucursal: { idSucursal }, estado: 'ACTIVO' },
     });
 
     if (!carrito) {
       carrito = this.carritoRepo.create({
         usuario: { idUsuario } as any,
-        estado: 'ACTIVO',
+        estado: 'ACTIVO', sucursal: { idSucursal } as any,
         detalles: [],
       });
       await this.carritoRepo.save(carrito);
@@ -59,7 +59,7 @@ export class CartService {
       throw new NotFoundException('Producto no encontrado');
     }
 
-    const carrito = await this.getMyCart(idUsuario);
+    const carrito = await this.getMyCart(idUsuario, dto.idSucursal);
 
     // Buscar si esa variante ya está en el carrito
     const detalleExistente = carrito.detalles.find(
@@ -80,12 +80,13 @@ export class CartService {
     }
 
     // Recargar el carrito para devolverlo actualizado
-    return this.getMyCart(idUsuario);
+    return this.getMyCart(idUsuario, dto.idSucursal);
   }
 
   // Actualiza la cantidad de un item específico
   async updateItem(idUsuario: number, idDetalle: number, dto: UpdateItemDto) {
-    const carrito = await this.getMyCart(idUsuario);
+    const carrito = await this.carritoRepo.findOne({ where: { usuario: { idUsuario }, estado: 'ACTIVO' }, relations: { detalles: true } });
+    if (!carrito) throw new NotFoundException('Carrito no encontrado');
 
     const detalle = carrito.detalles.find(
       (d) => d.idDetalleCarrito === idDetalle,
@@ -97,12 +98,13 @@ export class CartService {
     detalle.cantidad = dto.cantidad;
     await this.detalleRepo.save(detalle);
 
-    return this.getMyCart(idUsuario);
+    return carrito;
   }
 
   // Elimina un item del carrito
   async removeItem(idUsuario: number, idDetalle: number) {
-    const carrito = await this.getMyCart(idUsuario);
+    const carrito = await this.carritoRepo.findOne({ where: { usuario: { idUsuario }, estado: 'ACTIVO' }, relations: { detalles: true } });
+    if (!carrito) throw new NotFoundException('Carrito no encontrado');
 
     const detalle = carrito.detalles.find(
       (d) => d.idDetalleCarrito === idDetalle,
@@ -112,21 +114,21 @@ export class CartService {
     }
 
     await this.detalleRepo.remove(detalle);
-    return this.getMyCart(idUsuario);
+    return carrito;
   }
 
   // Vacía el carrito completo
-  async clear(idUsuario: number) {
-    const carrito = await this.getMyCart(idUsuario);
+  async clear(idUsuario: number, idSucursal: number) {
+    const carrito = await this.getMyCart(idUsuario, idSucursal);
     if (carrito.detalles.length > 0) {
       await this.detalleRepo.remove(carrito.detalles);
     }
-    return this.getMyCart(idUsuario);
+    return this.getMyCart(idUsuario, idSucursal);
   }
 
   // Calcula el total del carrito
-  async getTotal(idUsuario: number): Promise<number> {
-    const carrito = await this.getMyCart(idUsuario);
+  async getTotal(idUsuario: number, idSucursal: number): Promise<number> {
+    const carrito = await this.getMyCart(idUsuario, idSucursal);
     return carrito.detalles.reduce(
       (sum, d) => sum + Number(d.precio) * d.cantidad,
       0,

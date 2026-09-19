@@ -60,7 +60,7 @@ export class SalesService {
       if (existing) return existing;
     }
     const carrito = await this.carritoRepo.findOne({
-      where: { usuario: { idUsuario }, estado: 'ACTIVO' },
+      where: { usuario: { idUsuario }, sucursal: { idSucursal: dto.idSucursal }, estado: 'ACTIVO' },
     });
 
     if (!carrito || carrito.detalles.length === 0) {
@@ -316,6 +316,22 @@ export class SalesService {
     return this.ventaRepo.save(venta);
   }
 
+  findByTurnoForCashier(idTurno: number, idUsuario: number) {
+    return this.ventaRepo.createQueryBuilder('v')
+      .leftJoinAndSelect('v.usuario', 'cliente')
+      .leftJoinAndSelect('v.sucursal', 's')
+      .leftJoinAndSelect('v.almacen', 'a')
+      .leftJoinAndSelect('v.turno', 't')
+      .leftJoinAndSelect('v.detalles', 'd')
+      .leftJoinAndSelect('d.variante', 'vr')
+      .leftJoinAndSelect('vr.producto', 'p')
+      .where('t.id_turno = :idTurno', { idTurno })
+      .andWhere('v.id_cajero = :idUsuario', { idUsuario })
+      .andWhere("v.tipo_venta = 'PRESENCIAL'")
+      .orderBy('v.fecha', 'DESC')
+      .getMany();
+  }
+
   findAll() {
     return this.ventaRepo.find({ order: { fecha: 'DESC' } });
   }
@@ -325,6 +341,12 @@ export class SalesService {
       where: { usuario: { idUsuario } },
       order: { fecha: 'DESC' },
     });
+  }
+
+  buscarPorCliente(cliente: string, actor: AuthenticatedUser) {
+    const qb = this.ventaRepo.createQueryBuilder('v').leftJoinAndSelect('v.usuario','cliente').leftJoinAndSelect('v.cajero','cajero').leftJoinAndSelect('v.sucursal','sucursal').leftJoinAndSelect('v.almacen','almacen').leftJoinAndSelect('v.detalles','detalles').leftJoinAndSelect('detalles.variante','variante').leftJoinAndSelect('variante.producto','producto').where("v.tipo_venta = 'PRESENCIAL'" ).andWhere('(LOWER(cliente.nombre) LIKE LOWER(:q) OR LOWER(cliente.email) LIKE LOWER(:q))',{q: `%${cliente}%`});
+    if (actor.rol === Role.CAJERO) qb.andWhere('cajero.id_usuario = :idUsuario',{idUsuario:actor.idUsuario});
+    return qb.orderBy('v.fecha','DESC').take(20).getMany();
   }
 
   async findOne(id: number) {

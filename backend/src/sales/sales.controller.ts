@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Request,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { SalesService } from './sales.service';
@@ -48,6 +49,16 @@ export class SalesController {
   async findAll(@Request()req:any) {
     const ids=await this.access.accessibleBranchIds(req.user);return ids===null?this.service.findAll():this.service.findAllByBranches(ids);
   }
+
+  @Get('turno/:id')
+  @Roles(Role.CAJERO)
+  findByTurno(@Param('id', ParseIntPipe) idTurno: number, @Request() req: any) {
+    return this.service.findByTurnoForCashier(idTurno, req.user.idUsuario);
+  }
+
+  @Get('buscar')
+  @Roles(Role.CAJERO, Role.ADMIN, Role.ENCARGADO)
+  buscar(@Query('cliente') cliente: string, @Request() req: any) { return this.service.buscarPorCliente(cliente ?? '', req.user); }
 
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: any) {

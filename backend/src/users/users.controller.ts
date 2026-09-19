@@ -4,6 +4,7 @@ import {
   Post,
   Request,
   Get,
+  Query,
   Param,
   ParseIntPipe,
   UseGuards,
@@ -33,6 +34,10 @@ export class UsersController {
   findAll() {
     return this.usersService.findAll();
   }
+
+  @Get('clientes/buscar')
+  @Roles(Role.ADMIN, Role.ENCARGADO, Role.CAJERO)
+  findClientes(@Query('q') q?: string) { return this.usersService.findClientes(q); }
 
   @Get(':id')
   @Roles(Role.ADMIN)

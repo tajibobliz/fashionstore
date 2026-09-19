@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Query,
   ParseIntPipe,
   Patch,
   Post,
@@ -21,14 +22,14 @@ export class CartController {
   constructor(private readonly service: CartService) {}
 
   @Get('me')
-  getMyCart(@Request() req: any) {
-    return this.service.getMyCart(req.user.idUsuario);
+  getMyCart(@Request() req: any, @Query('idSucursal', ParseIntPipe) idSucursal: number) {
+    return this.service.getMyCart(req.user.idUsuario, idSucursal);
   }
 
   @Get('me/total')
-  getTotal(@Request() req: any) {
+  getTotal(@Request() req: any, @Query('idSucursal', ParseIntPipe) idSucursal: number) {
     return this.service
-      .getTotal(req.user.idUsuario)
+      .getTotal(req.user.idUsuario, idSucursal)
       .then((total) => ({ total }));
   }
 
@@ -55,7 +56,7 @@ export class CartController {
   }
 
   @Delete('me')
-  clear(@Request() req: any) {
-    return this.service.clear(req.user.idUsuario);
+  clear(@Request() req: any, @Query('idSucursal', ParseIntPipe) idSucursal: number) {
+    return this.service.clear(req.user.idUsuario, idSucursal);
   }
 }

@@ -42,8 +42,8 @@ export class PaymentsService {
       if (existing) return existing;
     }
 
-    const isPaidCashSale = venta.tipoVenta === 'PRESENCIAL' && venta.estado === 'PAGADA' && dto.metodo === 'EFECTIVO';
-    if (venta.estado !== 'PENDIENTE' && !isPaidCashSale) {
+    const isPaidPresentialSale = venta.tipoVenta === 'PRESENCIAL' && venta.estado === 'PAGADA';
+    if (venta.estado !== 'PENDIENTE' && !isPaidPresentialSale) {
       throw new BadRequestException(
         `No se puede pagar una venta en estado ${venta.estado}`,
       );
@@ -61,7 +61,7 @@ export class PaymentsService {
       clientRequestId: dto.clientRequestId ?? null,
       metodo: dto.metodo as MetodoPago,
       monto: dto.monto,
-      estado: isPaidCashSale ? 'APROBADO' : 'PENDIENTE',
+      estado: isPaidPresentialSale && dto.metodo === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE',
       referenciaPasarela: dto.referenciaPasarela,
     });
 
@@ -97,7 +97,7 @@ export class PaymentsService {
 
       // Confirmar inventario y venta antes de persistir la aprobación.
       // Todo comparte la misma transacción y se revierte ante cualquier error.
-      if (dto.estado === 'APROBADO') {
+      if (dto.estado === 'APROBADO' && pago.venta.tipoVenta !== 'PRESENCIAL') {
         await this.salesService.confirmarEnTransaccion(manager, pago.venta.idVenta);
       }
 
