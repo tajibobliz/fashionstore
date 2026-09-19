@@ -42,7 +42,8 @@ export class PaymentsService {
       if (existing) return existing;
     }
 
-    if (venta.estado !== 'PENDIENTE') {
+    const isPaidCashSale = venta.tipoVenta === 'PRESENCIAL' && venta.estado === 'PAGADA' && dto.metodo === 'EFECTIVO';
+    if (venta.estado !== 'PENDIENTE' && !isPaidCashSale) {
       throw new BadRequestException(
         `No se puede pagar una venta en estado ${venta.estado}`,
       );
@@ -60,7 +61,7 @@ export class PaymentsService {
       clientRequestId: dto.clientRequestId ?? null,
       metodo: dto.metodo as MetodoPago,
       monto: dto.monto,
-      estado: 'PENDIENTE',
+      estado: isPaidCashSale ? 'APROBADO' : 'PENDIENTE',
       referenciaPasarela: dto.referenciaPasarela,
     });
 

@@ -17,8 +17,21 @@ export class UsersService {
       (actorRole === Role.ENCARGADO_SUCURSAL && dto.rolNombre === Role.CAJERO) ||
       (actorRole === Role.CAJERO && [Role.CLIENTE, Role.PROVEEDOR].includes(dto.rolNombre));
     if (!permitted) throw new ForbiddenException('No tienes permiso para crear usuarios con ese rol');
+    const requiresBranch = [Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(dto.rolNombre);
+    const branchIds = [...new Set(dto.idSucursales ?? [])];
+    if (requiresBranch && branchIds.length === 0) {
+      throw new ConflictException('Debes asignar al menos una sucursal al personal operativo');
+    }
+    const branches = branchIds.length ? await this.sucursalRepo.findByIds(branchIds) : [];
+    if (branches.length !== branchIds.length || branches.some((branch) => !branch.estado)) {
+      throw new NotFoundException('Una o más sucursales no existen o están inactivas');
+    }
     const user = await this.create(dto);
-    return { idUsuario: user.idUsuario, nombre: user.nombre, email: user.email, rol: user.rol.nombre };
+    if (branches.length) {
+      const assignments = branches.map((sucursal) => this.usuarioSucursalRepo.create({ usuario: user, sucursal, estado: true }));
+      await this.usuarioSucursalRepo.save(assignments);
+    }
+    return { idUsuario: user.idUsuario, nombre: user.nombre, email: user.email, rol: user.rol.nombre, sucursales: branches };
   }
 
   constructor(
@@ -114,6 +127,13 @@ export class UsersService {
       where: { usuario: { idUsuario }, sucursal: { idSucursal } },
     });
     if (!assignment) throw new NotFoundException('Asignación no encontrada');
+    const role = assignment.usuario.rol.nombre as Role;
+    if ([Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(role)) {
+      const activeAssignments = await this.usuarioSucursalRepo.count({ where: { usuario: { idUsuario }, estado: true } });
+      if (activeAssignments <= 1 && assignment.estado) {
+        throw new ConflictException('El personal operativo debe conservar al menos una sucursal activa');
+      }
+    }
     assignment.estado = false;
     return this.usuarioSucursalRepo.save(assignment);
   }

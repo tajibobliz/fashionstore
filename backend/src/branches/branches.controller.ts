@@ -27,7 +27,7 @@ export class BranchesController {
   // ===== CIUDADES =====
 
   @Post('ciudades')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ENCARGADO)
   createCiudad(@Body() dto: CreateCiudadDto) {
     return this.branchesService.createCiudad(dto);
   }
@@ -60,7 +60,7 @@ export class BranchesController {
   // ===== SUCURSALES =====
 
   @Post('sucursales')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ENCARGADO)
   createSucursal(@Body() dto: CreateSucursalDto) {
     return this.branchesService.createSucursal(dto);
   }
@@ -76,7 +76,7 @@ export class BranchesController {
   }
 
   @Patch('sucursales/:id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ENCARGADO)
   updateSucursal(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateSucursalDto,
@@ -85,7 +85,7 @@ export class BranchesController {
   }
 
   @Delete('sucursales/:id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ENCARGADO)
   removeSucursal(@Param('id', ParseIntPipe) id: number) {
     return this.branchesService.removeSucursal(id);
   }
