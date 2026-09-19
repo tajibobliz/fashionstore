@@ -21,7 +21,7 @@ type BranchFormValues = z.infer<typeof branchSchema>
 
 export default function BranchManagement() {
   const { user } = useAuth()
-  const canManage = user?.rol === 'ADMIN'
+  const canManage = user?.rol === 'ADMIN' || user?.rol === 'ENCARGADO'
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<Sucursal | null>(null)
   const [formOpen, setFormOpen] = useState(false)

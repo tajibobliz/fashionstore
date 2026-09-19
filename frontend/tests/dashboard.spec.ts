@@ -13,9 +13,9 @@ for (const entry of cases) {
   const forbidden: string[] = []
   await page.route('**/auth/login', route => route.fulfill({ json: { access_token: 'access', refresh_token: 'a'.repeat(96), user } }))
   await page.route('**/auth/profile', route => route.fulfill({ json: user }))
-  await page.route('**/catalog/**', route => route.fulfill({ json: [] }))
-  await page.route('**/branches/**', route => route.fulfill({ json: [] }))
-  await page.route('**/inventory/**', route => route.fulfill({ json: [] }))
+  await page.route(/^http:\/\/localhost:3000\/catalog\//, route => route.fulfill({ json: [] }))
+  await page.route(/^http:\/\/localhost:3000\/branches\//, route => route.fulfill({ json: [] }))
+  await page.route(/^http:\/\/localhost:3000\/inventory\//, route => route.fulfill({ json: [] }))
   await page.route('**/users', route => { if (entry.role !== 'ADMIN') forbidden.push(route.request().url()); return route.fulfill({ json: [] }) })
   await page.goto('/login')
   await page.getByLabel('Correo electrónico').fill(user.email)
@@ -45,8 +45,8 @@ for (const actor of ['ENCARGADO', 'CAJERO']) {
  test(`${actor} registra CLIENTE y PROVEEDOR sin cambiar su sesión`, async ({ page }) => {
   const user = { idUsuario: 11, email: 'equipo@example.com', nombre: 'Ana', rol: actor }
   await page.route('**/auth/login', route => route.fulfill({ json: { access_token: 'staff-access', refresh_token: 'a'.repeat(96), user } }))
-  await page.route('**/catalog/**', route => route.fulfill({ json: [] }))
-  await page.route('**/inventory/**', route => route.fulfill({ json: [] }))
+  await page.route(/^http:\/\/localhost:3000\/catalog\//, route => route.fulfill({ json: [] }))
+  await page.route(/^http:\/\/localhost:3000\/inventory\//, route => route.fulfill({ json: [] }))
   const submitted: string[] = []
   await page.route('**/users', async route => {
    expect(route.request().method()).toBe('POST')

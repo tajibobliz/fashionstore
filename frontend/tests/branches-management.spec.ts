@@ -71,3 +71,21 @@ test('formulario de sucursal funciona en móvil sin desbordamiento', async ({ pa
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
+
+test('ENCARGADO nacional dispone del CRUD de sucursales', async ({ page }) => {
+  const manager = { idUsuario: 2, nombre: 'Encargada', email: 'encargada@example.com', rol: 'ENCARGADO' }
+  const city = { idCiudad: 1, nombre: 'La Paz' }
+  const branch = { idSucursal: 2, nombre: 'Centro', direccion: 'Av. Principal', estado: true, ciudad: city }
+  await page.addInitScript(() => {
+    sessionStorage.setItem('fashionstore.access_token', 'access')
+    sessionStorage.setItem('fashionstore.refresh_token', 'r'.repeat(96))
+  })
+  await page.route('**/auth/profile', route => route.fulfill({ json: manager }))
+  await page.route('**/branches/ciudades', route => route.fulfill({ json: [city] }))
+  await page.route('**/branches/sucursales', route => route.fulfill({ json: [branch] }))
+  await page.goto('/dashboard/encargado/sucursales')
+  await expect(page.getByRole('button', { name: 'Nueva sucursal' })).toBeVisible()
+  const row = page.getByRole('row').filter({ hasText: 'Centro' })
+  await expect(row.getByRole('button', { name: 'Editar' })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Eliminar' })).toBeVisible()
+})

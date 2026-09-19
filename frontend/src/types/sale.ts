@@ -2,4 +2,5 @@ export type TipoVenta = 'DIGITAL' | 'PRESENCIAL'; export type ModalidadComercial
 export interface DetalleVentaRequest { idVariante: number; cantidad: number }
 export interface CreateVentaCarritoRequest { idSucursal: number; modalidadComercial?: ModalidadComercial; clientRequestId?: string }
 export interface CreateVentaPresencialRequest { idSucursal: number; detalles: DetalleVentaRequest[]; idCaja?: number; idUsuario?: number; idReserva?: number; modalidadComercial?: ModalidadComercial; clientRequestId?: string }
-export interface Venta { idVenta: number; tipoVenta: TipoVenta; modalidadComercial?: ModalidadComercial; total?: number | string }
+export interface DetalleVenta { idDetalleVenta?: number; cantidad: number; precioUnitario: number | string; subtotal: number | string; variante?: { idVariante: number; sku: string; producto?: { nombre: string }; talla?: { nombre: string }; color?: { nombre: string } } }
+export interface Venta { idVenta: number; tipoVenta: TipoVenta; modalidadComercial?: ModalidadComercial; total?: number | string; estado?: string; numeroComprobante?: string; fecha?: string; detalles?: DetalleVenta[]; sucursal?: { idSucursal: number; nombre: string }; cajero?: { idUsuario: number; nombre: string; apellido?: string }; almacen?: { idAlmacen: number; nombre: string }; turno?: { idTurno: number } | null }

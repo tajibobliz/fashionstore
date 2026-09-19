@@ -9,6 +9,9 @@ import type { Resource, Row } from './useDashboardData'
 import styles from './Dashboard.module.css'
 import UserRegistration from './UserRegistration'
 import ManagementPage from '../management/ManagementPage'
+import PosPage from '../pos/PosPage'
+import CatalogManagement from '../catalog/CatalogManagement'
+import ShiftPage from '../pos/ShiftPage'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
  catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
@@ -44,6 +47,9 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  const filtered = rows.filter(row => tableColumns.some(column => read(row, column.path).toLocaleLowerCase().includes(search.toLocaleLowerCase())))
  const base = `/dashboard/${config.slug}`
  if (!current) return <section className={styles.panel}><h1>Sección no encontrada</h1><Link to={base}>Volver al dashboard</Link></section>
+ if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />
+ if (role === 'CAJERO' && section === 'caja') return <ShiftPage />
+ if (role !== 'CAJERO' && section === 'catalogo') return <CatalogManagement />
  if (['usuarios', 'personal', 'ciudades', 'sucursales', 'almacenes', 'cajas'].includes(section)) return <ManagementPage section={section as 'usuarios' | 'personal' | 'ciudades' | 'sucursales' | 'almacenes' | 'cajas'} />
  if (registration) return <UserRegistration key={section} cashier={section === 'cajeros'} />
  if (current.pending) return <section className={styles.panel}><span className={styles.pendingBadge}><Clock3 size={15} />Próximamente</span><h1>{current.label}</h1><p className={styles.pendingDescription}>{current.description}</p><div className={styles.chartLoading}>Esta función estará disponible próximamente en tu espacio de trabajo.</div><Link className={styles.textLink} to={base}>Volver al dashboard <ArrowRight size={16} /></Link></section>
