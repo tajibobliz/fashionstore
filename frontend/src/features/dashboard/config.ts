@@ -13,6 +13,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
+ { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  ] },
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'sucursales', label: 'Sucursales', icon: Store },
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
+ { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  ] },
  ENCARGADO_SUCURSAL: { slug: 'encargado-sucursal', title: 'Panel de Sucursal', subtitle: 'Encargado de sucursal · Operación territorial', sections: [
  { id: '', label: 'Inicio', icon: LayoutDashboard },
@@ -44,5 +46,6 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'clientes', label: 'Clientes y proveedores', icon: Contact, description: 'Registra las cuentas de clientes y proveedores vinculados a la atención de tu sucursal.' },
  { id: 'catalogo', label: 'Consultar prendas', icon: Shirt },
  { id: 'inventario', label: 'Consultar stock', icon: Package },
+ { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  ] },
 }

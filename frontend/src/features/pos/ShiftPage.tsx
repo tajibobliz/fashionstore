@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { branchesApi } from '../../api/branches.api'
 import { posApi } from '../../api/pos.api'
+import { salesApi } from '../../api/sales.api'
 import { queryKeys } from '../../api/queryKeys'
 import type { Caja } from '../../types/pos'
+import type { Venta } from '../../types/sale'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './ShiftPage.module.css'
@@ -45,6 +47,12 @@ export default function ShiftPage() {
   })
   const activeShift = current.data?.estado === 'ABIERTO' ? current.data : undefined
   const hasOpenShift = Boolean(activeShift)
+  const sales = useQuery({
+    queryKey: queryKeys.sales.byShift(activeShift?.idTurno ?? 0),
+    queryFn: () => salesApi.byShift(activeShift!.idTurno),
+    enabled: hasOpenShift,
+    retry: false,
+  })
   const boxes = useQuery({
     queryKey: queryKeys.boxes.allowed,
     queryFn: allowedBoxes,
@@ -90,6 +98,7 @@ export default function ShiftPage() {
         <div><dt>Monto de apertura</dt><dd>Bs {money(activeShift!.montoApertura)}</dd></div>
         <div><dt>Estado</dt><dd>{activeShift!.estado}</dd></div>
       </dl>
+      <ShiftSales sales={sales.data} loading={sales.isLoading} error={sales.error} />
       <div className={styles.actions}><Link className={styles.primary} to="/dashboard/cajero/punto-de-venta">Ir al punto de venta</Link><button className={styles.secondary} type="button" onClick={() => setConfirmClose(true)}>Cerrar turno</button></div>
       {confirmClose && <form className={styles.closeForm} onSubmit={event => { event.preventDefault(); close.mutate() }}>
         <label>Monto de cierre declarado<input aria-label="Monto de cierre declarado" type="number" min="0" step="0.01" required value={montoCierre} onChange={event => setMontoCierre(event.target.value)} /></label>
@@ -106,4 +115,10 @@ export default function ShiftPage() {
       </form>}
     </section>}
   </div>
+}
+
+function ShiftSales({ sales, loading, error }: { sales: Venta[] | undefined; loading: boolean; error: unknown }) {
+  if (loading) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p>Consultando ventas realizadas en este turno…</p></section>
+  if (error) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p className={styles.error} role="alert">{getApiErrorMessage(error)}</p></section>
+  return <section className={styles.sales} aria-label="Ventas del turno"><div className={styles.salesHeader}><h2>Ventas de este turno</h2><strong>{sales?.length ?? 0}</strong></div>{sales?.length ? <div className={styles.salesList}>{sales.map(sale => <article key={sale.idVenta}><div><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong><span>{sale.fecha ? new Date(sale.fecha).toLocaleString() : '—'} · {sale.usuario ? `${sale.usuario.nombre} ${sale.usuario.apellido ?? ''} · ${sale.usuario.email ?? ''}` : 'Venta sin cliente'}</span><details><summary>Ver detalle</summary>{sale.detalles?.map(detail => <p key={detail.idDetalleVenta}>{detail.variante?.producto?.nombre ?? 'Producto'} · {detail.variante?.sku ?? '—'} · {detail.cantidad} unidades</p>)}</details></div><div><span>{sale.estado ?? '—'}</span><strong>Bs {money(sale.total)}</strong></div></article>)}</div> : <p>No registraste ventas durante este turno.</p>}</section>
 }

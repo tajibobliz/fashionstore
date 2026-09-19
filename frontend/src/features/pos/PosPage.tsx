@@ -7,11 +7,13 @@ import { inventoryApi } from '../../api/inventory.api'
 import { posApi } from '../../api/pos.api'
 import { salesApi } from '../../api/sales.api'
 import { paymentsApi } from '../../api/payments.api'
+import { usersApi } from '../../api/users.api'
 import { queryKeys } from '../../api/queryKeys'
 import type { Inventario } from '../../types/inventory'
 import type { Producto, Variante } from '../../types/catalog'
 import type { Venta } from '../../types/sale'
-import type { Pago } from '../../types/payment'
+import type { MetodoPago, Pago } from '../../types/payment'
+import type { User } from '../../types/user'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './PosPage.module.css'
@@ -19,7 +21,7 @@ import styles from './PosPage.module.css'
 type Mode = 'MINORISTA' | 'MAYORISTA'
 interface AvailableVariant { inventory: Inventario; variant: Variante; product: Producto }
 interface CartLine extends AvailableVariant { quantity: number }
-interface Receipt { sale: Venta; payment: Pago; received: number; lines: CartLine[] }
+interface Receipt { sale: Venta; payment: Pago; received: number | null; lines: CartLine[] }
 
 export default function PosPage() {
   const queryClient = useQueryClient()
@@ -28,8 +30,16 @@ export default function PosPage() {
   const [cart, setCart] = useState<CartLine[]>([])
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<MetodoPago>('EFECTIVO')
+  const [paymentReference, setPaymentReference] = useState('')
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [customer, setCustomer] = useState<User | null>(null)
+  const [newCustomer, setNewCustomer] = useState(false)
+  const [customerForm, setCustomerForm] = useState({ nombre: '', email: '', password: '' })
   const [requestIds, setRequestIds] = useState<{ sale: string; payment: string } | null>(null)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const clients = useQuery({ queryKey: ['clients', customerQuery], queryFn: () => usersApi.clients(customerQuery), enabled: checkoutOpen && !newCustomer && customerQuery.trim().length >= 2, retry: false })
+  const createCustomer = useMutation({ mutationFn: () => usersApi.create({ ...customerForm, rolNombre: 'CLIENTE' }), onSuccess: created => { setCustomer(created as User); setNewCustomer(false) } })
   const shift = useQuery({
     queryKey: queryKeys.shifts.current,
     queryFn: async () => {
@@ -85,19 +95,26 @@ export default function PosPage() {
         idSucursal: shift.data.caja.sucursal.idSucursal,
         idCaja: shift.data.caja.idCaja,
         modalidadComercial: mode,
+        ...(customer ? { idUsuario: customer.idUsuario } : {}),
         detalles: cart.map(line => ({ idVariante: line.variant.idVariante, cantidad: line.quantity })),
         clientRequestId: requestIds.sale,
       })
       const realTotal = Number(sale.total)
-      if (Number(cashReceived) < realTotal) throw new Error(`El monto recibido debe cubrir el total real de Bs ${money(realTotal)}.`)
-      const payment = await paymentsApi.create({ idVenta: sale.idVenta, metodo: 'EFECTIVO', monto: realTotal, clientRequestId: requestIds.payment })
-      return { sale, payment, received: Number(cashReceived), lines: [...cart] }
+      if (paymentMethod === 'EFECTIVO' && Number(cashReceived) < realTotal) throw new Error(`El monto recibido debe cubrir el total real de Bs ${money(realTotal)}.`)
+      const payment = await paymentsApi.create({
+        idVenta: sale.idVenta,
+        metodo: paymentMethod,
+        monto: realTotal,
+        clientRequestId: requestIds.payment,
+        ...(paymentReference.trim() ? { referenciaPasarela: paymentReference.trim() } : {}),
+      })
+      return { sale, payment, received: paymentMethod === 'EFECTIVO' ? Number(cashReceived) : null, lines: [...cart] }
     },
-    onSuccess: async result => {
+    onSuccess: result => {
       setReceipt(result)
       setCart([])
       setCheckoutOpen(false)
-      await Promise.all([
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.shifts.current }),
       ])
@@ -106,6 +123,8 @@ export default function PosPage() {
 
   function openCheckout() {
     setCashReceived(money(estimatedTotal))
+    setPaymentMethod('EFECTIVO')
+    setPaymentReference('')
     setRequestIds({ sale: crypto.randomUUID(), payment: crypto.randomUUID() })
     checkout.reset()
     setCheckoutOpen(true)
@@ -115,6 +134,8 @@ export default function PosPage() {
     setReceipt(null)
     setRequestIds(null)
     setCashReceived('')
+    setPaymentMethod('EFECTIVO')
+    setPaymentReference('')
     setMode('MINORISTA')
     setSearch('')
   }
@@ -139,7 +160,7 @@ export default function PosPage() {
       }) : <p className={dashboardStyles.emptyState}>{search ? 'No se encontraron productos para la búsqueda.' : 'No hay variantes disponibles en este almacén.'}</p>}</div></section>
       <aside className={styles.summary}><h2>Resumen de venta</h2>{cart.length ? <div className={styles.cartList}>{cart.map(line => { const minimum = line.product.cantidadMinimaMayorista ?? 1; const lineInvalid = mode === 'MAYORISTA' && (!wholesaleAvailable(line.product) || line.quantity < minimum); return <article className={styles.cartItem} key={line.variant.idVariante}><div className={styles.cartItemHeader}><strong>{line.product.nombre}</strong><span>Bs {money(price(line.product) * line.quantity)}</span></div><p>{line.variant.sku} · {line.quantity} × Bs {money(price(line.product))}</p><div className={styles.quantity}><button type="button" aria-label={`Disminuir ${line.product.nombre}`} onClick={() => changeQuantity(line.variant.idVariante, -1)} disabled={line.quantity <= 1}>−</button><span aria-label={`Cantidad de ${line.product.nombre}`}>{line.quantity}</span><button type="button" aria-label={`Aumentar ${line.product.nombre}`} onClick={() => changeQuantity(line.variant.idVariante, 1)} disabled={line.quantity >= line.inventory.stockDisponible}>+</button><button type="button" className={styles.remove} onClick={() => setCart(current => current.filter(item => item.variant.idVariante !== line.variant.idVariante))}>Eliminar</button></div>{lineInvalid && <p className={styles.warning}>{wholesaleAvailable(line.product) ? `Mínimo mayorista: ${minimum}` : 'Producto sin precio mayorista.'}</p>}</article>})}</div> : <p className={dashboardStyles.emptyState}>Todavía no agregaste productos.</p>}<div className={styles.total}><strong>Total estimado</strong><strong>Bs {money(estimatedTotal)}</strong></div><button className={styles.checkout} type="button" disabled={!cart.length || invalidWholesale} onClick={openCheckout}>Continuar al cobro</button><p className={dashboardStyles.emptyState}>El backend confirmará el precio y total definitivos.</p></aside>
     </div>
-    {checkoutOpen && <div className={styles.checkoutBackdrop} role="presentation"><section className={styles.checkoutDialog} role="dialog" aria-modal="true" aria-labelledby="checkout-title"><h2 id="checkout-title">Cobro en efectivo</h2><p>Modalidad: <strong>{mode}</strong></p><div className={styles.checkoutLines}>{cart.map(line => <div key={line.variant.idVariante}><span>{line.product.nombre} · {line.variant.sku} · {line.quantity} unidades</span><strong>Bs {money(price(line.product) * line.quantity)}</strong></div>)}</div><div className={styles.total}><strong>Total estimado</strong><strong>Bs {money(estimatedTotal)}</strong></div><label className={styles.cashField}>Método de pago<select aria-label="Método de pago" value="EFECTIVO" disabled><option>EFECTIVO</option></select></label><label className={styles.cashField}>Monto recibido<input aria-label="Monto recibido" type="number" min="0" step="0.01" value={cashReceived} onChange={event => setCashReceived(event.target.value)} /></label><p>Cambio estimado: <strong>Bs {money(Math.max(0, Number(cashReceived || 0) - estimatedTotal))}</strong></p>{checkout.error && <p className={dashboardStyles.errorNotice} role="alert">{checkout.error instanceof Error && !axios.isAxiosError(checkout.error) ? checkout.error.message : getApiErrorMessage(checkout.error)}</p>}<div className={styles.checkoutActions}><button type="button" onClick={() => setCheckoutOpen(false)} disabled={checkout.isPending}>Volver</button><button className={styles.checkout} type="button" disabled={checkout.isPending || Number(cashReceived) < estimatedTotal} onClick={() => checkout.mutate()}>{checkout.isPending ? 'Procesando…' : 'Completar venta'}</button></div></section></div>}
+    {checkoutOpen && <div className={styles.checkoutBackdrop} role="presentation"><section className={styles.checkoutDialog} role="dialog" aria-modal="true" aria-labelledby="checkout-title"><h2 id="checkout-title">Cobro</h2><p>Modalidad: <strong>{mode}</strong></p><div className={styles.checkoutLines}>{cart.map(line => <div key={line.variant.idVariante}><span>{line.product.nombre} · {line.variant.sku} · {line.quantity} unidades</span><strong>Bs {money(price(line.product) * line.quantity)}</strong></div>)}</div><div className={styles.total}><strong>Total estimado</strong><strong>Bs {money(estimatedTotal)}</strong></div><div className={styles.cashField}><strong>Cliente (opcional)</strong>{customer ? <p>{customer.nombre} <button type="button" onClick={() => setCustomer(null)}>Quitar</button></p> : newCustomer ? <div><input aria-label="Nombre cliente" placeholder="Nombre" value={customerForm.nombre} onChange={e => setCustomerForm({ ...customerForm, nombre: e.target.value })} /><input aria-label="Email cliente" placeholder="Correo" value={customerForm.email} onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })} /><input aria-label="Contraseña cliente" type="password" placeholder="Contraseña inicial" value={customerForm.password} onChange={e => setCustomerForm({ ...customerForm, password: e.target.value })} /><button type="button" disabled={!customerForm.nombre || !customerForm.email || customerForm.password.length < 6 || createCustomer.isPending} onClick={() => createCustomer.mutate()}>{createCustomer.isPending ? 'Guardando…' : 'Guardar cliente'}</button></div> : <div><input aria-label="Buscar cliente" placeholder="Nombre o correo" value={customerQuery} onChange={e => setCustomerQuery(e.target.value)} />{(clients.data ?? []).map(client => <button type="button" key={client.idUsuario} onClick={() => setCustomer(client)}>{client.nombre} · {client.email}</button>)}<button type="button" onClick={() => setNewCustomer(true)}>Nuevo cliente</button></div>}</div><label className={styles.cashField}>Método de pago<select aria-label="Método de pago" value={paymentMethod} onChange={event => { setPaymentMethod(event.target.value as MetodoPago); checkout.reset() }}><option value="EFECTIVO">EFECTIVO</option><option value="QR">QR</option><option value="TARJETA">TARJETA</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="CONTRAPAGO">CONTRAPAGO</option></select></label>{paymentMethod === 'EFECTIVO' ? <><label className={styles.cashField}>Monto recibido<input aria-label="Monto recibido" type="number" min="0" step="0.01" value={cashReceived} onChange={event => setCashReceived(event.target.value)} /></label><p>Cambio estimado: <strong>Bs {money(Math.max(0, Number(cashReceived || 0) - estimatedTotal))}</strong></p></> : <><p className={styles.pendingHint}>Se registrará el pago como {paymentMethod}. No se simula ninguna pasarela externa.</p>{paymentMethod !== 'CONTRAPAGO' && <label className={styles.cashField}>Referencia o comprobante (opcional)<input aria-label="Referencia o comprobante" maxLength={150} value={paymentReference} onChange={event => setPaymentReference(event.target.value)} /></label>}</>}{checkout.error && <p className={dashboardStyles.errorNotice} role="alert">{checkout.error instanceof Error && !axios.isAxiosError(checkout.error) ? checkout.error.message : getApiErrorMessage(checkout.error)}</p>}<div className={styles.checkoutActions}><button type="button" onClick={() => setCheckoutOpen(false)} disabled={checkout.isPending}>Volver</button><button className={styles.checkout} type="button" disabled={checkout.isPending || (paymentMethod === 'EFECTIVO' && Number(cashReceived) < estimatedTotal)} onClick={() => checkout.mutate()}>{checkout.isPending ? 'Procesando…' : 'Completar venta'}</button></div></section></div>}
   </section>
 }
 
@@ -149,8 +170,9 @@ function money(value: number | string | null | undefined) { const number = Numbe
 function ReceiptView({ receipt, fallbackShift, onNewSale }: { receipt: Receipt; fallbackShift: NonNullable<Awaited<ReturnType<typeof posApi.shifts.current>>>; onNewSale: () => void }) {
   const { sale, payment, received, lines } = receipt
   const total = Number(sale.total)
+  const isPending = payment.estado === 'PENDIENTE'
   const details = sale.detalles?.length ? sale.detalles.map(detail => ({ key: detail.idDetalleVenta ?? detail.variante?.idVariante, name: detail.variante?.producto?.nombre ?? detail.variante?.sku ?? 'Producto', sku: detail.variante?.sku ?? '', quantity: detail.cantidad, subtotal: detail.subtotal })) : lines.map(line => ({ key: line.variant.idVariante, name: line.product.nombre, sku: line.variant.sku, quantity: line.quantity, subtotal: priceForReceipt(line, sale.modalidadComercial) * line.quantity }))
-  return <section className={dashboardStyles.content}><div className={dashboardStyles.pageHeading}><div><p className={dashboardStyles.kicker}>Venta completada</p><h1>Comprobante</h1><p>El pago en efectivo fue registrado correctamente.</p></div></div><article className={styles.receipt}><div className={styles.receiptHeader}><div><span>Número de comprobante</span><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong></div><span className={styles.approved}>{payment.estado ?? 'APROBADO'}</span></div><div className={styles.receiptMeta}><Context label="Fecha" value={sale.fecha ? new Date(sale.fecha).toLocaleString() : new Date().toLocaleString()} /><Context label="Sucursal" value={sale.sucursal?.nombre ?? fallbackShift.caja.sucursal?.nombre ?? '—'} /><Context label="Cajero" value={[sale.cajero?.nombre ?? fallbackShift.cajero?.nombre, sale.cajero?.apellido ?? fallbackShift.cajero?.apellido].filter(Boolean).join(' ') || '—'} /><Context label="Turno" value={`#${sale.turno?.idTurno ?? fallbackShift.idTurno}`} /><Context label="Modalidad" value={sale.modalidadComercial ?? 'MINORISTA'} /><Context label="Método" value={payment.metodo} /></div><div className={styles.receiptLines}>{details.map(detail => <div key={detail.key}><span>{detail.name} {detail.sku && `· ${detail.sku}`} · {detail.quantity} unidades</span><strong>Bs {money(detail.subtotal)}</strong></div>)}</div><div className={styles.receiptTotals}><p><span>Total real</span><strong>Bs {money(total)}</strong></p><p><span>Recibido</span><strong>Bs {money(received)}</strong></p><p><span>Cambio</span><strong>Bs {money(received - total)}</strong></p></div><button className={styles.checkout} type="button" onClick={onNewSale}>Nueva venta</button></article></section>
+  return <section className={dashboardStyles.content}><div className={dashboardStyles.pageHeading}><div><p className={dashboardStyles.kicker}>{isPending ? 'Pago pendiente' : 'Venta completada'}</p><h1>Comprobante</h1><p>{isPending ? 'El pago fue registrado y permanece pendiente de aprobación.' : 'El pago fue registrado correctamente.'}</p></div></div><article className={styles.receipt}><div className={styles.receiptHeader}><div><span>Número de comprobante</span><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong></div><span className={isPending ? styles.pending : styles.approved}>{payment.estado ?? 'APROBADO'}</span></div><div className={styles.receiptMeta}><Context label="Fecha" value={sale.fecha ? new Date(sale.fecha).toLocaleString() : new Date().toLocaleString()} /><Context label="Sucursal" value={sale.sucursal?.nombre ?? fallbackShift.caja.sucursal?.nombre ?? '—'} /><Context label="Cajero" value={[sale.cajero?.nombre ?? fallbackShift.cajero?.nombre, sale.cajero?.apellido ?? fallbackShift.cajero?.apellido].filter(Boolean).join(' ') || '—'} /><Context label="Turno" value={`#${sale.turno?.idTurno ?? fallbackShift.idTurno}`} /><Context label="Modalidad" value={sale.modalidadComercial ?? 'MINORISTA'} /><Context label="Método" value={payment.metodo} /></div><div className={styles.receiptLines}>{details.map(detail => <div key={detail.key}><span>{detail.name} {detail.sku && `· ${detail.sku}`} · {detail.quantity} unidades</span><strong>Bs {money(detail.subtotal)}</strong></div>)}</div><div className={styles.receiptTotals}><p><span>Total real</span><strong>Bs {money(total)}</strong></p>{payment.referenciaPasarela && <p><span>Referencia</span><strong>{payment.referenciaPasarela}</strong></p>}{received !== null && <><p><span>Recibido</span><strong>Bs {money(received)}</strong></p><p><span>Cambio</span><strong>Bs {money(received - total)}</strong></p></>}</div><button className={styles.checkout} type="button" onClick={onNewSale}>Nueva venta</button></article></section>
 }
 
 function priceForReceipt(line: CartLine, mode: Venta['modalidadComercial']) { return Number(mode === 'MAYORISTA' ? line.product.precioMayorista : line.product.precio) }

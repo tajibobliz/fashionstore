@@ -577,3 +577,17 @@
  .fashion .topbar { flex-direction: row; align-items: center; }
  .topbarEyebrow { font-size: .65rem; }
 }
+
+/* Reglas compartidas para paneles por rol en pantallas pequeñas. */
+@media (max-width: 600px) {
+  .fashion .topbar { flex-wrap: wrap; padding: .75rem; }
+  .fashion .topbarIntro { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: .35rem; }
+  .fashion .topbarEyebrow, .fashion .topbarTitle { grid-column: 2; }
+  .fashion .topbarActions { width: 100%; }
+  .fashion .roleBadge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .fashion .content { min-width: 0; }
+}
+@media (max-width: 375px) {
+  .fashion .main { padding: .5rem; }
+  .fashion .topbar { border-radius: 12px; }
+}

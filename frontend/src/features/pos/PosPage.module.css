@@ -44,6 +44,8 @@
 .receiptHeader span { display: block; color: var(--text-secondary); font-size: .76rem; }
 .receiptHeader strong { display: block; margin-top: 5px; font-size: 1.12rem; }
 .approved { padding: 7px 10px; border-radius: 999px; background: #dcfae6; color: #067647 !important; font-weight: 800; }
+.pending { padding: 7px 10px; border-radius: 999px; background: #fef0c7; color: #92400e !important; font-weight: 800; }
+.pendingHint { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fffaeb; color: #92400e; font-size: .85rem; }
 .receiptMeta { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .receiptTotals { margin-left: auto; max-width: 360px; padding: 12px 0; }
 .receiptTotals p { display: flex; justify-content: space-between; gap: 20px; margin: 7px 0; }

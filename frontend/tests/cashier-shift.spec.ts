@@ -26,6 +26,7 @@ test('CAJERO abre y cierra su turno desde Mi turno', async ({ page }) => {
     shift = { idTurno: 30, caja: box, cajero: cashier, fechaApertura: '2026-09-18T12:00:00.000Z', montoApertura: '100.00', estado: 'ABIERTO' }
     await route.fulfill({ json: shift })
   })
+  await page.route('**/sales/turno/30', route => route.fulfill({ json: [{ idVenta: 91, tipoVenta: 'PRESENCIAL', numeroComprobante: 'PRE-000091', fecha: '2026-09-18T12:15:00.000Z', estado: 'PAGADA', total: '450.00', turno: { idTurno: 30 } }] }))
   await page.route('**/pos/turnos/30/cerrar', async route => {
     expect(route.request().postDataJSON()).toEqual({ montoCierreDeclarado: 125 })
     const closed = { ...shift, estado: 'CERRADO', montoCierreEsperado: '120.00', montoCierreDeclarado: '125.00', diferencia: '5.00' }
@@ -48,6 +49,9 @@ test('CAJERO abre y cierra su turno desde Mi turno', async ({ page }) => {
 
   await expect(page.locator('span').getByText('ABIERTO', { exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Ir al punto de venta' })).toHaveAttribute('href', '/dashboard/cajero/punto-de-venta')
+  const shiftSales = page.getByRole('region', { name: 'Ventas del turno' })
+  await expect(shiftSales.getByText('PRE-000091')).toBeVisible()
+  await expect(shiftSales.getByText('Bs 450.00')).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar turno' }).click()
   await page.getByLabel('Monto de cierre declarado').fill('125')
   await page.getByRole('button', { name: 'Confirmar cierre' }).click()
