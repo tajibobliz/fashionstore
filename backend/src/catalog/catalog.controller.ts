@@ -30,6 +30,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('catalog')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,8 +40,10 @@ export class CatalogController {
   // ===== CATEGORIAS =====
   @Post('categorias') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   createCategoria(@Body() dto: CreateCategoriaDto) { return this.service.createCategoria(dto); }
+  @Public()
   @Get('categorias')
   findAllCategorias() { return this.service.findAllCategorias(); }
+  @Public()
   @Get('categorias/:id')
   findOneCategoria(@Param('id', ParseIntPipe) id: number) { return this.service.findOneCategoria(id); }
   @Patch('categorias/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
@@ -51,8 +54,10 @@ export class CatalogController {
   // ===== TALLAS =====
   @Post('tallas') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   createTalla(@Body() dto: CreateTallaDto) { return this.service.createTalla(dto); }
+  @Public()
   @Get('tallas')
   findAllTallas() { return this.service.findAllTallas(); }
+  @Public()
   @Get('tallas/:id')
   findOneTalla(@Param('id', ParseIntPipe) id: number) { return this.service.findOneTalla(id); }
   @Patch('tallas/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
@@ -63,8 +68,10 @@ export class CatalogController {
   // ===== COLORES =====
   @Post('colores') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   createColor(@Body() dto: CreateColorDto) { return this.service.createColor(dto); }
+  @Public()
   @Get('colores')
   findAllColores() { return this.service.findAllColores(); }
+  @Public()
   @Get('colores/:id')
   findOneColor(@Param('id', ParseIntPipe) id: number) { return this.service.findOneColor(id); }
   @Patch('colores/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
@@ -75,8 +82,10 @@ export class CatalogController {
   // ===== TEMPORADAS =====
   @Post('temporadas') @Roles(Role.ADMIN)
   createTemporada(@Body() dto: CreateTemporadaDto) { return this.service.createTemporada(dto); }
+  @Public()
   @Get('temporadas')
   findAllTemporadas() { return this.service.findAllTemporadas(); }
+  @Public()
   @Get('temporadas/:id')
   findOneTemporada(@Param('id', ParseIntPipe) id: number) { return this.service.findOneTemporada(id); }
   @Patch('temporadas/:id') @Roles(Role.ADMIN)
@@ -99,8 +108,10 @@ export class CatalogController {
   // ===== COLECCIONES =====
   @Post('colecciones') @Roles(Role.ADMIN)
   createColeccion(@Body() dto: CreateColeccionDto) { return this.service.createColeccion(dto); }
+  @Public()
   @Get('colecciones')
   findAllColecciones() { return this.service.findAllColecciones(); }
+  @Public()
   @Get('colecciones/:id')
   findOneColeccion(@Param('id', ParseIntPipe) id: number) { return this.service.findOneColeccion(id); }
   @Patch('colecciones/:id') @Roles(Role.ADMIN)
@@ -111,8 +122,10 @@ export class CatalogController {
   // ===== PRODUCTOS =====
   @Post('productos') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   createProducto(@Body() dto: CreateProductoDto) { return this.service.createProducto(dto); }
+  @Public()
   @Get('productos')
   findAllProductos() { return this.service.findAllProductos(); }
+  @Public()
   @Get('productos/:id')
   findOneProducto(@Param('id', ParseIntPipe) id: number) { return this.service.findOneProducto(id); }
   @Patch('productos/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
@@ -123,8 +136,10 @@ export class CatalogController {
   // ===== VARIANTES =====
   @Post('variantes') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   createVariante(@Body() dto: CreateVarianteDto) { return this.service.createVariante(dto); }
+  @Public()
   @Get('variantes')
   findAllVariantes() { return this.service.findAllVariantes(); }
+  @Public()
   @Get('variantes/:id')
   findOneVariante(@Param('id', ParseIntPipe) id: number) { return this.service.findOneVariante(id); }
   @Patch('variantes/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)

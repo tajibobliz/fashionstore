@@ -1,30 +1,37 @@
 import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 import { useAuthStore } from "@/stores/authStore";
 
+const PROTECTED_ROUTES = ["checkout", "reservations", "orders", "virtual-fitting"];
+
 export default function RootLayout() {
-  const { isAuthenticated, isLoading, loadSession } = useAuthStore();
+  const { isLoading, isAuthenticated, loadSession } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
-  // 1) Al abrir la app, recuperar la sesión guardada (si existe)
   useEffect(() => {
     loadSession();
   }, []);
 
-  // 2) Cada vez que cambie la sesión o la ruta, decidir a dónde ir
   useEffect(() => {
-    if (isLoading) return; // esperamos a saber si hay sesión
+    if (isLoading) return;
 
-    const inAuthGroup = segments[0] === "(auth)";
+    const currentRoute = segments.join("/");
+    const inAuthGroup = (segments[0] as string) === "(auth)";
+    const isProtected = PROTECTED_ROUTES.some((r) => currentRoute.includes(r));
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace("/login");
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace("/");
+    if (isProtected && !isAuthenticated) {
+      router.replace("/login" as any);
+    } else if (inAuthGroup && isAuthenticated) {
+      router.replace("/" as any);
     }
   }, [isAuthenticated, isLoading, segments]);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
+  );
 }

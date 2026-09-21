@@ -1,14 +1,16 @@
 import {
-  Check,
+   Check,
   Entity,
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Categoria } from './categoria.entity';
 import { Proveedor } from './proveedor.entity';
 import { Coleccion } from './coleccion.entity';
+import { VarianteProducto } from './variante-producto.entity';
 
 @Entity('producto')
 @Check('CHK_producto_precio_mayorista', 'precio_mayorista IS NULL OR precio_mayorista >= 0')
@@ -52,4 +54,7 @@ export class Producto {
   @ManyToOne(() => Coleccion, { eager: true, nullable: true })
   @JoinColumn({ name: 'id_coleccion' })
   coleccion: Coleccion;
+
+  @OneToMany(() => VarianteProducto, (v) => v.producto)
+  variantes: VarianteProducto[];
 }

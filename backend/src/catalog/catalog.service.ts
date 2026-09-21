@@ -189,10 +189,18 @@ export class CatalogService {
   }
   findAllProductos() { return this.productoRepo.find(); }
   async findOneProducto(id: number) {
-    const item = await this.productoRepo.findOne({ where: { idProducto: id } });
-    if (!item) throw new NotFoundException(`Producto ${id} no encontrado`);
-    return item;
-  }
+  const item = await this.productoRepo.findOne({
+    where: { idProducto: id },
+    relations: {
+      variantes: {
+        talla: true,
+        color: true,
+      },
+    },
+  });
+  if (!item) throw new NotFoundException(`Producto ${id} no encontrado`);
+  return item;
+}
   async updateProducto(id: number, dto: UpdateProductoDto) {
     const item = await this.findOneProducto(id);
     if (dto.idCategoria) item.categoria = await this.findOneCategoria(dto.idCategoria);
