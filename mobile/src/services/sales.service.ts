@@ -8,9 +8,15 @@ export const salesService = {
     return data;
   },
 
-  // Obtiene el historial del usuario logueado
+  // Lista todas las ventas del usuario logueado, más recientes primero
   async getMySales(): Promise<Sale[]> {
     const { data } = await api.get<Sale[]>("/sales/me");
+    return data;
+  },
+
+  // Detalle de una venta específica
+  async getSaleById(id: number): Promise<Sale> {
+    const { data } = await api.get<Sale>(`/sales/${id}`);
     return data;
   },
 };
