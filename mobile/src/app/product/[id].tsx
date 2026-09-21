@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { catalogService } from "@/services/catalog.service";
 import { Producto, VarianteProducto } from "@/types/catalog.types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCartStore } from "@/stores/cartStore";
 
 const PLACEHOLDER_IMAGE =
   "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
@@ -24,7 +25,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
+  const addItem = useCartStore((state) => state.addItem);
   const [producto, setProducto] = useState<Producto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,15 +60,27 @@ export default function ProductDetailScreen() {
   }, [id]);
 
   const handleAgregarCarrito = () => {
-    if (!varianteSeleccionada) {
-      Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
-      return;
-    }
-    Alert.alert(
-      "Próximamente",
-      "El carrito se implementará en la siguiente sesión."
-    );
-  };
+  if (!varianteSeleccionada || !producto) {
+    Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
+    return;
+  }
+
+  addItem({
+    idVariante: varianteSeleccionada.idVariante,
+    nombre: producto.nombre,
+    precio: Number(producto.precio),
+    talla: varianteSeleccionada.talla?.nombre ?? null,
+    color: varianteSeleccionada.color?.nombre ?? null,
+    colorHex: varianteSeleccionada.color?.codigoHex ?? null,
+    imagenUrl: producto.imagenUrl,
+    cantidad: 1,
+  });
+
+  Alert.alert("Agregado al carrito", `${producto.nombre} se agregó a tu carrito.`, [
+    { text: "Seguir viendo", style: "cancel" },
+    { text: "Ver carrito", onPress: () => router.push("/cart" as any) },
+  ]);
+};
 
   // 1) Cargando
   if (loading) {

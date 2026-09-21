@@ -1,11 +1,12 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import { useCartStore } from "@/stores/cartStore";
 export default function TabsLayout() {
   // insets = espacios que ocupan barras del sistema (arriba/abajo)
   const insets = useSafeAreaInsets();
-
+  const totalItems = useCartStore((state) => state.getTotalItems());
+  const cartBadge = totalItems > 0 ? totalItems : undefined;
   return (
     <Tabs
       screenOptions={{
@@ -46,12 +47,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
-        options={{
-          title: "Carrito",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart-outline" size={size} color={color} />
-          ),
+       name="cart"
+       options={{
+       title: "Carrito",
+       tabBarIcon: ({ color, size }) => (
+      <Ionicons name="cart-outline" size={size} color={color} />
+      ),
+       tabBarBadge: cartBadge,
+       tabBarBadgeStyle: {
+       backgroundColor: "#e11d48",
+       color: "#ffffff",
+       fontSize: 11,
+       minWidth: 18,
+       height: 18,
+         },
         }}
       />
       <Tabs.Screen

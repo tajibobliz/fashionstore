@@ -6,7 +6,9 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Pressable,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,7 +16,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 export default function LoginScreen() {
   const login = useAuthStore((state) => state.login);
-
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -91,6 +93,14 @@ export default function LoginScreen() {
         <View className="mt-2">
           <Button title="Iniciar sesión" onPress={handleLogin} loading={loading} />
         </View>
+        <View className="mt-6 flex-row justify-center">
+        <Text className="text-sm text-gray-600">¿No tienes cuenta? </Text>
+        <Pressable onPress={() => router.replace("/register" as any)}>
+        <Text className="text-sm font-semibold text-primary-500">
+        Crea una
+        </Text>
+        </Pressable>
+       </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

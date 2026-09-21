@@ -24,6 +24,7 @@ import { randomUUID } from 'node:crypto';
 import { Almacen } from '../warehouses/entities/almacen.entity';
 import { PosService } from '../pos/pos.service';
 import { PromotionsService } from '../promotions/promotions.service';
+import { toMoney } from '../common/utils/money.util';
 
 @Injectable()
 export class SalesService {
@@ -83,14 +84,14 @@ export class SalesService {
         });
         if (!producto) throw new NotFoundException('Producto no encontrado');
         const precio = await this.resolverPrecio(producto, item.cantidad, dto.modalidadComercial);
-        const subtotal = precio * item.cantidad;
-        total += subtotal;
+        const subtotal = toMoney(precio * item.cantidad);
+        total = toMoney(total + subtotal);
 
         const detalle = manager.create(DetalleVenta, {
-          variante: item.variante,
-          cantidad: item.cantidad,
-          precioUnitario: precio,
-          subtotal,
+        variante: item.variante,
+        cantidad: item.cantidad,
+        precioUnitario: precio,
+        subtotal,
         });
         detalles.push(detalle);
       }
@@ -212,16 +213,16 @@ export class SalesService {
         });
         await manager.save(movimiento);
 
-        const precio = await this.resolverPrecio(producto, item.cantidad, dto.modalidadComercial);
-        const subtotal = precio * item.cantidad;
-        total += subtotal;
+       const precio = await this.resolverPrecio(producto, item.cantidad, dto.modalidadComercial);
+const subtotal = toMoney(precio * item.cantidad);
+total = toMoney(total + subtotal);
 
-        const detalle = manager.create(DetalleVenta, {
-          variante,
-          cantidad: item.cantidad,
-          precioUnitario: precio,
-          subtotal,
-        });
+const detalle = manager.create(DetalleVenta, {
+  variante,
+  cantidad: item.cantidad,
+  precioUnitario: precio,
+  subtotal,
+});
         detalles.push(detalle);
       }
 
