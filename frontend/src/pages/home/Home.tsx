@@ -33,7 +33,7 @@ export default function Home() {
           <p className={styles.heroTag}><Sparkles size={14} aria-hidden="true" /> Moda femenina · Online y en tienda</p>
           <h1>Tu estilo. Tu esencia.<br /><span className={styles.highlight}>Tu Fashionstore.</span></h1>
           <p className={styles.heroSubtitle}>Prendas que te acompañan en cada momento. Descubre nuestras colecciones y conecta con una experiencia de moda pensada para ti.</p>
-          <div className={styles.heroActions}><Link to={destination} className={styles.btnOrange}>Explorar la tienda <ArrowRight size={16} /></Link><a href="#services" className={styles.btnGhost}>Conoce Fashionstore</a></div>
+          <div className={styles.heroActions}><Link to="/tienda" className={styles.btnOrange}>Explorar la tienda <ArrowRight size={16} /></Link><a href="#services" className={styles.btnGhost}>Conoce Fashionstore</a></div>
           <div className={styles.heroStars}><ShoppingBag size={17} /><span>Una misma experiencia, online y en nuestras sucursales</span></div>
         </div>
         <div className={styles.heroImg}><img src="/images/hero.png" width="640" height="640" alt="Ilustración de una mujer descubriendo su tienda online desde el móvil" fetchPriority="high" /></div>

@@ -88,7 +88,6 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 
 /* Catálogo cliente: detalle adaptable. */
 .store-product-detail { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; }
-.store-product-detail .product-image { min-height: 100%; }
 .store-product-detail .workspace-tabs { margin-top: 1.25rem; }
 .store-product-detail select { min-width: 132px; max-width: 100%; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; }
 .store-product-detail label { display: grid; gap: .45rem; font-weight: 700; font-size: .9rem; }
@@ -127,3 +126,14 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .reservation-box { display: grid; gap: 10px; margin-top: 18px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--orange-light); }
 .reservation-box label { display: grid; gap: 5px; }.reservation-box select, .reservation-box input { width: 100%; max-width: 320px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; }
 @media (max-width: 700px) { .reservation-box select, .reservation-box input { max-width: none; } }
+.helper-text { font-size: .85rem; color: var(--muted); margin-top: 6px; text-align: center; font-style: italic; }
+.modalBackdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, .5); }
+.confirmDialog { width: 100%; max-width: 400px; padding: 24px; border-radius: 12px; background: white; box-shadow: 0 20px 50px rgba(0, 0, 0, .2); }
+.confirmDialog h2 { font-size: 1.25rem; margin-bottom: 10px; }
+.confirmDialog p { color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.modalActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.modalActions button { border: 1px solid var(--border); border-radius: 8px; background: white; padding: 10px 16px; font: inherit; }
+.dangerButton { background: var(--danger, #9f1239) !important; border-color: var(--danger, #9f1239) !important; color: white; }
+.dangerButton:hover { background: var(--danger-hover, #7f0e2e) !important; border-color: var(--danger-hover, #7f0e2e) !important; }
+.dangerButton:disabled { opacity: .6; }
+@media (max-width: 700px) { .modalActions { flex-direction: column-reverse; } .modalActions button { width: 100%; } }

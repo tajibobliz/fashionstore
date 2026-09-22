@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('branches')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,11 +33,13 @@ export class BranchesController {
     return this.branchesService.createCiudad(dto);
   }
 
+  @Public()
   @Get('ciudades')
   findAllCiudades() {
     return this.branchesService.findAllCiudades();
   }
 
+  @Public()
   @Get('ciudades/:id')
   findOneCiudad(@Param('id', ParseIntPipe) id: number) {
     return this.branchesService.findOneCiudad(id);
@@ -65,11 +68,13 @@ export class BranchesController {
     return this.branchesService.createSucursal(dto);
   }
 
+  @Public()
   @Get('sucursales')
   findAllSucursales() {
     return this.branchesService.findAllSucursales();
   }
 
+  @Public()
   @Get('sucursales/:id')
   findOneSucursal(@Param('id', ParseIntPipe) id: number) {
     return this.branchesService.findOneSucursal(id);

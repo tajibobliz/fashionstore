@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import axios from 'axios'
 import { Mail, Lock, Eye, EyeOff, Loader2, User } from 'lucide-react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { getApiErrorMessage } from '../../../utils/apiError'
 import { getSessionPath } from '../../../routes/auth'
@@ -19,6 +19,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [loading, setLoading] = useState(false)
   const auth = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirect = searchParams.get('redirect')
+  const isSafeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -28,7 +31,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     try {
       const credentials = { email: email.trim(), password }
       const user = isRegister ? await auth.register({ ...credentials, nombre: nombre.trim() }) : await auth.login(credentials)
-      navigate(getSessionPath(user.rol), { replace: true })
+      const destination = user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : getSessionPath(user.rol)
+      navigate(destination, { replace: true })
     } catch (err) {
       setError(axios.isAxiosError(err) && err.response?.status === 401
         ? 'Correo o contraseña incorrectos. Verifica tus datos e inténtalo nuevamente.' : getApiErrorMessage(err))
@@ -37,7 +41,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     }
   }
 
-  if (auth.isAuthenticated && auth.user) return <Navigate to={getSessionPath(auth.user.rol)} replace />
+  if (auth.isAuthenticated && auth.user) return <Navigate to={auth.user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : getSessionPath(auth.user.rol)} replace />
   return <AuthLayout>
     <h1>{isRegister ? 'Crea tu cuenta' : 'Bienvenida de nuevo'}</h1>
     <p className={styles.subtitle}>{isRegister ? 'Regístrate como cliente para comprar, reservar y acceder a la tienda.' : 'Inicia sesión para descubrir la tienda o acceder a tu espacio de trabajo.'}</p>

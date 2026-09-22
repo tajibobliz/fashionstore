@@ -20,7 +20,7 @@ export default function App() {
  <Route path="/" element={<Home />} />
  <Route path="/login" element={<AuthForm key="login" mode="login" />} />
  <Route path="/register" element={<AuthForm key="register" mode="register" />} />
- <Route element={<ProtectedRoute />}><Route path="/tienda" element={<Workspace key="store" mode="store" />} /></Route>
+ <Route path="/tienda" element={<Workspace key="store" mode="store" />} />
  <Route element={<ProtectedRoute roles={roles} />}>
  {['/dashboard', '/panel', '/pos'].map(path => <Route key={path} path={path} element={<DashboardRedirect />} />)}
  {roles.map(role => <Route key={role} element={<ProtectedRoute roles={[role]} />}>

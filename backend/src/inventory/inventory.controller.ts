@@ -19,6 +19,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { BranchAccessService } from '../users/branch-access.service';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,12 +35,14 @@ export class InventoryController {
     return this.service.createInventario(dto);
   }
 
+  @Public()
   @Get('inventarios')
   @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO, Role.CLIENTE)
   async findAllInventarios(@Request() req:any) {
     // CLIENTE elige una sucursal en ecommerce; no tiene asignación laboral.
     // El frontend usa esta lectura para mostrar únicamente la existencia de la sucursal elegida.
-    if (req.user.rol === Role.CLIENTE) return this.service.findAllInventarios();
+    // @Public(): un invitado sin sesión llega aquí con req.user undefined, mismo caso que CLIENTE.
+    if (!req.user || req.user.rol === Role.CLIENTE) return this.service.findAllInventarios();
     const ids=await this.access.accessibleBranchIds(req.user);
     return ids===null?this.service.findAllInventarios():this.service.findInventariosByBranches(ids);
   }
