@@ -17,6 +17,9 @@ import { catalogService } from "@/services/catalog.service";
 import { Producto, VarianteProducto } from "@/types/catalog.types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "@/stores/cartStore";
+import { useAuthStore } from "@/stores/authStore";
+import { reservationsService } from "@/services/reservations.service";
+import { DEFAULT_SUCURSAL_ID } from "@/config/env";
 
 const PLACEHOLDER_IMAGE =
   "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
@@ -26,6 +29,8 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const addItem = useCartStore((state) => state.addItem);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [reservando, setReservando] = useState(false);
   const [producto, setProducto] = useState<Producto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,28 +64,87 @@ export default function ProductDetailScreen() {
     fetchProducto();
   }, [id]);
 
-  const handleAgregarCarrito = () => {
-  if (!varianteSeleccionada || !producto) {
-    Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
-    return;
-  }
+    const handleAgregarCarrito = () => {
+    if (!varianteSeleccionada || !producto) {
+      Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
+      return;
+    }
 
-  addItem({
-    idVariante: varianteSeleccionada.idVariante,
-    nombre: producto.nombre,
-    precio: Number(producto.precio),
-    talla: varianteSeleccionada.talla?.nombre ?? null,
-    color: varianteSeleccionada.color?.nombre ?? null,
-    colorHex: varianteSeleccionada.color?.codigoHex ?? null,
-    imagenUrl: producto.imagenUrl,
-    cantidad: 1,
-  });
+    addItem({
+      idVariante: varianteSeleccionada.idVariante,
+      nombre: producto.nombre,
+      precio: Number(producto.precio),
+      talla: varianteSeleccionada.talla?.nombre ?? null,
+      color: varianteSeleccionada.color?.nombre ?? null,
+      colorHex: varianteSeleccionada.color?.codigoHex ?? null,
+      imagenUrl: producto.imagenUrl,
+      cantidad: 1,
+    });
 
-  Alert.alert("Agregado al carrito", `${producto.nombre} se agregó a tu carrito.`, [
-    { text: "Seguir viendo", style: "cancel" },
-    { text: "Ver carrito", onPress: () => router.push("/cart" as any) },
-  ]);
-};
+    Alert.alert("Agregado al carrito", `${producto.nombre} se agregó a tu carrito.`, [
+      { text: "Seguir viendo", style: "cancel" },
+      { text: "Ver carrito", onPress: () => router.push("/cart" as any) },
+    ]);
+  };
+
+  const handleReservar = async () => {
+    if (!varianteSeleccionada || !producto) {
+      Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Necesitas iniciar sesión",
+        "Para reservar y probarte el producto, necesitas tener una cuenta.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Iniciar sesión", onPress: () => router.push("/login" as any) },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Confirmar reserva",
+      `¿Reservar 1 unidad de ${producto.nombre} (Talla ${varianteSeleccionada.talla?.nombre}, ${varianteSeleccionada.color?.nombre}) para probártela en sucursal?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Reservar",
+          onPress: async () => {
+            setReservando(true);
+            try {
+              const reserva = await reservationsService.create({
+                idSucursal: DEFAULT_SUCURSAL_ID,
+                detalles: [
+                  { idVariante: varianteSeleccionada.idVariante, cantidad: 1 },
+                ],
+              });
+              Alert.alert(
+                "Reserva creada",
+                `Tu reserva #${reserva.idReserva} está lista. Acércate a la sucursal para probártela.`,
+                [
+                  { text: "Ver mis reservas", onPress: () => router.push("/reservations" as any) },
+                  { text: "Ok", style: "cancel" },
+                ]
+              );
+            } catch (e: any) {
+              const msg =
+                e?.response?.data?.message ??
+                "No se pudo crear la reserva. Verifica que haya stock disponible.";
+              Alert.alert(
+                "Error",
+                Array.isArray(msg) ? msg.join("\n") : String(msg)
+              );
+            } finally {
+              setReservando(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // 1) Cargando
   if (loading) {
@@ -240,34 +304,38 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          {/* Botón probador virtual (solo si hay recursoRaUrl) */}
-          {producto.recursoRaUrl && (
-            <View className="mt-6">
-              <Button
-                title="Probar en vestidor virtual"
-                onPress={() =>
-                  Alert.alert(
-                    "Próximamente",
-                    "El vestidor virtual llegará en la última sesión."
-                  )
-                }
-                variant="outline"
-              />
-            </View>
-          )}
+          
+         {/* Botón probador virtual (solo si hay recursoRaUrl) */}
+           {producto.recursoRaUrl && (
+           <View className="mt-6  mb-8" >
+           <Button
+            title="👗 Probar en vestidor virtual"
+            onPress={() => router.push(`/virtual-fitting/${producto.idProducto}` as any)}
+            variant="outline"
+            />
+          </View>
+         )}
         </View>
       </ScrollView>
 
       {/* Botón fijo abajo */}
       <View
-      className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white px-6 pt-4"
-      style={{ paddingBottom: insets.bottom + 16 }}
-      >
-       <Button
-        title="Agregar al carrito"
-        onPress={handleAgregarCarrito}
-     />
-      </View>
+  className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white px-6 pt-4"
+  style={{ paddingBottom: insets.bottom + 16 }}
+>
+  <Button
+    title="Agregar al carrito"
+    onPress={handleAgregarCarrito}
+  />
+  <View className="mt-2">
+    <Button
+      title={reservando ? "Reservando..." : "Reservar para probar"}
+      onPress={handleReservar}
+      loading={reservando}
+      variant="outline"
+    />
+  </View>
+</View>
     </View>
   );
 }

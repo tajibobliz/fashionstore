@@ -120,12 +120,11 @@ export default function ProfileScreen() {
             label="Mis pedidos"
             onPress={() => router.push("/orders" as any)}
           />
-          <MenuItem
-            icon="calendar-outline"
-            label="Mis reservas"
-            onPress={() => {}}
-            disabled
-          />
+         <MenuItem
+  icon="calendar-outline"
+  label="Mis reservas"
+  onPress={() => router.push("/reservations" as any)}
+/>
           <MenuItem
             icon="heart-outline"
             label="Favoritos"
