@@ -10,6 +10,11 @@ import { Proveedor } from './entities/proveedor.entity';
 import { Coleccion } from './entities/coleccion.entity';
 import { Producto } from './entities/producto.entity';
 import { VarianteProducto } from './entities/variante-producto.entity';
+import { Sucursal } from '../branches/entities/sucursal.entity';
+import { Almacen } from '../warehouses/entities/almacen.entity';
+import { Inventario } from '../inventory/entities/inventario.entity';
+import { CatalogMasterSeed } from './seeds/catalog-master.seed';
+import { ProductsSeed } from './seeds/products.seed';
 
 @Module({
   imports: [
@@ -22,9 +27,12 @@ import { VarianteProducto } from './entities/variante-producto.entity';
       Coleccion,
       Producto,
       VarianteProducto,
+      Sucursal,
+      Almacen,
+      Inventario,
     ]),
   ],
   controllers: [CatalogController],
-  providers: [CatalogService],
+  providers: [CatalogService, CatalogMasterSeed, ProductsSeed],
 })
 export class CatalogModule {}
