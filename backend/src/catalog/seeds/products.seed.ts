@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Categoria } from '../entities/categoria.entity';
@@ -60,7 +60,7 @@ const toCode = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '')
 const prefix3 = (value: string) => toCode(value).slice(0, 3).padEnd(3, 'X');
 
 @Injectable()
-export class ProductsSeed implements OnModuleInit {
+export class ProductsSeed implements OnApplicationBootstrap {
   private readonly logger = new Logger(ProductsSeed.name);
 
   constructor(
@@ -74,7 +74,8 @@ export class ProductsSeed implements OnModuleInit {
     @InjectRepository(Inventario) private readonly inventarioRepo: Repository<Inventario>,
   ) {}
 
-  async onModuleInit() {
+  // Debe correr tras todos los onModuleInit: necesita categorías/tallas/colores creados por CatalogMasterSeed.
+  async onApplicationBootstrap() {
     const sucursales = await this.sucursalRepo.find();
     if (!sucursales.length) {
       this.logger.warn('No hay sucursales registradas; los productos se crearán sin inventario.');
