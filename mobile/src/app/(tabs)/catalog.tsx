@@ -5,16 +5,22 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { Button } from "@/components/ui/Button";
 import { catalogService } from "@/services/catalog.service";
 import { Producto } from "@/types/catalog.types";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // Estados de la pantalla
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -119,6 +125,25 @@ export default function CatalogScreen() {
           />
         }
       />
+
+      {isAuthenticated && (
+        <Pressable
+          onPress={() => router.push("/chat" as any)}
+          aria-label="Abrir asistente de FashionStore"
+          className="absolute h-[60px] w-[60px] items-center justify-center rounded-full bg-[#e11d48]"
+          style={{
+            bottom: 24,
+            right: 24,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+        >
+          <Ionicons name="chatbubble-ellipses" size={26} color="white" />
+        </Pressable>
+      )}
     </View>
   );
 }

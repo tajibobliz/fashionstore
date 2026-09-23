@@ -52,7 +52,7 @@ const PRODUCTS_SEED_DATA: ProductSeedItem[] = [
 
   { nombre: 'Sombrero fedora', categoria: 'Accesorios', precio: 120.0, descripcion: 'Sombrero fedora clásico, complemento perfecto.', imagenUrl: 'https://picsum.photos/seed/sombrero-fedora/800/800', tallas: ['UNICA'], colores: ['Negro', 'Beige', 'Café'] },
   { nombre: 'Cartera de mano', categoria: 'Accesorios', precio: 320.0, descripcion: 'Cartera de mano elegante, capacidad ideal para el día.', imagenUrl: "https://cdn.dummyjson.com/product-images/womens-bags/blue-women's-handbag/thumbnail.webp", tallas: ['UNICA'], colores: ['Negro', 'Beige', 'Rojo'] },
-  { nombre: 'Bufanda tejida', categoria: 'Accesorios', precio: 90.0, descripcion: 'Bufanda tejida a mano, cálida y suave.', imagenUrl: 'https://picsum.photos/seed/bufanda-tejida/800/800', tallas: ['UNICA'], colores: ['Rosado', 'Beige', 'Gris'] },
+  { nombre: 'Bufanda tejida', categoria: 'Accesorios', precio: 90.0, descripcion: 'Bufanda tejida a mano, cálida y suave.', imagenUrl: 'https://picsum.photos/seed/bufanda/800/800', tallas: ['UNICA'], colores: ['Rosado', 'Beige', 'Gris'] },
 ];
 
 // Deja solo letras/números en mayúscula, sin acentos (ej: "Café" -> "CAFE").

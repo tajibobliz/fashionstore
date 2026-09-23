@@ -11,6 +11,15 @@ import { DetalleVenta } from '../sales/entities/detalle-venta.entity';
 
 @Injectable()
 export class AiService {
+  // Subquery: ids de producto con stock disponible > 0 en al menos una variante/almacén.
+  // Se usa como filtro WHERE (no JOIN) para no inflar los SUM() de las queries que agregan.
+  private static readonly PRODUCTOS_CON_STOCK_SQL = `
+    SELECT vp.id_producto FROM variante_producto vp
+    INNER JOIN inventario inv ON inv.id_variante = vp.id_variante
+    GROUP BY vp.id_producto
+    HAVING SUM(inv.stock_disponible) > 0
+  `;
+
   constructor(
     @InjectRepository(InteraccionCliente)
     private readonly interaccionRepo: Repository<InteraccionCliente>,
@@ -83,18 +92,21 @@ export class AiService {
       .innerJoin('dv.variante', 'v')
       .innerJoin('v.producto', 'p')
       .where('p.estado = :estado', { estado: true })
+      .andWhere(`p.id_producto IN (${AiService.PRODUCTOS_CON_STOCK_SQL})`)
       .groupBy('p.id_producto')
       .orderBy('"totalVendido"', 'DESC')
       .limit(limit)
       .getRawMany();
 
     if (result.length === 0) {
-      // Si no hay ventas, devolver los últimos productos activos
-      return this.productoRepo.find({
-        where: { estado: true },
-        take: limit,
-        order: { idProducto: 'DESC' },
-      });
+      // Si no hay ventas, devolver los últimos productos activos con stock
+      return this.productoRepo
+        .createQueryBuilder('p')
+        .where('p.estado = :estado', { estado: true })
+        .andWhere(`p.id_producto IN (${AiService.PRODUCTOS_CON_STOCK_SQL})`)
+        .orderBy('p.id_producto', 'DESC')
+        .limit(limit)
+        .getMany();
     }
 
     const ids = result.map((r) => r.idProducto);
@@ -124,6 +136,7 @@ export class AiService {
       .andWhere('p.id_producto != :idProducto', { idProducto })
       .andWhere('p.precio BETWEEN :precioMin AND :precioMax', { precioMin, precioMax })
       .andWhere('p.estado = :estado', { estado: true })
+      .andWhere(`p.id_producto IN (${AiService.PRODUCTOS_CON_STOCK_SQL})`)
       .limit(limit)
       .getMany();
   }
@@ -145,6 +158,7 @@ export class AiService {
       .where('v1.id_producto = :idProducto', { idProducto })
       .andWhere('v2.id_producto != :idProducto', { idProducto })
       .andWhere('otros.estado = true')
+      .andWhere(`otros.id_producto IN (${AiService.PRODUCTOS_CON_STOCK_SQL})`)
       .groupBy('otros.id_producto')
       .orderBy('"coincidencias"', 'DESC')
       .limit(limit)
@@ -158,6 +172,70 @@ export class AiService {
       .where('p.id_producto IN (:...ids)', { ids })
       .getMany();
   }
+
+  /**
+   * Productos de una temporada (Producto -> Coleccion -> Temporada).
+   * "Más recientes" se aproxima por id_producto DESC: la entidad Producto no tiene
+   * columna de fecha de creación, y no podemos agregarla sin migración.
+   */
+  async recomendarPorTemporada(temporada: string, limit: number = 10) {
+    if (!temporada?.trim()) return [];
+    return this.productoRepo
+      .createQueryBuilder('p')
+      .innerJoin('p.coleccion', 'c')
+      .innerJoin('c.temporada', 't')
+      .where('LOWER(t.nombre) = LOWER(:temporada)', { temporada: temporada.trim() })
+      .andWhere('p.estado = :estado', { estado: true })
+      .orderBy('p.id_producto', 'DESC')
+      .limit(limit)
+      .getMany();
+  }
+
+  /**
+   * Productos con variantes en las tallas más frecuentes de las últimas 5 compras
+   * PAGADAS del usuario. Sin historial de compras pagadas -> array vacío.
+   */
+  async recomendarPorTalla(idUsuario: number, limit: number = 10) {
+    const ventasRecientes = await this.detalleVentaRepo.manager
+      .createQueryBuilder()
+      .select('v.id_venta', 'idVenta')
+      .from('venta', 'v')
+      .where('v.id_usuario = :idUsuario', { idUsuario })
+      .andWhere("v.estado = 'PAGADA'")
+      .orderBy('v.fecha', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    if (ventasRecientes.length === 0) return [];
+    const idsVenta = ventasRecientes.map((v) => v.idVenta);
+
+    const tallas = await this.detalleVentaRepo
+      .createQueryBuilder('dv')
+      .select('vp.id_talla', 'idTalla')
+      .addSelect('COUNT(*)', 'frecuencia')
+      .innerJoin('dv.variante', 'vp')
+      .where('dv.id_venta IN (:...idsVenta)', { idsVenta })
+      .andWhere('vp.id_talla IS NOT NULL')
+      .groupBy('vp.id_talla')
+      .orderBy('frecuencia', 'DESC')
+      .limit(3)
+      .getRawMany();
+
+    if (tallas.length === 0) return [];
+    const idsTalla = tallas.map((t) => t.idTalla);
+
+    return this.productoRepo
+      .createQueryBuilder('p')
+      .innerJoin('variante_producto', 'vp', 'vp.id_producto = p.id_producto')
+      .innerJoin('inventario', 'inv', 'inv.id_variante = vp.id_variante')
+      .where('vp.id_talla IN (:...idsTalla)', { idsTalla })
+      .andWhere('p.estado = :estado', { estado: true })
+      .groupBy('p.id_producto')
+      .having('SUM(inv.stock_disponible) > 0')
+      .limit(limit)
+      .getMany();
+  }
+
   /**
  * Asistente virtual con Claude (Anthropic).
  * Recibe consultas en lenguaje natural y responde con recomendaciones

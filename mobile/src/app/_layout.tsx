@@ -4,7 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 import { useAuthStore } from "@/stores/authStore";
 
-const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting"];
+const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting", "chat"];
 
 export default function RootLayout() {
   const { isLoading, isAuthenticated, loadSession } = useAuthStore();

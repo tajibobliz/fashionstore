@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -53,6 +54,22 @@ export class AiController {
     const n = limit ? parseInt(limit, 10) : 6;
     return this.service.tambienCompraron(idProducto, n);
   }
+  // Recomendaciones por temporada (útil para landing, sin login)
+  @Public()
+  @Get('recommendations/season')
+  recommendationsBySeason(@Query('temporada') temporada: string, @Query('limit') limit?: string) {
+    const n = limit ? parseInt(limit, 10) : 10;
+    return this.service.recomendarPorTemporada(temporada, n);
+  }
+
+  // Recomendaciones según las tallas más frecuentes del cliente logueado
+  @Roles(Role.CLIENTE)
+  @Get('recommendations/size')
+  recommendationsBySize(@Request() req: any, @Query('limit') limit?: string) {
+    const n = limit ? parseInt(limit, 10) : 10;
+    return this.service.recomendarPorTalla(req.user.idUsuario, n);
+  }
+
   // Asistente virtual con IA (Claude)
   @Post('chat')
   chat(@Request() req: any, @Body() dto: ConsultaChatDto) {
