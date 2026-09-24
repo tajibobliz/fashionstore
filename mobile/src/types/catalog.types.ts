@@ -42,6 +42,7 @@ export interface VarianteProducto {
   sku: string;
   talla: Talla | null;
   color: Color | null;
+  producto?: Producto;
   // Nota: el backend también manda `producto` dentro, pero lo ignoramos aquí
 }
 

@@ -3,15 +3,16 @@ import { Categoria, Coleccion, Color, Proveedor, Talla } from "./catalog.types";
 // ===== Cart =====
 
 export interface CartItemBackend {
-  idItem: number;
-  idVariante: number;
+  idDetalleCarrito: number;
   cantidad: number;
-  precioUnitario: string;
+  precio: string | number;
+  variante: VarianteEnDetalle;
 }
 
 export interface Cart {
   idCarrito: number;
-  items: CartItemBackend[];
+  detalles: CartItemBackend[];
+  sucursal?: { idSucursal: number; nombre: string } | null;
 }
 
 // ===== Enums =====

@@ -26,6 +26,7 @@ import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { CreateVarianteDto } from './dto/create-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
+import { CreateImagenVarianteDto } from './dto/create-imagen-variante.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -146,4 +147,17 @@ export class CatalogController {
   updateVariante(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateVarianteDto) { return this.service.updateVariante(id, dto); }
   @Delete('variantes/:id') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
   removeVariante(@Param('id', ParseIntPipe) id: number) { return this.service.removeVariante(id); }
+
+  @Public()
+  @Get('variantes/:id/imagenes')
+  findImagenesVariante(@Param('id', ParseIntPipe) id: number) { return this.service.findImagenesVariante(id); }
+
+  @Post('variantes/:id/imagenes') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  createImagenVariante(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateImagenVarianteDto) { return this.service.createImagenVariante(id, dto); }
+
+  @Patch('variantes/:id/imagenes/:idImagen/principal') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  setImagenPrincipal(@Param('id', ParseIntPipe) id: number, @Param('idImagen', ParseIntPipe) idImagen: number) { return this.service.setImagenPrincipal(id, idImagen); }
+
+  @Delete('variantes/:id/imagenes/:idImagen') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  removeImagenVariante(@Param('id', ParseIntPipe) id: number, @Param('idImagen', ParseIntPipe) idImagen: number) { return this.service.removeImagenVariante(id, idImagen); }
 }

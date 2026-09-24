@@ -13,6 +13,8 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
+import { API_URL } from "@/config/env";
+import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
 
 export default function LoginScreen() {
   const login = useAuthStore((state) => state.login);
@@ -36,10 +38,19 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
+      mobileLog("Pantalla login: enviando credenciales", { apiUrl: API_URL, emailProvided: Boolean(email.trim()) });
       await login(email.trim().toLowerCase(), password);
+      router.replace("/dashboard" as any);
+      mobileLog("Pantalla login: autenticación correcta");
       // No navegamos aquí: _layout.tsx detecta isAuthenticated y redirige
     } catch (e) {
       const err = e as AxiosError<{ message?: string | string[] }>;
+      mobileWarn("Pantalla login: autenticación rechazada", {
+        apiUrl: API_URL,
+        status: err.response?.status ?? null,
+        code: err.code ?? null,
+        backendMessage: err.response?.data?.message ?? null,
+      });
       let msg = "No se pudo iniciar sesión";
       if (!err.response) {
         msg = "Sin conexión con el servidor. Revisa la WiFi y que el backend esté corriendo.";
@@ -93,6 +104,9 @@ export default function LoginScreen() {
         <View className="mt-2">
           <Button title="Iniciar sesión" onPress={handleLogin} loading={loading} />
         </View>
+        <Pressable onPress={() => router.push("/server" as any)} className="mt-4 items-center py-2">
+          <Text className="text-sm font-semibold text-primary-500">Configurar servidor</Text>
+        </Pressable>
         <View className="mt-6 flex-row justify-center">
         <Text className="text-sm text-gray-600">¿No tienes cuenta? </Text>
         <Pressable onPress={() => router.replace("/register" as any)}>

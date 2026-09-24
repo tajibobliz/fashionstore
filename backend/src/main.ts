@@ -13,8 +13,14 @@ async function bootstrap() {
     ?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const expoDevelopmentOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}):(5173|8081|8082)$/;
   app.enableCors({
-    origin: configuredOrigins?.length ? configuredOrigins : ['http://localhost:5173'],
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      const allowed = !origin || configuredOrigins?.includes(origin) ||
+        (isDevelopment && expoDevelopmentOrigin.test(origin));
+      callback(null, Boolean(allowed));
+    },
     credentials: true,
   });
 

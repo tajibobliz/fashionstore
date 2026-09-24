@@ -26,6 +26,7 @@ export class SalesController {
 
   // Cliente compra desde su carrito (digital)
   @Post('from-cart')
+  @Roles(Role.CLIENTE)
   createFromCart(@Request() req: any, @Body() dto: CreateVentaCarritoDto) {
     return this.service.createFromCart(req.user.idUsuario, dto);
   }

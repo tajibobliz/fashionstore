@@ -6,6 +6,11 @@
 .inlineForm button, .form button, .actions button { padding: 10px 13px; border: 1px solid var(--border); border-radius: 9px; background: white; font: inherit; }
 .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
 .chips span { padding: 5px 9px; border-radius: 999px; background: var(--app-primary-light); color: var(--app-primary); font-size: .76rem; }
+.imageList { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.imageItem { min-width: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.imageItem img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--app-primary-light); }
+.imageItem div { display: grid; gap: 6px; padding: 8px; font-size: .75rem; }
+.imageItem button { padding: 5px; border: 1px solid var(--border); border-radius: 6px; background: white; font: inherit; }
 .formGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
 .form { display: flex; flex-direction: column; gap: 14px; }
 .form label { display: flex; flex-direction: column; gap: 6px; font-size: .8rem; font-weight: 700; }
@@ -17,4 +22,4 @@
 .table th, .table td { padding: 11px; border-bottom: 1px solid var(--border); text-align: left; font-size: .82rem; }
 .table th { color: var(--text-secondary); }
 @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .formGrid { grid-template-columns: 1fr; } .wide { grid-column: auto; } .inlineForm { flex-direction: column; } }
+@media (max-width: 560px) { .formGrid { grid-template-columns: 1fr; } .wide { grid-column: auto; } .inlineForm { flex-direction: column; } .imageList { grid-template-columns: 1fr; } }

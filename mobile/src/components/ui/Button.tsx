@@ -6,6 +6,7 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "outline";
   loading?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 export function Button({
@@ -14,6 +15,7 @@ export function Button({
   variant = "primary",
   loading = false,
   disabled = false,
+  compact = false,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -39,7 +41,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      className={`h-14 items-center justify-center rounded-xl ${variantStyles[variant]}`}
+      className={`${compact ? "h-12" : "h-14"} items-center justify-center rounded-xl ${variantStyles[variant]}`}
     >
       {loading ? (
         <ActivityIndicator color="white" />

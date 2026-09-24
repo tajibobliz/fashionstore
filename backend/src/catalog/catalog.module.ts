@@ -15,6 +15,7 @@ import { Almacen } from '../warehouses/entities/almacen.entity';
 import { Inventario } from '../inventory/entities/inventario.entity';
 import { CatalogMasterSeed } from './seeds/catalog-master.seed';
 import { ProductsSeed } from './seeds/products.seed';
+import { ImagenVariante } from './entities/imagen-variante.entity';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ProductsSeed } from './seeds/products.seed';
       Sucursal,
       Almacen,
       Inventario,
+      ImagenVariante,
     ]),
   ],
   controllers: [CatalogController],

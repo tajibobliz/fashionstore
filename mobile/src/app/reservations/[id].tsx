@@ -8,11 +8,11 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { reservationsService } from "@/services/reservations.service";
 import { Reservation, EstadoReserva } from "@/types/reservation.types";
 
@@ -58,7 +58,6 @@ const ESTADO_CONFIG: Record<EstadoReserva, EstadoConfig> = {
 };
 
 export default function ReservationDetailScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -157,17 +156,7 @@ export default function ReservationDetailScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <View
-        className="flex-row items-center bg-white px-4 pb-3 pt-2"
-        style={{ paddingTop: insets.top + 8 }}
-      >
-        <Pressable onPress={() => router.back()} className="mr-3">
-          <Ionicons name="arrow-back" size={26} color="#111827" />
-        </Pressable>
-        <Text className="text-xl font-bold text-gray-900">
-          Reserva #{reservation.idReserva}
-        </Text>
-      </View>
+      <AuthenticatedHeader title={`Reserva #${reservation.idReserva}`} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="mt-3 bg-white px-5 py-4">

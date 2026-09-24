@@ -162,3 +162,6 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .ar-close:hover { color: var(--dark); }
 .ar-hint { text-align: center; font-size: .85rem; color: var(--muted); margin-top: 12px; font-style: italic; }
 @media (max-width: 700px) { .ar-dialog { padding: 12px; } .ar-dialog model-viewer { height: 400px !important; } }
+.variant-gallery { min-width: 0; }
+.variant-thumbnails { display: flex; gap: 8px; padding: 8px 0; overflow-x: auto; }
+.variant-thumbnails img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }

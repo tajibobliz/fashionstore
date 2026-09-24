@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Categoria } from './entities/categoria.entity';
@@ -25,6 +25,8 @@ import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { CreateVarianteDto } from './dto/create-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
+import { ImagenVariante } from './entities/imagen-variante.entity';
+import { CreateImagenVarianteDto } from './dto/create-imagen-variante.dto';
 
 @Injectable()
 export class CatalogService {
@@ -37,6 +39,7 @@ export class CatalogService {
     @InjectRepository(Coleccion) private readonly coleccionRepo: Repository<Coleccion>,
     @InjectRepository(Producto) private readonly productoRepo: Repository<Producto>,
     @InjectRepository(VarianteProducto) private readonly varianteRepo: Repository<VarianteProducto>,
+    @InjectRepository(ImagenVariante) private readonly imagenVarianteRepo: Repository<ImagenVariante>,
   ) {}
 
   // ===== CATEGORIAS =====
@@ -252,5 +255,54 @@ export class CatalogService {
     const item = await this.findOneVariante(id);
     await this.varianteRepo.remove(item);
     return { message: `Variante ${id} eliminada` };
+  }
+
+  async findImagenesVariante(idVariante: number) {
+    await this.findOneVariante(idVariante);
+    return this.imagenVarianteRepo.find({
+      where: { variante: { idVariante } },
+      order: { orden: 'ASC' },
+    });
+  }
+
+  async createImagenVariante(idVariante: number, dto: CreateImagenVarianteDto) {
+    const variante = await this.findOneVariante(idVariante);
+    const imagenes = await this.findImagenesVariante(idVariante);
+    if (imagenes.length >= 3) throw new BadRequestException('Una variante admite como máximo 3 imágenes');
+
+    const orden = dto.orden ?? [1, 2, 3].find((value) => !imagenes.some((imagen) => imagen.orden === value));
+    if (!orden || imagenes.some((imagen) => imagen.orden === orden)) {
+      throw new BadRequestException('El orden de imagen debe ser único y estar entre 1 y 3');
+    }
+
+    if (dto.principal || imagenes.length === 0) {
+      await this.imagenVarianteRepo.update({ variante: { idVariante } }, { principal: false });
+    }
+    return this.imagenVarianteRepo.save(this.imagenVarianteRepo.create({
+      variante,
+      url: dto.url,
+      orden,
+      principal: dto.principal || imagenes.length === 0,
+    }));
+  }
+
+  async setImagenPrincipal(idVariante: number, idImagen: number) {
+    const imagen = await this.imagenVarianteRepo.findOne({ where: { idImagen, variante: { idVariante } } });
+    if (!imagen) throw new NotFoundException(`Imagen ${idImagen} no encontrada en la variante`);
+    await this.imagenVarianteRepo.update({ variante: { idVariante } }, { principal: false });
+    imagen.principal = true;
+    return this.imagenVarianteRepo.save(imagen);
+  }
+
+  async removeImagenVariante(idVariante: number, idImagen: number) {
+    const imagen = await this.imagenVarianteRepo.findOne({ where: { idImagen, variante: { idVariante } } });
+    if (!imagen) throw new NotFoundException(`Imagen ${idImagen} no encontrada en la variante`);
+    await this.imagenVarianteRepo.remove(imagen);
+    const remaining = await this.findImagenesVariante(idVariante);
+    if (imagen.principal && remaining.length) {
+      remaining[0].principal = true;
+      await this.imagenVarianteRepo.save(remaining[0]);
+    }
+    return { message: 'Imagen eliminada' };
   }
 }

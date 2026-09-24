@@ -5,19 +5,17 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { OrderCard } from "@/components/orders/OrderCard";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { salesService } from "@/services/sales.service";
 import { Sale } from "@/types/checkout.types";
 
 export default function MyOrdersScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [orders, setOrders] = useState<Sale[]>([]);
@@ -63,17 +61,7 @@ export default function MyOrdersScreen() {
   }
 
   // Header común (para reutilizar en todos los estados)
-  const Header = () => (
-    <View
-      className="flex-row items-center bg-white px-4 pb-3 pt-2"
-      style={{ paddingTop: insets.top + 8 }}
-    >
-      <Pressable onPress={() => router.back()} className="mr-3">
-        <Ionicons name="arrow-back" size={26} color="#111827" />
-      </Pressable>
-      <Text className="text-xl font-bold text-gray-900">Mis pedidos</Text>
-    </View>
-  );
+  const Header = () => <AuthenticatedHeader title="Mis pedidos" />;
 
   // Estado de error
   if (error) {

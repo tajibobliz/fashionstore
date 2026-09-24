@@ -1,11 +1,9 @@
 import { View, Text, Image, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Producto } from "@/types/catalog.types";
+import { Ionicons } from "@expo/vector-icons";
 
 // Imagen genérica cuando el producto no tiene foto
-const PLACEHOLDER_IMAGE =
-  "https://placehold.co/400x500/f3f4f6/9ca3af?text=Sin+imagen";
-
 interface Props {
   producto: Producto;
 }
@@ -32,11 +30,14 @@ export function ProductCard({ producto }: Props) {
         elevation: 2,
       }}
     >
-      <Image
-        source={{ uri: producto.imagenUrl ?? PLACEHOLDER_IMAGE }}
-        className="h-48 w-full bg-gray-100"
-        resizeMode="cover"
-      />
+      {producto.imagenUrl ? (
+        <Image source={{ uri: producto.imagenUrl }} className="h-48 w-full bg-gray-100" resizeMode="cover" />
+      ) : (
+        <View className="h-48 w-full items-center justify-center bg-gray-100">
+          <Ionicons name="image-outline" size={44} color="#9ca3af" />
+          <Text className="mt-2 text-xs text-gray-400">Sin imagen</Text>
+        </View>
+      )}
 
       <View className="p-3">
         <Text

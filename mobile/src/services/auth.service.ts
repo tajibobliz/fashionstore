@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { AuthResponse } from "@/types";
+import { mobileLog } from "@/utils/mobileLogger";
 
 interface LoginData {
   email: string;
@@ -16,7 +17,9 @@ interface RegisterData {
 
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
+    mobileLog("Login enviado", { endpoint: "/auth/login", emailProvided: Boolean(data.email), passwordProvided: Boolean(data.password) });
     const response = await api.post<AuthResponse>("/auth/login", data);
+    mobileLog("Login recibido", { status: response.status, role: response.data.user?.rol ?? null, userId: response.data.user?.idUsuario ?? null });
     return response.data;
   },
 

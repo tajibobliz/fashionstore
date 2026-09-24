@@ -7,6 +7,7 @@ import {
   OneToMany,
   JoinColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { Categoria } from './categoria.entity';
 import { Proveedor } from './proveedor.entity';
 import { Coleccion } from './coleccion.entity';
@@ -56,5 +57,5 @@ export class Producto {
   coleccion: Coleccion;
 
   @OneToMany(() => VarianteProducto, (v) => v.producto)
-  variantes: VarianteProducto[];
+  variantes: Relation<VarianteProducto[]>;
 }

@@ -32,9 +32,9 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  ] },
  ENCARGADO_SUCURSAL: { slug: 'encargado-sucursal', title: 'Panel de Sucursal', subtitle: 'Encargado de sucursal · Operación territorial', sections: [
  { id: '', label: 'Inicio', icon: LayoutDashboard },
- { id: 'inventario', label: 'Inventario', icon: Package, pending: true, description: 'Consulta y gestión de inventario de tus sucursales autorizadas.' },
- { id: 'reservas', label: 'Reservas', icon: Store, pending: true, description: 'Gestión de reservas de las sucursales asignadas.' },
- { id: 'ventas', label: 'Ventas', icon: Monitor, pending: true, description: 'Consulta de ventas del ámbito asignado.' },
+ { id: 'inventario', label: 'Inventario', icon: Package, description: 'Consulta y gestiona el inventario de tus sucursales autorizadas.' },
+ { id: 'reservas', label: 'Reservas', icon: Store, description: 'Gestiona las reservas de las sucursales asignadas.' },
+ { id: 'ventas', label: 'Ventas', icon: Monitor, description: 'Consulta las ventas del ámbito asignado.' },
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },

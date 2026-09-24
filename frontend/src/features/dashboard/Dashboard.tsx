@@ -13,6 +13,7 @@ import PosPage from '../pos/PosPage'
 import CatalogManagement from '../catalog/CatalogManagement'
 import ShiftPage from '../pos/ShiftPage'
 import ReturnsPage from '../returns/ReturnsPage'
+import BranchOperationsPage from '../branch-operations/BranchOperationsPage'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
  catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
@@ -51,6 +52,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />
  if (role === 'CAJERO' && section === 'caja') return <ShiftPage />
  if (section === 'devoluciones' && ['CAJERO', 'ENCARGADO', 'ADMIN'].includes(role)) return <ReturnsPage />
+ if (role === 'ENCARGADO_SUCURSAL' && ['inventario', 'reservas', 'ventas'].includes(section)) return <BranchOperationsPage section={section as 'inventario' | 'reservas' | 'ventas'} />
  if (role !== 'CAJERO' && section === 'catalogo') return <CatalogManagement />
  if (['usuarios', 'personal', 'ciudades', 'sucursales', 'almacenes', 'cajas'].includes(section)) return <ManagementPage section={section as 'usuarios' | 'personal' | 'ciudades' | 'sucursales' | 'almacenes' | 'cajas'} />
  if (registration) return <UserRegistration key={section} cashier={section === 'cajeros'} />

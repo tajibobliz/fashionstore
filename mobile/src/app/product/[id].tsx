@@ -13,23 +13,25 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { catalogService } from "@/services/catalog.service";
 import { Producto, VarianteProducto } from "@/types/catalog.types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
 import { reservationsService } from "@/services/reservations.service";
-import { DEFAULT_SUCURSAL_ID } from "@/config/env";
-
-const PLACEHOLDER_IMAGE =
-  "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
+import { cartService } from "@/services/cart.service";
+import { shopService } from "@/services/shop.service";
+import { useShopStore } from "@/stores/shopStore";
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const addItem = useCartStore((state) => state.addItem);
+  const setCart = useCartStore((state) => state.setCart);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const selectedBranchId = useShopStore((state) => state.selectedBranchId);
+  const [availableVariantIds, setAvailableVariantIds] = useState<Set<number>>(new Set());
   const [reservando, setReservando] = useState(false);
   const [producto, setProducto] = useState<Producto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,12 +44,26 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     const fetchProducto = async () => {
       try {
-        const data = await catalogService.getProductoById(Number(id));
+        setLoading(true);
+        setError(null);
+        const [data, inventory] = await Promise.all([
+          catalogService.getProductoById(Number(id)),
+          shopService.getInventory(),
+        ]);
+        const ids = new Set(
+          inventory
+            .filter((item) =>
+              item.sucursal.idSucursal === selectedBranchId &&
+              item.variante.producto.idProducto === Number(id) &&
+              item.stockDisponible > 0
+            )
+            .map((item) => item.variante.idVariante)
+        );
         setProducto(data);
+        setAvailableVariantIds(ids);
         // Si solo hay una variante, la seleccionamos automáticamente
-        if (data.variantes && data.variantes.length === 1) {
-          setVarianteSeleccionada(data.variantes[0]);
-        }
+        const available = (data.variantes ?? []).filter((variant) => ids.has(variant.idVariante));
+        setVarianteSeleccionada(available.length === 1 ? available[0] : null);
       } catch (e) {
         const err = e as AxiosError;
         if (!err.response) {
@@ -62,24 +78,35 @@ export default function ProductDetailScreen() {
       }
     };
     fetchProducto();
-  }, [id]);
+  }, [id, selectedBranchId]);
 
-    const handleAgregarCarrito = () => {
+  const handleAgregarCarrito = async () => {
     if (!varianteSeleccionada || !producto) {
       Alert.alert("Selecciona una opción", "Debes elegir talla y color.");
       return;
     }
 
-    addItem({
-      idVariante: varianteSeleccionada.idVariante,
-      nombre: producto.nombre,
-      precio: Number(producto.precio),
-      talla: varianteSeleccionada.talla?.nombre ?? null,
-      color: varianteSeleccionada.color?.nombre ?? null,
-      colorHex: varianteSeleccionada.color?.codigoHex ?? null,
-      imagenUrl: producto.imagenUrl,
-      cantidad: 1,
-    });
+    if (!isAuthenticated) {
+      Alert.alert("Necesitas iniciar sesión", "Inicia sesión para agregar productos al carrito.", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Iniciar sesión", onPress: () => router.push("/login" as any) },
+      ]);
+      return;
+    }
+
+    if (!selectedBranchId) {
+      Alert.alert("Selecciona una sucursal", "Vuelve al catalogo y elige la sucursal de compra.");
+      return;
+    }
+
+    try {
+      await cartService.addItem(varianteSeleccionada.idVariante, 1, selectedBranchId);
+      setCart(await cartService.getMyCart(selectedBranchId));
+    } catch (error: any) {
+      const message = error?.response?.data?.message ?? "No se pudo agregar el producto al carrito.";
+      Alert.alert("Error", Array.isArray(message) ? message.join("\n") : String(message));
+      return;
+    }
 
     Alert.alert("Agregado al carrito", `${producto.nombre} se agregó a tu carrito.`, [
       { text: "Seguir viendo", style: "cancel" },
@@ -105,6 +132,11 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    if (!selectedBranchId) {
+      Alert.alert("Selecciona una sucursal", "Vuelve al catalogo y elige la sucursal de la reserva.");
+      return;
+    }
+
     Alert.alert(
       "Confirmar reserva",
       `¿Reservar 1 unidad de ${producto.nombre} (Talla ${varianteSeleccionada.talla?.nombre}, ${varianteSeleccionada.color?.nombre}) para probártela en sucursal?`,
@@ -116,7 +148,7 @@ export default function ProductDetailScreen() {
             setReservando(true);
             try {
               const reserva = await reservationsService.create({
-                idSucursal: DEFAULT_SUCURSAL_ID,
+                idSucursal: selectedBranchId!,
                 detalles: [
                   { idVariante: varianteSeleccionada.idVariante, cantidad: 1 },
                 ],
@@ -171,11 +203,13 @@ export default function ProductDetailScreen() {
 
   // Datos derivados del producto
   const precioFormateado = Number(producto.precio).toFixed(2);
-  const tallas = getUnique(producto.variantes ?? [], (v) => v.talla);
-  const colores = getUnique(producto.variantes ?? [], (v) => v.color);
+  const availableVariants = (producto.variantes ?? []).filter((variant) => availableVariantIds.has(variant.idVariante));
+  const tallas = getUnique(availableVariants, (v) => v.talla);
+  const colores = getUnique(availableVariants, (v) => v.color);
 
   return (
     <View className="flex-1 bg-white">
+      {isAuthenticated ? <AuthenticatedHeader title="Detalle del producto" /> : null}
       <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
         {/* Imagen principal */}
         <View className="relative">
@@ -192,12 +226,12 @@ export default function ProductDetailScreen() {
          </View>
         )}
           {/* Botón atrás flotante */}
-          <Pressable
+          {!isAuthenticated ? <Pressable
             onPress={() => router.back()}
             className="absolute left-4 top-14 h-10 w-10 items-center justify-center rounded-full bg-white/90"
           >
             <Ionicons name="arrow-back" size={22} color="#111827" />
-          </Pressable>
+          </Pressable> : null}
         </View>
 
         {/* Info principal */}
@@ -234,7 +268,7 @@ export default function ProductDetailScreen() {
                       key={talla.idTalla}
                       onPress={() => {
                         // Buscar una variante con esa talla (respetando color si ya hay uno)
-                        const nueva = producto.variantes?.find(
+                        const nueva = availableVariants.find(
                           (v) =>
                             v.talla?.idTalla === talla.idTalla &&
                             (!varianteSeleccionada?.color ||
@@ -281,7 +315,7 @@ export default function ProductDetailScreen() {
                     <Pressable
                       key={color.idColor}
                       onPress={() => {
-                        const nueva = producto.variantes?.find(
+                        const nueva = availableVariants.find(
                           (v) =>
                             v.color?.idColor === color.idColor &&
                             (!varianteSeleccionada?.talla ||
@@ -305,13 +339,14 @@ export default function ProductDetailScreen() {
           )}
 
           
-         {/* Botón probador virtual (solo si hay recursoRaUrl) */}
-           {producto.recursoRaUrl && (
+         {/* El vestidor 2D usa la imagen del producto; el modelo 3D es opcional. */}
+           {hasVirtualFittingAsset(producto) && (
            <View className="mt-6  mb-8" >
            <Button
             title="👗 Probar en vestidor virtual"
             onPress={() => router.push(`/virtual-fitting/${producto.idProducto}` as any)}
             variant="outline"
+            compact
             />
           </View>
          )}
@@ -323,18 +358,26 @@ export default function ProductDetailScreen() {
   className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white px-6 pt-4"
   style={{ paddingBottom: insets.bottom + 16 }}
 >
-  <Button
-    title="Agregar al carrito"
-    onPress={handleAgregarCarrito}
-  />
-  <View className="mt-2">
+  <View className="flex-row gap-2">
+    <View className="flex-1">
+      <Button
+        title="Agregar al carrito"
+        onPress={() => void handleAgregarCarrito()}
+        disabled={!varianteSeleccionada || !selectedBranchId}
+        compact
+      />
+    </View>
+    <View className="flex-1">
     <Button
-      title={reservando ? "Reservando..." : "Reservar para probar"}
+      title={reservando ? "Reservando..." : "Reservar"}
       onPress={handleReservar}
       loading={reservando}
       variant="outline"
+      disabled={!varianteSeleccionada || !selectedBranchId}
+      compact
     />
   </View>
+</View>
 </View>
     </View>
   );
@@ -353,4 +396,16 @@ function getUnique<T, K extends { idTalla?: number; idColor?: number }>(
     if (!map.has(id)) map.set(id, key);
   }
   return Array.from(map.values());
+}
+
+function hasVirtualFittingAsset(producto: Producto) {
+  return isImageResource(producto.imagenUrl) || isImageResource(producto.recursoRaUrl) || isModelResource(producto.recursoRaUrl)
+}
+
+function isImageResource(url: string | null) {
+  return !!url?.trim() && (/^https?:\/\//i.test(url) || /^file:\/\//i.test(url) || /\.(png|jpe?g|webp)(?:[?#].*)?$/i.test(url))
+}
+
+function isModelResource(url: string | null) {
+  return !!url && /\.(glb|gltf)(?:[?#].*)?$/i.test(url)
 }

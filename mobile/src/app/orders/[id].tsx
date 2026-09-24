@@ -7,11 +7,11 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { salesService } from "@/services/sales.service";
 import { Sale, EstadoVenta } from "@/types/checkout.types";
 
@@ -56,7 +56,6 @@ const ESTADO_CONFIG: Record<EstadoVenta, EstadoConfig> = {
 };
 
 export default function OrderDetailScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -118,17 +117,7 @@ export default function OrderDetailScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <View
-        className="flex-row items-center bg-white px-4 pb-3 pt-2"
-        style={{ paddingTop: insets.top + 8 }}
-      >
-        <Pressable onPress={() => router.back()} className="mr-3">
-          <Ionicons name="arrow-back" size={26} color="#111827" />
-        </Pressable>
-        <Text className="text-xl font-bold text-gray-900">
-          Pedido #{order.idVenta}
-        </Text>
-      </View>
+      <AuthenticatedHeader title={`Pedido #${order.idVenta}`} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="mt-3 bg-white px-5 py-4">

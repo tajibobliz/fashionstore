@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ActivityIndicator, View } from "react-native";
 import "../global.css";
 import { useAuthStore } from "@/stores/authStore";
 
-const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting"];
+const PROTECTED_ROUTES = ["dashboard", "cart", "profile", "checkout", "order-success", "reservations", "orders", "virtual-fitting"];
 
 export default function RootLayout() {
   const { isLoading, isAuthenticated, loadSession } = useAuthStore();
@@ -25,13 +27,27 @@ export default function RootLayout() {
     if (isProtected && !isAuthenticated) {
       router.replace("/login" as any);
     } else if (inAuthGroup && isAuthenticated) {
-      router.replace("/" as any);
+      router.replace("/dashboard" as any);
     }
   }, [isAuthenticated, isLoading, segments]);
 
+  if (isLoading) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <View className="flex-1 items-center justify-center bg-white">
+            <ActivityIndicator color="#e11d48" />
+          </View>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

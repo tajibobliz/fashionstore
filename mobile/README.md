@@ -2,6 +2,27 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Conexión con FashionStore Backend
+
+La URL del API se configura mediante variables de Expo, no está fijada en el código.
+
+1. Copia `.env.example` como `.env`.
+2. Para producción, configura `EXPO_PUBLIC_API_URL` con la URL HTTPS de Render o Railway.
+3. Para un teléfono físico en desarrollo, usa la IP Wi-Fi actual del computador, por ejemplo `http://192.168.100.11:3000`.
+4. Reinicia Expo cuando cambies el archivo `.env`.
+
+En Expo Web, si no se configura esa variable, la app usa automáticamente el mismo host de la página con el puerto `3000`. Android Emulator usa `http://10.0.2.2:3000`.
+
+## APK y cambio de red
+
+La APK permite cambiar la URL sin recompilar: abre **Iniciar sesión → Configurar servidor** o **Perfil → Configurar servidor**. Esa URL se guarda en el teléfono y se usa en cada petición.
+
+- Para backend desplegado, usa una URL HTTPS estable, por ejemplo `https://fashionstore-api.onrender.com`.
+- Para backend local, teléfono y computadora deben estar en la misma Wi-Fi. Usa `http://IP-DE-TU-PC:3000`, nunca `localhost`.
+- Si cambia la IP de la red Wi-Fi, vuelve a Configurar servidor, actualiza la IP y guarda.
+
+`eas.json` tiene los perfiles `preview` y `production-apk`, ambos generan un APK instalable. El perfil `production` genera el formato predeterminado AAB para Google Play.
+
 ## Get started
 
 1. Install dependencies

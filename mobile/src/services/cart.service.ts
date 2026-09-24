@@ -3,8 +3,8 @@ import { Cart } from "@/types/checkout.types";
 
 export const cartService = {
   // Obtiene el carrito del usuario logueado (se crea si no existe)
-  async getMyCart(): Promise<Cart> {
-    const { data } = await api.get<Cart>("/cart/me");
+  async getMyCart(idSucursal: number): Promise<Cart> {
+    const { data } = await api.get<Cart>("/cart/me", { params: { idSucursal } });
     return data;
   },
 
@@ -18,8 +18,19 @@ export const cartService = {
     return data;
   },
 
+  async updateItem(idDetalleCarrito: number, cantidad: number): Promise<Cart> {
+    const { data } = await api.patch<Cart>(`/cart/items/${idDetalleCarrito}`, { cantidad });
+    return data;
+  },
+
+  async removeItem(idDetalleCarrito: number): Promise<Cart> {
+    const { data } = await api.delete<Cart>(`/cart/items/${idDetalleCarrito}`);
+    return data;
+  },
+
   // Vacía el carrito completo (útil después de comprar)
-  async clearCart() {
-    await api.delete("/cart/me");
+  async clearCart(idSucursal: number): Promise<Cart> {
+    const { data } = await api.delete<Cart>("/cart/me", { params: { idSucursal } });
+    return data;
   },
 };

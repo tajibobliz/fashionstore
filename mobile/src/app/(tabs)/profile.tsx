@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { useAuthStore } from "@/stores/authStore";
 
 interface MenuItemProps {
@@ -48,7 +49,10 @@ export default function ProfileScreen() {
         {
           text: "Cerrar sesión",
           style: "destructive",
-          onPress: () => logout(),
+          onPress: async () => {
+            await logout();
+            router.replace("/home" as any);
+          },
         },
       ]
     );
@@ -90,11 +94,12 @@ export default function ProfileScreen() {
   // Con sesión
   return (
     <View className="flex-1 bg-gray-50">
+      <AuthenticatedHeader title="Perfil" />
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Header con datos del usuario */}
         <View
           className="bg-white px-5 pb-5"
-          style={{ paddingTop: insets.top + 20 }}
+          style={{ paddingTop: 20 }}
         >
           <View className="flex-row items-center">
             <View className="h-16 w-16 items-center justify-center rounded-full bg-primary-500">
@@ -115,6 +120,11 @@ export default function ProfileScreen() {
 
         {/* Menú de opciones */}
         <View className="mt-3">
+          <MenuItem
+            icon="server-outline"
+            label="Configurar servidor"
+            onPress={() => router.push("/server" as any)}
+          />
           <MenuItem
             icon="bag-handle-outline"
             label="Mis pedidos"

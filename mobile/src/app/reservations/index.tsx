@@ -5,19 +5,17 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { ReservationCard } from "@/components/orders/ReservationCard";
+import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { reservationsService } from "@/services/reservations.service";
 import { Reservation } from "@/types/reservation.types";
 
 export default function MyReservationsScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -67,17 +65,7 @@ export default function MyReservationsScreen() {
     );
   }
 
-  const Header = () => (
-    <View
-      className="flex-row items-center bg-white px-4 pb-3 pt-2"
-      style={{ paddingTop: insets.top + 8 }}
-    >
-      <Pressable onPress={() => router.back()} className="mr-3">
-        <Ionicons name="arrow-back" size={26} color="#111827" />
-      </Pressable>
-      <Text className="text-xl font-bold text-gray-900">Mis reservas</Text>
-    </View>
-  );
+  const Header = () => <AuthenticatedHeader title="Mis reservas" />;
 
   if (error) {
     return (
