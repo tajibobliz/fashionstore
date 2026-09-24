@@ -180,6 +180,7 @@ export class CatalogService {
       cantidadMinimaMayorista: dto.cantidadMinimaMayorista,
       imagenUrl: dto.imagenUrl,
       recursoRaUrl: dto.recursoRaUrl,
+      imagenTryOn: dto.imagenTryOn || null,
       estado: dto.estado ?? true,
       categoria: await this.findOneCategoria(dto.idCategoria),
     });
@@ -214,6 +215,8 @@ export class CatalogService {
       cantidadMinimaMayorista: dto.cantidadMinimaMayorista ?? item.cantidadMinimaMayorista,
       imagenUrl: dto.imagenUrl ?? item.imagenUrl,
       recursoRaUrl: dto.recursoRaUrl ?? item.recursoRaUrl,
+      // undefined conserva el valor actual; null o '' lo elimina
+      imagenTryOn: dto.imagenTryOn === undefined ? item.imagenTryOn : dto.imagenTryOn || null,
       estado: dto.estado ?? item.estado,
     });
     return this.productoRepo.save(item);

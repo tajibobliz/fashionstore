@@ -1,0 +1,27 @@
+.page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 16px 24px; box-sizing: border-box; background: var(--dark); color: white; }
+.header { width: 100%; max-width: 1280px; }
+.kicker { margin: 0 0 2px; color: rgba(255, 255, 255, .6); font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.title { margin: 0; font-size: clamp(1.15rem, 3.2vw, 1.6rem); }
+
+/* Escenario: contiene el aviso/placeholder o el canvas. El canvas escala conservando su proporción (máx. 1280px, tipo 720p). */
+.stage { position: relative; width: 100%; max-width: 1280px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.canvasWrap { position: relative; display: inline-flex; max-width: 100%; }
+.hidden { display: none; }
+.canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 230px); max-height: calc(100dvh - 230px); border-radius: 14px; background: #000; }
+.hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); margin: 0; padding: 8px 14px; max-width: calc(100% - 24px); border-radius: 999px; background: rgba(0, 0, 0, .68); color: white; font-size: .84rem; text-align: center; }
+
+.placeholder { width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 230px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-radius: 14px; background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .85); font-size: .95rem; }
+.spinner { width: 34px; height: 34px; border: 3px solid rgba(255, 255, 255, .2); border-top-color: white; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.notice { width: 100%; max-width: 620px; margin: 24px auto; padding: 26px 24px; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .16); border-radius: 16px; background: rgba(255, 255, 255, .06); text-align: center; }
+.notice h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.notice p { margin: 0 0 4px; color: rgba(255, 255, 255, .78); line-height: 1.5; font-size: .92rem; }
+.noticeActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.action, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.secondary { padding: 12px 20px; border: 1px solid rgba(255, 255, 255, .55); border-radius: 8px; background: transparent; color: white; font: inherit; }
+.secondary:hover { background: rgba(255, 255, 255, .12); }
+.note { flex-basis: 100%; text-align: center; color: rgba(255, 255, 255, .8); font-size: .86rem; }

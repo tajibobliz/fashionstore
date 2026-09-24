@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -58,6 +59,13 @@ export class CreateProductoDto {
   @IsOptional()
   @IsString()
   recursoRaUrl?: string;
+
+  /** PNG sin fondo para el vestidor virtual 2D. null o cadena vacía lo quita. */
+  @ApiPropertyOptional({ example: 'https://cdn.ejemplo.com/lentes-tryon.png', nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  imagenTryOn?: string | null;
 
   @IsOptional()
   @IsBoolean()

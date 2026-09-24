@@ -40,6 +40,9 @@ export class Producto {
   @Column({ name: 'recurso_ra_url', length: 500, nullable: true })
   recursoRaUrl: string;
 
+  @Column({ name: 'imagen_try_on', type: 'varchar', length: 500, nullable: true })
+  imagenTryOn: string | null;
+
   @Column({ default: true })
   estado: boolean;
 
