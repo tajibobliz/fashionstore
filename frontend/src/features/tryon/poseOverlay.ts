@@ -25,7 +25,7 @@ export const SHIRT_WIDTH_RATIO = 2.2
 export const SHIRT_HEIGHT_RATIO = 1.7
 
 /** Cuánto sube el borde superior de la polera por encima del punto medio de los hombros, para cubrir el cuello. */
-export const SHIRT_NECK_OFFSET_RATIO = 0.15
+export const SHIRT_NECK_OFFSET_RATIO = 0.35
 
 /**
  * Calcula dónde poner el PNG de la polera a partir de los 4 puntos del torso (hombros y caderas).
