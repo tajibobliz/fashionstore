@@ -70,10 +70,10 @@ export function glassesPlacement(
 // ===== GORRA =====
 
 /** Ancho de la gorra respecto a la distancia entre mejillas (234↔454: el ancho de la cabeza). */
-export const CAP_WIDTH_RATIO = 1.8
+export const CAP_WIDTH_RATIO = 1.3
 
 /** Cuánto sube el borde inferior de la gorra por encima de la frente (FOREHEAD_TOP), como fracción del alto de cara. */
-export const CAP_TOP_OFFSET_RATIO = 0.2
+export const CAP_TOP_OFFSET_RATIO = 0.05
 
 /**
  * Calcula dónde poner el PNG de una gorra o sombrero.
