@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -66,6 +67,12 @@ export class CreateProductoDto {
   @IsString()
   @MaxLength(500)
   imagenTryOn?: string | null;
+
+  /** Tipo de prenda para el vestidor virtual: define qué landmarks usa (cara para lentes/gorra, cuerpo para poleras). null si el producto no tiene vestidor. */
+  @ApiPropertyOptional({ enum: ['lentes', 'gorra', 'polera'], nullable: true })
+  @IsOptional()
+  @IsIn(['lentes', 'gorra', 'polera'])
+  tipoTryOn?: 'lentes' | 'gorra' | 'polera' | null;
 
   @IsOptional()
   @IsBoolean()

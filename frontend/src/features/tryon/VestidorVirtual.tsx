@@ -3,14 +3,16 @@ import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import type { FaceLandmarker } from '@mediapipe/tasks-vision'
 import { ArrowLeft, Camera, RefreshCw } from 'lucide-react'
 import { catalogApi } from '../../api/catalog.api'
 import { queryKeys } from '../../api/queryKeys'
 import { getApiErrorMessage } from '../../utils/apiError'
-import { createFaceLandmarker } from './mediapipe'
-import { drawPlacement, glassesPlacement, smoothPlacement } from './faceOverlay'
-import type { Placement } from './faceOverlay'
+import type { TipoTryOn } from '../../types/catalog'
+import { createDetector } from './mediapipe'
+import type { Detector } from './mediapipe'
+import { drawPlacement, smoothPlacement } from './geometry'
+import type { Placement } from './geometry'
+import { TRY_ON_STRATEGIES } from './strategies'
 import styles from './VestidorVirtual.module.css'
 
 // Frames consecutivos sin rostro que se toleran antes de quitar el PNG (evita parpadeos por una detección fallida).
@@ -82,13 +84,13 @@ export default function VestidorVirtual() {
       <button type="button" className={`primary-button ${styles.action}`} onClick={() => void product.refetch()}><RefreshCw size={18} aria-hidden="true" />Reintentar</button>
       <button type="button" className={styles.secondary} onClick={backToStore}>Volver a la tienda</button>
     </Notice>
-  } else if (!product.data.imagenTryOn) {
+  } else if (!product.data.imagenTryOn || !product.data.tipoTryOn) {
     content = <Notice title="Este producto aún no tiene vestidor virtual" text="Todavía no cargamos la imagen necesaria para probártelo.">
       <button type="button" className={`primary-button ${styles.action}`} onClick={backToProduct}><ArrowLeft size={18} aria-hidden="true" />Volver al producto</button>
     </Notice>
   } else {
     // `key` reinicia por completo la cámara y el modelo cuando el usuario pulsa Reintentar.
-    content = <TryOnStage key={attempt} tryOnUrl={product.data.imagenTryOn} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
+    content = <TryOnStage key={attempt} tryOnUrl={product.data.imagenTryOn} tipoTryOn={product.data.tipoTryOn} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
   }
 
   return <main className={styles.page}>
@@ -110,20 +112,24 @@ function Notice({ title, text, children }: { title: string; text?: string; child
 
 interface StageProps {
   tryOnUrl: string
+  tipoTryOn: TipoTryOn
   productName: string
   onBack: () => void
   onRetry: () => void
 }
 
-function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
+function TryOnStage({ tryOnUrl, tipoTryOn, productName, onBack, onRetry }: StageProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   // false si el servidor de la imagen no envía CORS: se ve bien, pero el canvas queda "tainted" y no se puede exportar.
   const exportable = useRef(true)
   const supported = useMemo(() => Boolean(navigator.mediaDevices?.getUserMedia), [])
+  // La estrategia decide QUÉ modelo cargar (cara o cuerpo) y CÓMO ubicar el PNG; el resto de este
+  // componente es el mismo sea cual sea la prenda.
+  const strategy = TRY_ON_STRATEGIES[tipoTryOn]
   const [phase, setPhase] = useState<'starting' | 'model' | 'ready'>('starting')
   const [error, setError] = useState<StageError | null>(null)
-  const [faceVisible, setFaceVisible] = useState(true)
+  const [detected, setDetected] = useState(true)
   const [notice, setNotice] = useState('')
   const shownError: StageError | null = supported ? error : 'unsupported'
 
@@ -136,14 +142,14 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
     let cancelled = false
     let frame = 0
     let stream: MediaStream | null = null
-    let landmarker: FaceLandmarker | null = null
+    let detector: Detector | null = null
 
     const stopAll = () => {
       cancelAnimationFrame(frame)
       stream?.getTracks().forEach(track => track.stop())
       stream = null
-      landmarker?.close()
-      landmarker = null
+      detector?.close()
+      detector = null
     }
     const fail = (kind: StageError) => {
       if (cancelled) return
@@ -182,21 +188,21 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
       if (cancelled) return
       setPhase('model')
 
-      // 3) Modelo de detección facial (MediaPipe).
+      // 3) Modelo de MediaPipe: FaceLandmarker (lentes/gorra) o PoseLandmarker (poleras), según la estrategia.
       try {
-        landmarker = await createFaceLandmarker()
+        detector = await createDetector(strategy.model)
       } catch {
         return fail('model')
       }
       if (cancelled) return stopAll()
       setPhase('ready')
 
-      // 4) Bucle de dibujo: cada frame pinta el video y, encima, el PNG siguiendo el rostro.
-      const detector = landmarker
+      // 4) Bucle de dibujo: cada frame pinta el video y, encima, el PNG siguiendo el rostro o el cuerpo.
+      const activeDetector = detector
       let lastVideoTime = -1
       let placement: Placement | null = null
       let missed = 0
-      let faceShown = true
+      let wasDetected = true
       const draw = () => {
         frame = requestAnimationFrame(draw)
         if (video.readyState < 2 || !video.videoWidth) return
@@ -217,8 +223,8 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
         if (video.currentTime !== lastVideoTime) {
           lastVideoTime = video.currentTime
           try {
-            const face = detector.detectForVideo(video, performance.now()).faceLandmarks[0]
-            const target = face ? glassesPlacement(face, width, height, imageAspect) : null
+            const landmarks = activeDetector.detect(video, performance.now())
+            const target = landmarks ? strategy.placement(landmarks, width, height, imageAspect) : null
             if (target) {
               placement = smoothPlacement(placement, target)
               missed = 0
@@ -229,12 +235,12 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
             return fail('model')
           }
           const visible = placement !== null
-          if (visible !== faceShown) {
-            faceShown = visible
-            setFaceVisible(visible)
+          if (visible !== wasDetected) {
+            wasDetected = visible
+            setDetected(visible)
           }
         }
-        // El PNG va SIN espejar (el texto y logos de los lentes se leen bien); solo su posición está espejada.
+        // El PNG va SIN espejar (el texto y logos se leen bien); solo su posición está espejada.
         if (placement) drawPlacement(ctx, tryOn.image, placement)
       }
       draw()
@@ -246,7 +252,7 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
       stopAll()
       video.srcObject = null
     }
-  }, [supported, tryOnUrl])
+  }, [supported, tryOnUrl, strategy])
 
   const takePhoto = () => {
     const canvas = canvasRef.current
@@ -282,11 +288,11 @@ function TryOnStage({ tryOnUrl, productName, onBack, onRetry }: StageProps) {
       </Notice>}
       {!copy && phase !== 'ready' && <div className={styles.placeholder} role="status">
         <span className={styles.spinner} aria-hidden="true" />
-        {phase === 'starting' ? 'Iniciando cámara…' : 'Cargando detector facial…'}
+        {phase === 'starting' ? 'Iniciando cámara…' : 'Cargando el detector…'}
       </div>}
       <div className={`${styles.canvasWrap} ${!copy && phase === 'ready' ? '' : styles.hidden}`}>
         <canvas ref={canvasRef} className={styles.canvas} aria-label={`Tu imagen con ${productName} superpuesto`} />
-        {!faceVisible && <p className={styles.hint} role="status">No detectamos tu rostro. Mira a la cámara y busca buena luz.</p>}
+        {!detected && <p className={styles.hint} role="status">{strategy.notDetectedHint}</p>}
       </div>
     </div>
     <div className={styles.controls}>

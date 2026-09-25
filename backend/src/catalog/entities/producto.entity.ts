@@ -43,6 +43,9 @@ export class Producto {
   @Column({ name: 'imagen_try_on', type: 'varchar', length: 500, nullable: true })
   imagenTryOn: string | null;
 
+  @Column({ name: 'tipo_try_on', type: 'varchar', length: 20, nullable: true })
+  tipoTryOn: 'lentes' | 'gorra' | 'polera' | null;
+
   @Column({ default: true })
   estado: boolean;
 

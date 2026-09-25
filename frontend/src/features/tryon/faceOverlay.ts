@@ -1,39 +1,29 @@
-// Geometría del vestidor virtual: convierte los puntos que devuelve MediaPipe en la posición,
-// el tamaño y la rotación con que se dibuja el PNG del producto sobre el video.
+// Superposiciones que usan FaceLandmarker (los 478 puntos de la malla facial): lentes y gorra.
 
-/** Punto de la malla facial: coordenadas NORMALIZADAS (0..1) sobre el frame de video sin espejar. */
-export interface Landmark {
-  x: number
-  y: number
-}
-
-/** Dónde y cómo dibujar el PNG. Todo en píxeles del canvas; `angle` en radianes (sentido horario). */
-export interface Placement {
-  cx: number
-  cy: number
-  width: number
-  height: number
-  angle: number
-}
+import { offsetAlong, screenLine, toCanvasPoint } from './geometry'
+import type { Landmark, Placement } from './geometry'
 
 /**
  * Índices de la malla de MediaPipe FaceLandmarker (478 puntos: 468 de la cara + 10 del iris).
  * "Derecho/izquierdo" se refiere al usuario, no a la imagen: en el frame SIN espejar el ojo derecho
- * del usuario aparece a la IZQUIERDA de la imagen.
+ * del usuario aparece a la IZQUIERDA de la imagen (misma convención que usa MediaPipe).
  */
 export const FACE_LANDMARKS = {
   /** Comisura externa del ojo derecho del usuario (la más alejada de la nariz). */
   RIGHT_EYE_OUTER: 33,
   /** Comisura externa del ojo izquierdo del usuario. */
   LEFT_EYE_OUTER: 263,
-  // TODO(gorras): la gorra se ancla a la frente y las sienes:
-  //   10 = centro de la frente (borde superior del rostro), 67 y 297 = extremos de la frente (sienes),
-  //   234 y 454 = laterales del rostro a la altura de las orejas (dan el ancho de la cabeza).
-  //   Ancho = distancia 234-454, posicionar sobre el punto 10 con la misma rotación que los ojos.
-  // TODO(poleras): FaceLandmarker solo ve la cara. Para el torso hay que sumar PoseLandmarker
-  //   (MediaPipe Tasks Vision también): 11 = hombro izquierdo, 12 = hombro derecho, 23/24 = caderas.
-  //   Ancho = distancia entre hombros, y el PNG se ancla a los hombros.
+  /** Borde superior del rostro / nacimiento del cabello, centro de la frente. Ancla vertical de la gorra. */
+  FOREHEAD_TOP: 10,
+  /** Punta del mentón. Junto con FOREHEAD_TOP da el "alto de cara" para escalar el offset de la gorra. */
+  CHIN: 152,
+  /** Lateral del rostro a la altura de la mejilla derecha del usuario (da el ancho de la cabeza). */
+  RIGHT_CHEEK: 234,
+  /** Lateral del rostro a la altura de la mejilla izquierda del usuario. */
+  LEFT_CHEEK: 454,
 } as const
+
+// ===== LENTES =====
 
 /**
  * Ancho del marco de los lentes respecto a la distancia entre las comisuras externas de los ojos.
@@ -48,19 +38,13 @@ export const GLASSES_Y_OFFSET_RATIO = 0.02
 /**
  * Calcula dónde poner el PNG de unos lentes.
  *
- * Idea: dos puntos del rostro (los ojos) definen una recta. De esa recta salen las tres magnitudes que
- * necesita un elemento 2D para "pegarse" a la cara:
+ * Idea: los dos ojos definen una recta. De esa recta salen las tres magnitudes que necesita un elemento 2D
+ * para "pegarse" a la cara:
  *  - POSICIÓN: el punto medio entre los ojos es el puente de la nariz, donde va el centro de los lentes.
  *  - ESCALA:   la distancia entre ojos cambia al acercarse o alejarse de la cámara, así que el ancho de
  *              los lentes es proporcional a ella (GLASSES_WIDTH_RATIO) y "sigue" el rostro en profundidad.
  *  - ROTACIÓN: el ángulo de la recta ojo-ojo es la inclinación lateral de la cabeza (roll); se rota el PNG
  *              ese mismo ángulo para que acompañe la inclinación.
- *
- * @param landmarks  puntos de MediaPipe para una cara (normalizados, frame sin espejar)
- * @param width      ancho del canvas en px
- * @param height     alto del canvas en px
- * @param imageAspect alto/ancho del PNG (para no deformarlo)
- * @param mirrored   true si el canvas muestra el video espejado (vista tipo selfie)
  */
 export function glassesPlacement(
   landmarks: readonly Landmark[],
@@ -73,55 +57,60 @@ export function glassesPlacement(
   const left = landmarks[FACE_LANDMARKS.LEFT_EYE_OUTER]
   if (!right || !left || !Number.isFinite(imageAspect) || imageAspect <= 0) return null
 
-  // Al espejar el video, x se invierte: un punto en x=0.2 del frame se ve en x=0.8 del canvas.
-  const toCanvas = (p: Landmark) => ({ x: (mirrored ? 1 - p.x : p.x) * width, y: p.y * height })
-  const a = toCanvas(right)
-  const b = toCanvas(left)
+  const eyes = screenLine(right, left, width, height, mirrored)
+  if (eyes.distance === 0) return null
 
-  // Se ordenan de izquierda a derecha EN PANTALLA: así el ángulo no depende de si el video está espejado
-  // (con el espejo, el "ojo derecho" pasa a estar a la derecha de la pantalla y el orden se invertiría).
-  const [start, end] = a.x <= b.x ? [a, b] : [b, a]
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const eyeDistance = Math.hypot(dx, dy)
-  if (eyeDistance === 0) return null
-
-  const angle = Math.atan2(dy, dx)
-  const frameWidth = eyeDistance * GLASSES_WIDTH_RATIO
-
-  // El corrimiento vertical se aplica sobre el eje "abajo" de la cara (perpendicular a la recta de los ojos),
+  const frameWidth = eyes.distance * GLASSES_WIDTH_RATIO
+  // El corrimiento vertical se aplica sobre el eje de la cara (perpendicular a la recta de los ojos),
   // no sobre el eje Y de la pantalla, para que siga siendo correcto con la cabeza inclinada.
-  const offset = eyeDistance * GLASSES_Y_OFFSET_RATIO
-  return {
-    cx: (start.x + end.x) / 2 - Math.sin(angle) * offset,
-    cy: (start.y + end.y) / 2 + Math.cos(angle) * offset,
-    width: frameWidth,
-    height: frameWidth * imageAspect,
-    angle,
-  }
+  const center = offsetAlong(eyes.midX, eyes.midY, eyes.angle, eyes.distance * GLASSES_Y_OFFSET_RATIO)
+  return { cx: center.x, cy: center.y, width: frameWidth, height: frameWidth * imageAspect, angle: eyes.angle }
 }
+
+// ===== GORRA =====
+
+/** Ancho de la gorra respecto a la distancia entre mejillas (234↔454: el ancho de la cabeza). */
+export const CAP_WIDTH_RATIO = 1.8
+
+/** Cuánto sube el borde inferior de la gorra por encima de la frente (FOREHEAD_TOP), como fracción del alto de cara. */
+export const CAP_TOP_OFFSET_RATIO = 0.2
 
 /**
- * Suaviza el movimiento: los puntos de MediaPipe "tiemblan" ligeramente entre frames y eso hace vibrar el PNG.
- * Media móvil exponencial: alpha=1 sigue al dato nuevo sin suavizar; valores menores lo amortiguan.
+ * Calcula dónde poner el PNG de una gorra o sombrero.
+ *
+ *  - ESCALA:   el ancho de cabeza (mejilla↔mejilla) escala la gorra, igual que la distancia entre ojos
+ *              escala los lentes.
+ *  - POSICIÓN: el borde inferior de la gorra se ancla a la frente (punto 10) y sube un 20% del alto de
+ *              cara (frente↔mentón) para que la gorra quede calzada sobre la cabeza, no sobre los ojos.
+ *  - ROTACIÓN: usa el ángulo de los OJOS, no el de las mejillas — MediaPipe ubica las mejillas con más
+ *              ruido de perfil (giros de cabeza), y los ojos dan un ángulo más estable.
  */
-export function smoothPlacement(previous: Placement | null, next: Placement, alpha = 0.5): Placement {
-  if (!previous) return next
-  const mix = (from: number, to: number) => from + (to - from) * alpha
-  return {
-    cx: mix(previous.cx, next.cx),
-    cy: mix(previous.cy, next.cy),
-    width: mix(previous.width, next.width),
-    height: mix(previous.height, next.height),
-    angle: mix(previous.angle, next.angle),
-  }
-}
+export function capPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const rightCheek = landmarks[FACE_LANDMARKS.RIGHT_CHEEK]
+  const leftCheek = landmarks[FACE_LANDMARKS.LEFT_CHEEK]
+  const forehead = landmarks[FACE_LANDMARKS.FOREHEAD_TOP]
+  const chin = landmarks[FACE_LANDMARKS.CHIN]
+  const eyeRight = landmarks[FACE_LANDMARKS.RIGHT_EYE_OUTER]
+  const eyeLeft = landmarks[FACE_LANDMARKS.LEFT_EYE_OUTER]
+  if (!rightCheek || !leftCheek || !forehead || !chin || !eyeRight || !eyeLeft || !Number.isFinite(imageAspect) || imageAspect <= 0) return null
 
-/** Dibuja el PNG centrado en (cx, cy) y rotado; la rotación se hace sobre el centro del PNG. */
-export function drawPlacement(ctx: CanvasRenderingContext2D, image: CanvasImageSource, placement: Placement) {
-  ctx.save()
-  ctx.translate(placement.cx, placement.cy)
-  ctx.rotate(placement.angle)
-  ctx.drawImage(image, -placement.width / 2, -placement.height / 2, placement.width, placement.height)
-  ctx.restore()
+  const head = screenLine(rightCheek, leftCheek, width, height, mirrored) // solo se usa `distance` (ancho de cabeza)
+  const eyes = screenLine(eyeRight, eyeLeft, width, height, mirrored) // se usa `angle` (rotación estable)
+  const faceHeight = screenLine(forehead, chin, width, height, mirrored).distance
+  if (head.distance === 0 || faceHeight === 0) return null
+
+  const capWidth = head.distance * CAP_WIDTH_RATIO
+  const capHeight = capWidth * imageAspect
+  const foreheadPoint = toCanvasPoint(forehead, width, height, mirrored)
+  // Borde inferior de la gorra: la frente desplazada hacia arriba (offset negativo) el % configurado del alto de cara.
+  const bottomEdge = offsetAlong(foreheadPoint.x, foreheadPoint.y, eyes.angle, -faceHeight * CAP_TOP_OFFSET_RATIO)
+  // drawPlacement dibuja centrado en (cx, cy): el centro queda medio alto más arriba todavía del borde inferior.
+  const center = offsetAlong(bottomEdge.x, bottomEdge.y, eyes.angle, -capHeight / 2)
+  return { cx: center.x, cy: center.y, width: capWidth, height: capHeight, angle: eyes.angle }
 }

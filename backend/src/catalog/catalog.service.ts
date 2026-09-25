@@ -181,6 +181,7 @@ export class CatalogService {
       imagenUrl: dto.imagenUrl,
       recursoRaUrl: dto.recursoRaUrl,
       imagenTryOn: dto.imagenTryOn || null,
+      tipoTryOn: dto.tipoTryOn ?? null,
       estado: dto.estado ?? true,
       categoria: await this.findOneCategoria(dto.idCategoria),
     });
@@ -217,6 +218,8 @@ export class CatalogService {
       recursoRaUrl: dto.recursoRaUrl ?? item.recursoRaUrl,
       // undefined conserva el valor actual; null o '' lo elimina
       imagenTryOn: dto.imagenTryOn === undefined ? item.imagenTryOn : dto.imagenTryOn || null,
+      // undefined conserva el tipo actual; null explícito lo limpia (el admin lo envía así al elegir "Sin vestidor")
+      tipoTryOn: dto.tipoTryOn === undefined ? item.tipoTryOn : dto.tipoTryOn,
       estado: dto.estado ?? item.estado,
     });
     return this.productoRepo.save(item);

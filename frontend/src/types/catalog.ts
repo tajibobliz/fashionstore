@@ -1,5 +1,6 @@
+export type TipoTryOn = 'lentes' | 'gorra' | 'polera'
 export interface CatalogItem { idCategoria?: number; idTalla?: number; idColor?: number; idTemporada?: number; idColeccion?: number; idProveedor?: number; nombre: string; descripcion?: string; codigoHex?: string; estado?: boolean }
-export interface Producto extends CatalogItem { idProducto: number; categoria?: CatalogItem; precio: number | string; precioMayorista?: number | string | null; cantidadMinimaMayorista?: number | null; imagenUrl?: string; recursoRaUrl?: string; imagenTryOn?: string | null }
+export interface Producto extends CatalogItem { idProducto: number; categoria?: CatalogItem; precio: number | string; precioMayorista?: number | string | null; cantidadMinimaMayorista?: number | null; imagenUrl?: string; recursoRaUrl?: string; imagenTryOn?: string | null; tipoTryOn?: TipoTryOn | null }
 export interface Variante { idVariante: number; idProducto?: number; idTalla?: number; idColor?: number; sku: string; estado?: boolean; producto?: Producto; talla?: CatalogItem | null; color?: CatalogItem | null }
-export interface CreateProductoRequest extends CatalogItem { idCategoria: number; precio: number; idProveedor?: number; idColeccion?: number; imagenUrl?: string; recursoRaUrl?: string; imagenTryOn?: string | null; precioMayorista?: number; cantidadMinimaMayorista?: number }
+export interface CreateProductoRequest extends CatalogItem { idCategoria: number; precio: number; idProveedor?: number; idColeccion?: number; imagenUrl?: string; recursoRaUrl?: string; imagenTryOn?: string | null; tipoTryOn?: TipoTryOn | null; precioMayorista?: number; cantidadMinimaMayorista?: number }
 export interface CreateVarianteRequest { idProducto: number; idTalla?: number; idColor?: number; sku: string }
