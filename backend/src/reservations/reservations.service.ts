@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -18,9 +19,12 @@ import { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interfa
 import { Role } from '../auth/enums/role.enum';
 import { randomUUID } from 'node:crypto';
 import { Almacen } from '../warehouses/entities/almacen.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReservationsService {
+  private readonly logger = new Logger(ReservationsService.name);
+
   constructor(
     @InjectRepository(Reserva)
     private readonly reservaRepo: Repository<Reserva>,
@@ -36,6 +40,7 @@ export class ReservationsService {
     private readonly movimientoRepo: Repository<MovimientoInventario>,
     @InjectRepository(Almacen) private readonly almacenRepo: Repository<Almacen>,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // Crea una reserva: valida stock, descuenta y guarda todo en transacción
@@ -172,7 +177,27 @@ export class ReservationsService {
       reserva.fechaAtencion = new Date();
     }
 
-    return this.reservaRepo.save(reserva);
+    const saved = await this.reservaRepo.save(reserva);
+    if (dto.estado === 'PREPARADA') this.notificarReservaPreparada(saved);
+    return saved;
+  }
+
+  // Push "tu reserva está lista para probar". No se espera (fire-and-forget) para no demorar la
+  // respuesta al encargado, y enviarPush() nunca lanza; el try/catch cubre errores sincrónicos
+  // al construir el mensaje (p. ej. si faltara alguna relación cargada).
+  private notificarReservaPreparada(reserva: Reserva) {
+    try {
+      const token = reserva.usuario?.pushToken;
+      if (!token) return;
+      void this.notificationsService.enviarPush(
+        token,
+        'Tu reserva está lista',
+        `Puedes pasar a probar tu producto en ${reserva.sucursal.nombre}`,
+        { tipo: 'reserva', idReserva: reserva.idReserva },
+      );
+    } catch (error) {
+      this.logger.error(`No se pudo notificar la reserva ${reserva.idReserva}: ${(error as Error).message}`);
+    }
   }
 
   // Cancela una reserva y libera el stock reservado

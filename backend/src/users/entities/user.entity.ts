@@ -28,6 +28,9 @@ export class Usuario {
   @Column({ length: 30, nullable: true })
   telefono: string;
 
+  @Column({ name: 'push_token', length: 255, nullable: true })
+  pushToken: string;
+
   @Column({ default: true })
   estado: boolean;
 

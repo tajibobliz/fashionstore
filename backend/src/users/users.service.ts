@@ -48,6 +48,11 @@ export class UsersService {
     return this.usuarioRepo.findOne({ where: { email } });
   }
 
+  async updatePushToken(idUsuario: number, token: string) {
+    await this.usuarioRepo.update({ idUsuario }, { pushToken: token });
+    return { message: 'Token de notificaciones actualizado' };
+  }
+
   // Solo autenticación necesita cargar el hash, oculto por defecto en la entidad.
   async findByEmailWithPassword(email: string): Promise<Usuario | null> {
     return this.usuarioRepo

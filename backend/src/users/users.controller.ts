@@ -17,6 +17,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignBranchDto } from './dto/assign-branch.dto';
+import { UpdatePushTokenDto } from './dto/update-push-token.dto';
+import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -43,6 +45,11 @@ export class UsersController {
   @Roles(Role.ADMIN)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findById(id);
+  }
+
+  @Post('me/push-token')
+  updatePushToken(@Request() req: { user: AuthenticatedUser }, @Body() dto: UpdatePushTokenDto) {
+    return this.usersService.updatePushToken(req.user.idUsuario, dto.token);
   }
 
   @Post(':id/sucursales')

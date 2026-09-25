@@ -2,6 +2,19 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { User } from "@/types";
 import { authService } from "@/services/auth.service";
+import { usersService } from "@/services/users.service";
+import { registerForPushNotificationsAsync } from "@/services/notifications";
+
+// Pide el permiso y registra el Expo Push Token en el backend. Nunca debe romper el login: si el
+// dispositivo no soporta push, el usuario niega el permiso, o falla la red, solo se registra en consola.
+async function registerPushTokenSilently() {
+  try {
+    const token = await registerForPushNotificationsAsync();
+    if (token) await usersService.registerPushToken(token);
+  } catch (error) {
+    console.warn("[push] No se pudo registrar el token en el backend:", error);
+  }
+}
 
 interface AuthState {
   user: User | null;
@@ -32,6 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync("refresh_token", response.refresh_token);
     await SecureStore.setItemAsync("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
+    void registerPushTokenSilently();
   },
 
   register: async (data) => {
@@ -40,6 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync("refresh_token", response.refresh_token);
     await SecureStore.setItemAsync("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
+    void registerPushTokenSilently();
   },
 
   logout: async () => {
