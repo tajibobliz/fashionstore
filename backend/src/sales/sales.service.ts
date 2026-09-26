@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -25,9 +26,12 @@ import { Almacen } from '../warehouses/entities/almacen.entity';
 import { PosService } from '../pos/pos.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { toMoney } from '../common/utils/money.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SalesService {
+  private readonly logger = new Logger(SalesService.name);
+
   constructor(
     @InjectRepository(Venta)
     private readonly ventaRepo: Repository<Venta>,
@@ -48,6 +52,7 @@ export class SalesService {
     @InjectRepository(Almacen) private readonly almacenRepo: Repository<Almacen>,
     private readonly posService: PosService,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
     @Optional() private readonly promotionsService?: PromotionsService,
   ) {}
 
@@ -300,7 +305,28 @@ const detalle = manager.create(DetalleVenta, {
       }
 
       venta.estado = 'PAGADA';
-      return manager.save(venta);
+      const saved = await manager.save(venta);
+      this.notificarVentaPagada(saved);
+      return saved;
+  }
+
+  // Push "compra confirmada". Se llama tanto desde confirmar() (venta digital confirmada directamente)
+  // como desde PaymentsService (pago aprobado vía la pasarela): confirmarEnTransaccion() es el único
+  // punto que comparten ambos caminos. No se espera (fire-and-forget) y enviarPush() nunca lanza; el
+  // try/catch cubre errores sincrónicos al construir el mensaje.
+  private notificarVentaPagada(venta: Venta) {
+    try {
+      const token = venta.usuario?.pushToken;
+      if (!token) return;
+      void this.notificationsService.enviarPush(
+        token,
+        'Compra confirmada',
+        `Tu compra Nº ${venta.idVenta} fue procesada correctamente. Total: Bs ${Number(venta.total).toFixed(2)}`,
+        { tipo: 'venta', idVenta: venta.idVenta },
+      );
+    } catch (error) {
+      this.logger.error(`No se pudo notificar la venta ${venta.idVenta}: ${(error as Error).message}`);
+    }
   }
 
   // Cancela una venta pendiente

@@ -19,6 +19,7 @@ import { ReportsModule } from './reports/reports.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { WarehousesModule } from './warehouses/warehouses.module';
 import { PosModule } from './pos/pos.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -65,6 +66,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     PromotionsModule,
     WarehousesModule,
     PosModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

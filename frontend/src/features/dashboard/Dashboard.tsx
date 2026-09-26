@@ -14,6 +14,7 @@ import CatalogManagement from '../catalog/CatalogManagement'
 import ShiftPage from '../pos/ShiftPage'
 import ReturnsPage from '../returns/ReturnsPage'
 import BranchOperationsPage from '../branch-operations/BranchOperationsPage'
+import ReservationsManagement from '../reservations/ReservationsManagement'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
  catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
@@ -54,6 +55,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (section === 'devoluciones' && ['CAJERO', 'ENCARGADO', 'ADMIN'].includes(role)) return <ReturnsPage />
  if (role === 'ENCARGADO_SUCURSAL' && ['inventario', 'reservas', 'ventas'].includes(section)) return <BranchOperationsPage section={section as 'inventario' | 'reservas' | 'ventas'} />
  if (role !== 'CAJERO' && section === 'catalogo') return <CatalogManagement />
+ if (role === 'ADMIN' && section === 'reservas') return <ReservationsManagement />
  if (['usuarios', 'personal', 'ciudades', 'sucursales', 'almacenes', 'cajas'].includes(section)) return <ManagementPage section={section as 'usuarios' | 'personal' | 'ciudades' | 'sucursales' | 'almacenes' | 'cajas'} />
  if (registration) return <UserRegistration key={section} cashier={section === 'cajeros'} />
  if (current.pending) return <section className={styles.panel}><span className={styles.pendingBadge}><Clock3 size={15} />Próximamente</span><h1>{current.label}</h1><p className={styles.pendingDescription}>{current.description}</p><div className={styles.chartLoading}>Esta función estará disponible próximamente en tu espacio de trabajo.</div><Link className={styles.textLink} to={base}>Volver al dashboard <ArrowRight size={16} /></Link></section>

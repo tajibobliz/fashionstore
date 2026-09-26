@@ -14,6 +14,7 @@ import { Almacen } from '../warehouses/entities/almacen.entity';
 import { PosModule } from '../pos/pos.module';
 import { UsersModule } from '../users/users.module';
 import { PromotionsModule } from '../promotions/promotions.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
     PosModule,
     UsersModule,
     PromotionsModule,
+    NotificationsModule,
   ],
   controllers: [SalesController],
   providers: [SalesService],

@@ -5,6 +5,26 @@ import { getSessionItem, removeSessionItem, setSessionItem } from "@/services/se
 import { useCartStore } from "@/stores/cartStore";
 import type { User } from "@/types";
 import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
+import { usersService } from "@/services/users.service";
+import { isExpoGo, registerForPushNotificationsAsync } from "@/services/notifications";
+
+// Pide el permiso y registra el Expo Push Token en el backend. Nunca debe romper el login: si el
+// dispositivo no soporta push, el usuario niega el permiso, o falla la red, solo se registra en consola.
+async function registerPushTokenSilently() {
+  try {
+    // registerForPushNotificationsAsync() ya hace este mismo chequeo internamente (y ahí es donde
+    // importa que ni siquiera cargue expo-notifications), pero se corta acá también para no ni
+    // siquiera intentar la llamada en Expo Go.
+    if (isExpoGo()) {
+      console.warn("[push] Expo Go: no se registra el push token.");
+      return;
+    }
+    const token = await registerForPushNotificationsAsync();
+    if (token) await usersService.registerPushToken(token);
+  } catch (error) {
+    console.warn("[push] No se pudo registrar el token en el backend:", error);
+  }
+}
 
 interface AuthState {
   user: User | null;
@@ -36,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await setSessionItem("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
     mobileLog("Sesión iniciada", { userId: response.user.idUsuario, role: response.user.rol });
+    void registerPushTokenSilently();
   },
 
   register: async (data) => {
@@ -44,6 +65,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await setSessionItem("refresh_token", response.refresh_token);
     await setSessionItem("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
+    void registerPushTokenSilently();
   },
 
   logout: async () => {
