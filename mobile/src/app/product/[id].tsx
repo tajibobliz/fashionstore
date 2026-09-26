@@ -47,8 +47,8 @@ export default function ProductDetailScreen() {
         setLoading(true);
         setError(null);
         const [data, inventory] = await Promise.all([
-          catalogService.getProductoById(Number(id)),
-          shopService.getInventory(),
+          catalogService.getProductoById(Number(id), selectedBranchId ?? undefined),
+          selectedBranchId ? shopService.getInventory(selectedBranchId) : Promise.resolve([]),
         ]);
         const ids = new Set(
           inventory

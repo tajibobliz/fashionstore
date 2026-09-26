@@ -21,6 +21,24 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
+## Datos iniciales de demostración
+
+Al iniciar el backend se verifican de forma idempotente el catálogo maestro, cuatro sucursales (La Paz, Santa Cruz de la Sierra, Cochabamba y Sucre), un almacén principal y una caja por sucursal, y 47 productos femeninos con variantes e inventario inicial independiente por sucursal. Los precios están expresados en bolivianos (Bs).
+
+Se crean cuatro clientes de demostración sin asignación a sucursal: `valeria.rojas@example.com`, `camila.fernandez@example.com`, `lucia.mamani@example.com` y `daniela.rivero@example.com`. Pueden comprar en distintas sucursales; carritos, almacenes, existencias y cajas conservan el alcance de la sucursal elegida.
+
+Para crear las cuentas de personal y clientes con contraseñas locales, define en `backend/.env`:
+
+```env
+NATIONAL_MANAGER_EMAIL=ma.fernanda.vargas@fashionstore.com
+NATIONAL_MANAGER_PASSWORD=una-clave-local-segura
+BRANCH_MANAGER_EMAIL=andrea.paredes@fashionstore.com
+BRANCH_MANAGER_PASSWORD=otra-clave-local-segura
+DEMO_CLIENT_PASSWORD=una-clave-local-para-clientes
+```
+
+El encargado nacional usa el rol `ENCARGADO`, con acceso a todas las sucursales. El encargado operativo usa `ENCARGADO_SUCURSAL` y se asigna a Sopocachi. Las cuatro cuentas de cliente comparten el valor local de `DEMO_CLIENT_PASSWORD`; las contraseñas se guardan como hashes bcrypt. Si faltan las variables de contraseña, se omiten esas cuentas.
+
 ## Description
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.

@@ -65,7 +65,7 @@ export class InventoryService {
   }
 
   findAllInventarios() {
-    return this.inventarioRepo.find();
+    return this.findInventariosByBranches();
   }
 
   async findOneInventario(id: number) {
@@ -73,6 +73,9 @@ export class InventoryService {
       where: { idInventario: id },
     });
     if (!item) throw new NotFoundException(`Inventario ${id} no encontrado`);
+    if (item.almacen.sucursal.idSucursal !== item.sucursal.idSucursal) {
+      throw new NotFoundException(`Inventario ${id} no encontrado`);
+    }
     return item;
   }
 
@@ -203,9 +206,18 @@ export class InventoryService {
     });
   }
 
-  findInventariosByBranches(ids: number[]) {
-    if (!ids.length) return Promise.resolve([]);
-    return this.inventarioRepo.createQueryBuilder('i').leftJoinAndSelect('i.sucursal','s').leftJoinAndSelect('i.almacen','a').leftJoinAndSelect('i.variante','v').where('s.id_sucursal IN (:...ids)',{ids}).getMany();
+  findInventariosByBranches(ids?: number[]) {
+    if (ids && !ids.length) return Promise.resolve([]);
+    const qb = this.inventarioRepo.createQueryBuilder('i')
+      .innerJoinAndSelect('i.sucursal', 's')
+      .innerJoinAndSelect('i.almacen', 'a', 'a.id_sucursal = s.id_sucursal')
+      .leftJoinAndSelect('i.variante', 'v')
+      .leftJoinAndSelect('v.producto', 'p')
+      .leftJoinAndSelect('p.categoria', 'cat')
+      .leftJoinAndSelect('v.talla', 'ta')
+      .leftJoinAndSelect('v.color', 'co');
+    if (ids) qb.andWhere('i.id_sucursal IN (:...ids)', { ids });
+    return qb.getMany();
   }
 
   findAllMovimientos() {

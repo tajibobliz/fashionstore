@@ -11,7 +11,7 @@ const CATEGORIAS = [
   'Pantalones',
   'Faldas',
   'Poleras y polerones',
-  'Zapatos',
+  'Calzado femenino',
   'Accesorios',
 ];
 

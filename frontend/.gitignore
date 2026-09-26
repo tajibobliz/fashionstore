@@ -1,5 +1,6 @@
 # Logs
 .env.production
+.env
 .env.development.local
 .env.production.local
 # Pruebas de navegador

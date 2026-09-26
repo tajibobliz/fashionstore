@@ -22,6 +22,9 @@ export class UsersService {
     if (requiresBranch && branchIds.length === 0) {
       throw new ConflictException('Debes asignar al menos una sucursal al personal operativo');
     }
+    if (requiresBranch && branchIds.length !== 1) {
+      throw new ConflictException('Cada empleado operativo debe pertenecer a una sola sucursal');
+    }
     const branches = branchIds.length ? await this.sucursalRepo.findByIds(branchIds) : [];
     if (branches.length !== branchIds.length || branches.some((branch) => !branch.estado)) {
       throw new NotFoundException('Una o más sucursales no existen o están inactivas');
@@ -117,6 +120,15 @@ export class UsersService {
     let assignment = await this.usuarioSucursalRepo.findOne({
       where: { usuario: { idUsuario }, sucursal: { idSucursal } },
     });
+    if ([Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(usuario.rol.nombre as Role)) {
+      const activeAssignments = await this.usuarioSucursalRepo.find({ where: { usuario: { idUsuario }, estado: true } });
+      for (const other of activeAssignments) {
+        if (other.sucursal.idSucursal !== idSucursal) {
+          other.estado = false;
+          await this.usuarioSucursalRepo.save(other);
+        }
+      }
+    }
     if (assignment) assignment.estado = true;
     else assignment = this.usuarioSucursalRepo.create({ usuario, sucursal, estado: true });
     return this.usuarioSucursalRepo.save(assignment);

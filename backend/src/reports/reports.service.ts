@@ -71,7 +71,7 @@ export class ReportsService {
       .addSelect(`COALESCE(SUM(CASE WHEN v.modalidad_comercial='MINORISTA' THEN dv.precio_unitario*(dv.cantidad-${this.returnedQty}) ELSE 0 END),0)`, 'ventasMinoristas')
       .addSelect(`COALESCE(SUM(CASE WHEN v.modalidad_comercial='MAYORISTA' THEN dv.precio_unitario*(dv.cantidad-${this.returnedQty}) ELSE 0 END),0)`, 'ventasMayoristas').getRawOne();
     const rq = this.reservaRepo.createQueryBuilder('r').where("r.estado='PENDIENTE'");
-    const iq = this.inventarioRepo.createQueryBuilder('i').where('i.stock_disponible<=5');
+    const iq = this.inventarioRepo.createQueryBuilder('i').innerJoin('i.almacen', 'ia', 'ia.id_sucursal=i.id_sucursal').where('i.stock_disponible<=5');
     this.applyBranchScope(rq, 'r', f.idSucursal, scope); this.applyBranchScope(iq, 'i', f.idSucursal, scope);
     if (f.idAlmacen) iq.andWhere('i.id_almacen=:idAlmacen', { idAlmacen: f.idAlmacen });
     const total = Number(summary?.totalVentas ?? 0), count = Number(summary?.cantidadVentas ?? 0);
@@ -142,7 +142,7 @@ export class ReportsService {
 
   async inventory(f: InventoryReportFiltersDto, scope: ReportScope) {
     const qb = this.inventarioRepo.createQueryBuilder('i').innerJoin('i.variante', 'v').innerJoin('v.producto', 'p').leftJoin('v.talla', 'ta').leftJoin('v.color', 'co')
-      .innerJoin('i.sucursal', 's').innerJoin('i.almacen', 'a').select('p.nombre', 'producto').addSelect('v.id_variante', 'idVariante').addSelect('v.sku', 'sku')
+      .innerJoin('i.sucursal', 's').innerJoin('i.almacen', 'a', 'a.id_sucursal=s.id_sucursal').select('p.nombre', 'producto').addSelect('v.id_variante', 'idVariante').addSelect('v.sku', 'sku')
       .addSelect('ta.nombre', 'talla').addSelect('co.nombre', 'color').addSelect('s.id_sucursal', 'idSucursal').addSelect('s.nombre', 'sucursal')
       .addSelect('a.id_almacen', 'idAlmacen').addSelect('a.nombre', 'almacen').addSelect('i.stock_disponible', 'stockDisponible')
       .addSelect('i.stock_reservado', 'stockReservado').addSelect('i.stock_disponible+i.stock_reservado', 'stockTotal');

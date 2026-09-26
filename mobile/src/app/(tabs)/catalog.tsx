@@ -39,12 +39,18 @@ export default function CatalogScreen() {
   const load = useCallback(async () => {
     try {
       setError(null)
-      const [productData, branchData, inventoryData] = await Promise.all([catalogService.getProductos(), shopService.getBranches(), shopService.getInventory()])
+      const [branchData] = await Promise.all([shopService.getBranches()])
       const activeBranches = branchData.filter((branch) => branch.estado)
-      setProducts(productData.filter((product) => product.estado))
+      const branchId = activeBranches.some((branch) => branch.idSucursal === selectedBranchId)
+        ? selectedBranchId
+        : activeBranches[0]?.idSucursal ?? null
       setBranches(activeBranches)
+      if (branchId && branchId !== selectedBranchId) setSelectedBranchId(branchId)
+      const [productData, inventoryData] = branchId
+        ? await Promise.all([catalogService.getProductos(branchId), shopService.getInventory(branchId)])
+        : [[], []]
+      setProducts(productData.filter((product) => product.estado))
       setInventory(inventoryData)
-      if ((!selectedBranchId || !activeBranches.some((branch) => branch.idSucursal === selectedBranchId)) && activeBranches[0]) setSelectedBranchId(activeBranches[0].idSucursal)
     } catch {
       setError('No se pudo cargar el catálogo y su disponibilidad.')
     } finally {

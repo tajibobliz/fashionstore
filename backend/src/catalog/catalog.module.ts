@@ -13,12 +13,13 @@ import { VarianteProducto } from './entities/variante-producto.entity';
 import { Sucursal } from '../branches/entities/sucursal.entity';
 import { Almacen } from '../warehouses/entities/almacen.entity';
 import { Inventario } from '../inventory/entities/inventario.entity';
-import { CatalogMasterSeed } from './seeds/catalog-master.seed';
 import { ProductsSeed } from './seeds/products.seed';
 import { ImagenVariante } from './entities/imagen-variante.entity';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
+    UsersModule,
     TypeOrmModule.forFeature([
       Categoria,
       Talla,
@@ -35,6 +36,6 @@ import { ImagenVariante } from './entities/imagen-variante.entity';
     ]),
   ],
   controllers: [CatalogController],
-  providers: [CatalogService, CatalogMasterSeed, ProductsSeed],
+  providers: [CatalogService, ProductsSeed],
 })
 export class CatalogModule {}

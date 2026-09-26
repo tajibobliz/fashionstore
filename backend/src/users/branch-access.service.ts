@@ -14,10 +14,13 @@ export class BranchAccessService {
     if (![Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(actor.rol)) {
       throw new ForbiddenException('El rol no tiene acceso operativo a sucursales');
     }
-    const assignment = await this.assignments.findOne({
-      where: { usuario: { idUsuario: actor.idUsuario }, sucursal: { idSucursal }, estado: true },
+    const assignments = await this.assignments.find({
+      where: { usuario: { idUsuario: actor.idUsuario }, estado: true },
     });
-    if (!assignment || !assignment.sucursal.estado) {
+    const activeAssignment = assignments
+      .filter((row) => row.sucursal.estado)
+      .sort((a, b) => a.idUsuarioSucursal - b.idUsuarioSucursal)[0];
+    if (!activeAssignment || activeAssignment.sucursal.idSucursal !== idSucursal) {
       throw new ForbiddenException('No tienes una asignación activa para esta sucursal');
     }
   }
@@ -25,6 +28,9 @@ export class BranchAccessService {
   async accessibleBranchIds(actor: AuthenticatedUser) {
     if (this.isNational(actor)) return null;
     const rows = await this.assignments.find({ where: { usuario: { idUsuario: actor.idUsuario }, estado: true } });
-    return rows.filter((row) => row.sucursal.estado).map((row) => row.sucursal.idSucursal);
+    const active = rows
+      .filter((row) => row.sucursal.estado)
+      .sort((a, b) => a.idUsuarioSucursal - b.idUsuarioSucursal);
+    return active.length ? [active[0].sucursal.idSucursal] : [];
   }
 }

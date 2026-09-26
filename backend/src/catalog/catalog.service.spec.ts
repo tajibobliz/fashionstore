@@ -23,7 +23,7 @@ describe('CatalogService', () => {
     const imagenRepo = { find: jest.fn().mockResolvedValue([{ orden: 1 }, { orden: 2 }, { orden: 3 }]) };
     const realService = new CatalogService(
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-      {} as never, varianteRepo as never, imagenRepo as never,
+      {} as never, varianteRepo as never, imagenRepo as never, {} as never,
     );
 
     await expect(realService.createImagenVariante(7, { url: 'https://example.test/image.jpg' }))

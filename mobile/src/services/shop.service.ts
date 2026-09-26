@@ -7,8 +7,8 @@ export const shopService = {
     return data
   },
 
-  async getInventory(): Promise<InventarioPublico[]> {
-    const { data } = await api.get<InventarioPublico[]>('/inventory/inventarios')
+  async getInventory(idSucursal: number): Promise<InventarioPublico[]> {
+    const { data } = await api.get<InventarioPublico[]>('/inventory/inventarios', { params: { idSucursal } })
     return data
   },
 }

@@ -27,6 +27,8 @@ import { CreateVarianteDto } from './dto/create-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
 import { ImagenVariante } from './entities/imagen-variante.entity';
 import { CreateImagenVarianteDto } from './dto/create-imagen-variante.dto';
+import { Inventario } from '../inventory/entities/inventario.entity';
+import { Almacen } from '../warehouses/entities/almacen.entity';
 
 @Injectable()
 export class CatalogService {
@@ -40,6 +42,7 @@ export class CatalogService {
     @InjectRepository(Producto) private readonly productoRepo: Repository<Producto>,
     @InjectRepository(VarianteProducto) private readonly varianteRepo: Repository<VarianteProducto>,
     @InjectRepository(ImagenVariante) private readonly imagenVarianteRepo: Repository<ImagenVariante>,
+    @InjectRepository(Inventario) private readonly inventarioRepo: Repository<Inventario>,
   ) {}
 
   // ===== CATEGORIAS =====
@@ -183,6 +186,8 @@ export class CatalogService {
       cantidadMinimaMayorista: dto.cantidadMinimaMayorista,
       imagenUrl: dto.imagenUrl,
       recursoRaUrl: dto.recursoRaUrl,
+      imagenTryOn: dto.imagenTryOn || null,
+      tipoTryOn: dto.tipoTryOn ?? null,
       estado: dto.estado ?? true,
       categoria: await this.findOneCategoria(dto.idCategoria),
     });
@@ -191,6 +196,18 @@ export class CatalogService {
     return this.productoRepo.save(producto);
   }
   findAllProductos() { return this.productoRepo.find(); }
+  findAllProductosByBranch(idSucursal: number) {
+    return this.productoRepo.createQueryBuilder('p')
+      .innerJoin('p.variantes', 'v')
+      .innerJoin(Inventario, 'i', 'i.id_variante=v.id_variante')
+      .innerJoin(Almacen, 'a', 'a.id_almacen=i.id_almacen AND a.id_sucursal=i.id_sucursal')
+      .leftJoinAndSelect('p.categoria', 'categoria')
+      .leftJoinAndSelect('p.proveedor', 'proveedor')
+      .leftJoinAndSelect('p.coleccion', 'coleccion')
+      .where('i.id_sucursal=:idSucursal', { idSucursal })
+      .distinct(true)
+      .getMany();
+  }
   async findOneProducto(id: number) {
   const item = await this.productoRepo.findOne({
     where: { idProducto: id },
@@ -204,6 +221,20 @@ export class CatalogService {
   if (!item) throw new NotFoundException(`Producto ${id} no encontrado`);
   return item;
 }
+  async findOneProductoByBranch(id: number, idSucursal: number) {
+    const item = await this.findOneProducto(id);
+    const rows = await this.varianteRepo.createQueryBuilder('v')
+      .innerJoin(Inventario, 'i', 'i.id_variante=v.id_variante')
+      .innerJoin(Almacen, 'a', 'a.id_almacen=i.id_almacen AND a.id_sucursal=i.id_sucursal')
+      .select('v.id_variante', 'idVariante')
+      .where('v.id_producto=:idProducto', { idProducto: id })
+      .andWhere('i.id_sucursal=:idSucursal', { idSucursal })
+      .getRawMany<{ idVariante: number }>();
+    const allowedIds = new Set(rows.map((row) => Number(row.idVariante)));
+    item.variantes = (item.variantes ?? []).filter((variant) => allowedIds.has(variant.idVariante));
+    if (!item.variantes.length) throw new NotFoundException(`Producto ${id} no disponible en esta sucursal`);
+    return item;
+  }
   async updateProducto(id: number, dto: UpdateProductoDto) {
     const item = await this.findOneProducto(id);
     if (dto.idCategoria) item.categoria = await this.findOneCategoria(dto.idCategoria);
@@ -217,6 +248,10 @@ export class CatalogService {
       cantidadMinimaMayorista: dto.cantidadMinimaMayorista ?? item.cantidadMinimaMayorista,
       imagenUrl: dto.imagenUrl ?? item.imagenUrl,
       recursoRaUrl: dto.recursoRaUrl ?? item.recursoRaUrl,
+      // undefined conserva el valor actual; null o '' lo elimina
+      imagenTryOn: dto.imagenTryOn === undefined ? item.imagenTryOn : dto.imagenTryOn || null,
+      // undefined conserva el tipo actual; null explícito lo limpia (el admin lo envía así al elegir "Sin vestidor")
+      tipoTryOn: dto.tipoTryOn === undefined ? item.tipoTryOn : dto.tipoTryOn,
       estado: dto.estado ?? item.estado,
     });
     return this.productoRepo.save(item);
@@ -238,9 +273,31 @@ export class CatalogService {
     return this.varianteRepo.save(variante);
   }
   findAllVariantes() { return this.varianteRepo.find(); }
+  findAllVariantesByBranch(idSucursal: number) {
+    return this.varianteRepo.createQueryBuilder('v')
+      .innerJoin(Inventario, 'i', 'i.id_variante=v.id_variante')
+      .innerJoin(Almacen, 'a', 'a.id_almacen=i.id_almacen AND a.id_sucursal=i.id_sucursal')
+      .leftJoinAndSelect('v.producto', 'producto')
+      .leftJoinAndSelect('producto.categoria', 'categoria')
+      .leftJoinAndSelect('v.talla', 'talla')
+      .leftJoinAndSelect('v.color', 'color')
+      .where('i.id_sucursal=:idSucursal', { idSucursal })
+      .distinct(true)
+      .getMany();
+  }
   async findOneVariante(id: number) {
     const item = await this.varianteRepo.findOne({ where: { idVariante: id } });
     if (!item) throw new NotFoundException(`Variante ${id} no encontrada`);
+    return item;
+  }
+  async findOneVarianteByBranch(id: number, idSucursal: number) {
+    const item = await this.findOneVariante(id);
+    const count = await this.inventarioRepo.createQueryBuilder('i')
+      .innerJoin(Almacen, 'a', 'a.id_almacen=i.id_almacen AND a.id_sucursal=i.id_sucursal')
+      .where('i.id_variante=:idVariante', { idVariante: id })
+      .andWhere('i.id_sucursal=:idSucursal', { idSucursal })
+      .getCount();
+    if (!count) throw new NotFoundException(`Variante ${id} no disponible en esta sucursal`);
     return item;
   }
   async updateVariante(id: number, dto: UpdateVarianteDto) {
@@ -263,6 +320,11 @@ export class CatalogService {
       where: { variante: { idVariante } },
       order: { orden: 'ASC' },
     });
+  }
+
+  async findImagenesVarianteByBranch(idVariante: number, idSucursal: number) {
+    await this.findOneVarianteByBranch(idVariante, idSucursal);
+    return this.findImagenesVariante(idVariante);
   }
 
   async createImagenVariante(idVariante: number, dto: CreateImagenVarianteDto) {

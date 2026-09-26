@@ -37,7 +37,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        ssl: databaseSsl(config.get<string>('DATABASE_SSL')),
+        ssl: databaseSsl(config.get<string>('DB_SSL')),
         autoLoadEntities: true,
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: config.get<string>('DB_MIGRATIONS_RUN') === 'true' || config.get<string>('NODE_ENV') === 'production',

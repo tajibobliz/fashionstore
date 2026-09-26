@@ -58,6 +58,8 @@ html { scroll-behavior: smooth; }
 .product-card, .branch-card { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: white; }
 .product-image { aspect-ratio: 4 / 5; background: var(--orange-light); display: flex; align-items: center; justify-content: center; color: var(--orange); }
 .product-image img { width: 100%; height: 100%; object-fit: cover; }
+/* Tarjeta del catálogo: la imagen se ve completa (PNG horizontales o transparentes no se recortan); el contenedor 4:5 y su fondo rosado no cambian. */
+.product-grid .product-card .product-image img { object-fit: contain; }
 .product-info { padding: 22px; }
 .product-info h3 { font-size: 1.08rem; margin-bottom: 9px; }
 .product-info p:not(.eyebrow) { color: var(--muted); line-height: 1.65; font-size: .87rem; }
@@ -102,6 +104,10 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   .store-product-detail .primary-button { width: 100%; }
   .workspace-tabs select { width: 100%; min-height: 44px; }
 }
+/* Ficha de producto: la imagen ya no ocupa toda la columna (4:5); se acota a 400px, sin recortar y centrada.
+   Va después del bloque responsive para que también gane en pantallas angostas. Solo afecta a la ficha. */
+.store-product-detail .product-image { aspect-ratio: auto; min-height: 240px; }
+.store-product-detail .product-image img { width: 100%; height: auto; max-height: 400px; object-fit: contain; }
 @media (max-width: 375px) {
   .workspace-header { gap: 12px; padding: 14px; }
   .workspace-main { padding-inline: 12px; }
@@ -153,8 +159,12 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .status-badge--cancelled { background: #fee2e2; color: #991b1b; }
 .status-badge--neutral { background: var(--orange-light); color: var(--muted); }
 @media (max-width: 700px) { .purchase-header { flex-direction: column; } .purchase-item { flex-direction: column; align-items: flex-start; gap: 4px; } }
-.ar-button { background: transparent; border: 1px solid var(--orange); color: var(--orange); padding: 8px 14px; border-radius: 8px; font-size: .9rem; transition: all .15s ease; margin-left: 8px; }
-.ar-button:hover { background: var(--orange-hover); border-color: var(--orange-hover); color: white; }
+.payment-result { margin-top: 10px; font-weight: 600; }
+.payment-result--success { color: #166534; }
+.payment-result--error { color: #991b1b; }
+.ar-button, .tryon-button { background: transparent; border: 1px solid var(--orange); color: var(--orange); padding: 8px 14px; border-radius: 8px; font-size: .9rem; transition: all .15s ease; margin-left: 8px; }
+.ar-button:hover, .tryon-button:hover { background: var(--orange-hover); border-color: var(--orange-hover); color: white; }
+.tryon-button { display: inline-flex; align-items: center; gap: 6px; margin: 14px 0 0; padding: 10px 16px; align-self: flex-start; justify-self: start; }
 .ar-dialog { background: white; padding: 20px; border-radius: 12px; max-width: 800px; width: 90%; max-height: 90vh; overflow: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, .2); }
 .ar-dialog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .ar-dialog-header h2 { margin: 0; font-size: 1.2rem; }

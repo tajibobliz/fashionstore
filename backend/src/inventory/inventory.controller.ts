@@ -9,6 +9,9 @@ import {
   Post,
   UseGuards,
   Request,
+  Query,
+  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreateInventarioDto } from './dto/create-inventario.dto';
@@ -20,6 +23,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { BranchAccessService } from '../users/branch-access.service';
 import { Public } from '../auth/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,15 +40,34 @@ export class InventoryController {
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('inventarios')
   @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO, Role.CLIENTE)
-  async findAllInventarios(@Request() req:any) {
-    // CLIENTE elige una sucursal en ecommerce; no tiene asignación laboral.
-    // El frontend usa esta lectura para mostrar únicamente la existencia de la sucursal elegida.
-    // @Public(): un invitado sin sesión llega aquí con req.user undefined, mismo caso que CLIENTE.
-    if (!req.user || req.user.rol === Role.CLIENTE) return this.service.findAllInventarios();
-    const ids=await this.access.accessibleBranchIds(req.user);
-    return ids===null?this.service.findAllInventarios():this.service.findInventariosByBranches(ids);
+  async findAllInventarios(@Query('idSucursal') rawBranchId: string | undefined, @Request() req:any) {
+    const selectedBranchId = rawBranchId === undefined ? undefined : Number(rawBranchId);
+    if (selectedBranchId !== undefined && (!Number.isInteger(selectedBranchId) || selectedBranchId <= 0)) {
+      throw new BadRequestException('idSucursal debe ser un entero positivo');
+    }
+
+    if (!req.user || req.user.rol === Role.CLIENTE) {
+      return selectedBranchId
+        ? this.service.findInventariosByBranches([selectedBranchId])
+        : this.service.findAllInventarios();
+    }
+
+    if ([Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(req.user.rol)) {
+      const ids = await this.access.accessibleBranchIds(req.user);
+      if (!ids?.length) return [];
+      const branchId = selectedBranchId ?? ids[0];
+      await this.access.assertCanAccess(req.user, branchId);
+      return this.service.findInventariosByBranches([branchId]);
+    }
+
+    if (![Role.ADMIN, Role.ENCARGADO].includes(req.user.rol)) {
+      throw new ForbiddenException('El rol no puede consultar inventario de sucursales');
+    }
+    if (selectedBranchId) return this.service.findInventariosByBranches([selectedBranchId]);
+    return this.service.findAllInventarios();
   }
 
   @Get('inventarios/:id')

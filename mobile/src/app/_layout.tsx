@@ -6,7 +6,7 @@ import { ActivityIndicator, View } from "react-native";
 import "../global.css";
 import { useAuthStore } from "@/stores/authStore";
 
-const PROTECTED_ROUTES = ["dashboard", "cart", "profile", "checkout", "order-success", "reservations", "orders", "virtual-fitting"];
+const PROTECTED_ROUTES = ["dashboard", "cart", "profile", "checkout", "order-success", "reservations", "orders", "virtual-fitting", "chat"];
 
 export default function RootLayout() {
   const { isLoading, isAuthenticated, loadSession } = useAuthStore();
