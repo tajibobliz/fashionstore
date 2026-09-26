@@ -3,12 +3,19 @@ import * as SecureStore from "expo-secure-store";
 import { User } from "@/types";
 import { authService } from "@/services/auth.service";
 import { usersService } from "@/services/users.service";
-import { registerForPushNotificationsAsync } from "@/services/notifications";
+import { isExpoGo, registerForPushNotificationsAsync } from "@/services/notifications";
 
 // Pide el permiso y registra el Expo Push Token en el backend. Nunca debe romper el login: si el
 // dispositivo no soporta push, el usuario niega el permiso, o falla la red, solo se registra en consola.
 async function registerPushTokenSilently() {
   try {
+    // registerForPushNotificationsAsync() ya hace este mismo chequeo internamente (y ahí es donde
+    // importa que ni siquiera cargue expo-notifications), pero se corta acá también para no ni
+    // siquiera intentar la llamada en Expo Go.
+    if (isExpoGo()) {
+      console.warn("[push] Expo Go: no se registra el push token.");
+      return;
+    }
     const token = await registerForPushNotificationsAsync();
     if (token) await usersService.registerPushToken(token);
   } catch (error) {

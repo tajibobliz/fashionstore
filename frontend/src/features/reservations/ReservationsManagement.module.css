@@ -1,0 +1,5 @@
+.badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.badge_PENDIENTE { background: #fef3c7; color: #92400e; }
+.badge_PREPARADA { background: #dbeafe; color: #1e40af; }
+.badge_ATENDIDA { background: #ecfdf5; color: #065f46; }
+.badge_CANCELADA { background: #fff1f2; color: #9f1239; }
