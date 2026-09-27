@@ -21,10 +21,7 @@ export function Chatbot() {
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
 
-  // Mensaje de bienvenida la primera vez que se abre el panel.
-  useEffect(() => {
-    if (open && messages.length === 0) setMessages([WELCOME_MESSAGE])
-  }, [open, messages.length])
+  // El saludo inicial se agrega al evento que abre el panel.
 
   // Scroll automático al último mensaje (o al indicador de "Escribiendo...").
   useEffect(() => {
@@ -55,7 +52,7 @@ export function Chatbot() {
   }
 
   return <>
-    <button className="chatbot-toggle" aria-label={open ? 'Cerrar chat' : 'Abrir chat'} aria-expanded={open} onClick={() => setOpen(value => !value)}>💬</button>
+    <button className="chatbot-toggle" aria-label={open ? 'Cerrar chat' : 'Abrir chat'} aria-expanded={open} onClick={() => setOpen(value => { if (!value && messages.length === 0) setMessages([WELCOME_MESSAGE]); return !value })}>💬</button>
     {open && <section className="chatbot-panel" role="dialog" aria-label="Asistente FashionStore">
       <header className="chatbot-header">
         <h2>Asistente FashionStore</h2>

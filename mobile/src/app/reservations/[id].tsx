@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -66,7 +66,7 @@ export default function ReservationDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const fetchReservation = async () => {
+  const fetchReservation = useCallback(async () => {
     try {
       const data = await reservationsService.getById(Number(id));
       setReservation(data);
@@ -80,11 +80,17 @@ export default function ReservationDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    fetchReservation();
-  }, [id]);
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchReservation();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchReservation]);
 
   const handleCancel = () => {
     Alert.alert(

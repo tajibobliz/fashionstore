@@ -34,10 +34,10 @@ const PRODUCTS_SEED_DATA: ProductSeedItem[] = [
   { nombre: 'Vestido cóctel rojo', categoria: 'Vestidos', precio: 520.0, descripcion: 'Vestido cóctel llamativo para eventos.', imagenUrl: 'https://cdn.dummyjson.com/product-images/womens-dresses/dress-pea/thumbnail.webp', tallas: ['XS', 'S', 'M', 'L'], colores: ['Rojo'] },
   { nombre: 'Vestido maxi playero', categoria: 'Vestidos', precio: 290.0, descripcion: 'Vestido largo ideal para la playa.', imagenUrl: "https://cdn.dummyjson.com/product-images/womens-dresses/marni-red-&-black-suit/thumbnail.webp", tallas: ['S', 'M', 'L', 'XL'], colores: ['Azul', 'Blanco'] },
 
-  { nombre: 'Blusa manga corta blanca', categoria: 'Blusas', precio: 150.0, descripcion: 'Blusa clásica de manga corta, básico esencial.', imagenUrl: 'https://cdn.dummyjson.com/product-images/tops/blue-frock/thumbnail.webp', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Blanco', 'Negro'] },
+  { nombre: 'Blusa manga corta blanca', categoria: 'Blusas', precio: 150.0, descripcion: 'Blusa clásica de manga corta, básico esencial.', imagenUrl: 'https://www.bing.com/th/id/OIP.1AAKzse6H61lziZReYnSeAHaHa?w=193&h=193&c=8&rs=1&qlt=90&r=0&o=6&pid=ImgAns&rm=2.webp', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Blanco', 'Negro'] },
   { nombre: 'Blusa negra manga larga', categoria: 'Blusas', precio: 180.0, descripcion: 'Blusa negra de manga larga versátil.', imagenUrl: 'https://cdn.dummyjson.com/product-images/tops/girl-summer-dress/thumbnail.webp', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Negro'] },
   { nombre: 'Blusa estampada', categoria: 'Blusas', precio: 210.0, descripcion: 'Blusa con estampado moderno para looks casuales.', imagenUrl: 'https://cdn.dummyjson.com/product-images/tops/gray-dress/thumbnail.webp', tallas: ['XS', 'S', 'M', 'L'], colores: ['Azul', 'Rojo', 'Verde'] },
-  { nombre: 'Camisa blanca oficina', categoria: 'Blusas', precio: 240.0, descripcion: 'Camisa formal ideal para trabajo.', imagenUrl: 'https://cdn.dummyjson.com/product-images/tops/short-frock/thumbnail.webp', tallas: ['S', 'M', 'L', 'XL'], colores: ['Blanco'] },
+  { nombre: 'Camisa blanca oficina', categoria: 'Blusas', precio: 240.0, descripcion: 'Camisa formal ideal para trabajo.', imagenUrl: 'https://img.magnific.com/psd-premium/camiseta-blanca-manga-corta-mujer-sobre-fondo-transparente_177659-184.jpg?w=2000.webp', tallas: ['S', 'M', 'L', 'XL'], colores: ['Blanco'] },
 
   { nombre: 'Jean skinny', categoria: 'Pantalones', precio: 250.0, descripcion: 'Jean skinny de tiro alto, ajuste perfecto.', imagenUrl: 'https://picsum.photos/seed/jean-skinny/800/800', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Azul', 'Negro'] },
   { nombre: 'Pantalón palazzo', categoria: 'Pantalones', precio: 220.0, descripcion: 'Pantalón amplio y cómodo estilo palazzo.', imagenUrl: 'https://picsum.photos/seed/palazzo/800/800', tallas: ['S', 'M', 'L', 'XL'], colores: ['Negro', 'Beige'] },
@@ -192,8 +192,9 @@ export class ProductsSeed implements OnApplicationBootstrap {
         categoria,
       }),
     );
-    if (existente && existente.categoria.idCategoria !== categoria.idCategoria) {
+    if (existente && (existente.categoria.idCategoria !== categoria.idCategoria || existente.imagenUrl !== item.imagenUrl)) {
       existente.categoria = categoria;
+      existente.imagenUrl = item.imagenUrl;
       await this.productoRepo.save(existente);
     }
     this.logger.log(existente ? `Completando variantes e inventario de "${item.nombre}".` : `Producto "${item.nombre}" creado (id ${producto.idProducto}).`);

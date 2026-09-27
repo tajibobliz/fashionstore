@@ -42,8 +42,21 @@ export interface VarianteProducto {
   sku: string;
   talla: Talla | null;
   color: Color | null;
+  imagenes?: ImagenVariante[];
+  imagenTryOn?: string | null;
+  imagenVestidorUrl?: string | null;
   producto?: Producto;
   // Nota: el backend también manda `producto` dentro, pero lo ignoramos aquí
+}
+
+export interface ImagenVariante {
+  idImagen: number;
+  url: string;
+  orden: number;
+  principal: boolean;
+  /** Campos opcionales para contratos que separen el overlay del catálogo. */
+  tipo?: 'OVERLAY' | 'PRINCIPAL' | string;
+  transparente?: boolean;
 }
 
 export interface Producto {
@@ -54,6 +67,10 @@ export interface Producto {
   precioMayorista: string | null;
   cantidadMinimaMayorista: number | null;
   imagenUrl: string | null;
+  imagenCatalogoUrl?: string | null;
+  imagenVestidorUrl?: string | null;
+  tipoPrendaVestidor?: 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON' | 'CARTERA' | 'OTRO' | null;
+  imagenTryOn?: string | null;
   recursoRaUrl: string | null;
   estado: boolean;
   categoria: Categoria | null;

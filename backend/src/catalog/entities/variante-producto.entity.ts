@@ -22,6 +22,9 @@ export class VarianteProducto {
   @Column({ length: 80, unique: true })
   sku: string;
 
+  @Column({ name: 'imagen_vestidor_url', type: 'varchar', length: 500, nullable: true })
+  imagenVestidorUrl: string | null;
+
   @ManyToOne(() => Producto, { eager: true })
   @JoinColumn({ name: 'id_producto' })
   producto: Relation<Producto>;

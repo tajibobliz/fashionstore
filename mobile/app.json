@@ -38,11 +38,26 @@
       ],
       "expo-secure-store",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "FashionStore necesita acceso a la cámara para el vestidor virtual.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "FashionStore necesita acceder a tus fotos para el probador virtual.",
           "cameraPermission": "FashionStore necesita usar la cámara para el probador virtual.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "FashionStore necesita acceder a tus fotos para seleccionar una imagen.",
+          "savePhotosPermission": "FashionStore necesita guardar la captura del vestidor en tu galería.",
+          "isAccessMediaLocationEnabled": false
         }
       ],
       "expo-notifications"

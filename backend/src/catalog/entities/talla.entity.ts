@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
+import type { Relation } from 'typeorm';
+import { Sucursal } from '../../branches/entities/sucursal.entity';
 
 @Entity('talla')
 export class Talla {
@@ -7,4 +9,8 @@ export class Talla {
 
   @Column({ length: 30, unique: true })
   nombre: string;
+
+  @ManyToOne(() => Sucursal, { nullable: true })
+  @JoinColumn({ name: 'id_sucursal' })
+  sucursal: Relation<Sucursal> | null;
 }

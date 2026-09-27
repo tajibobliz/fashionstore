@@ -1,6 +1,8 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
 
 export class CreateCategoriaDto {
+  @IsOptional() @IsInt() @IsPositive()
+  idSucursal?: number;
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

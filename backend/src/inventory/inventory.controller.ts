@@ -73,6 +73,8 @@ export class InventoryController {
   @Get('inventarios/:id')
   @Roles(Role.ADMIN, Role.ENCARGADO, Role.CAJERO)
   async findOneInventario(@Param('id', ParseIntPipe) id: number,@Request()req:any) {
+    if (req.user.rol === Role.ENCARGADO_SUCURSAL) throw new ForbiddenException('Consulta inventario desde el alcance de sucursal');
+    if (req.user.rol === Role.ENCARGADO_SUCURSAL) throw new ForbiddenException('Consulta inventario desde el alcance de sucursal');
     const item=await this.service.findOneInventario(id);await this.access.assertCanAccess(req.user,item.sucursal.idSucursal);return item;
   }
 

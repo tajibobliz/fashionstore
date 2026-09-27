@@ -1,7 +1,8 @@
-import { IsBoolean, IsInt, IsOptional, IsUrl, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min, Matches } from 'class-validator';
 
 export class CreateImagenVarianteDto {
-  @IsUrl({ require_tld: false })
+  @IsString()
+  @Matches(/^https?:\/\/[^?#]+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i, { message: 'url debe ser una imagen JPG, JPEG, PNG o WebP' })
   url: string;
 
   @IsOptional()

@@ -48,8 +48,8 @@ export default function PosPage() {
     },
     retry: false,
   })
-  const inventory = useQuery({ queryKey: queryKeys.inventory.all, queryFn: inventoryApi.list, enabled: shift.data?.estado === 'ABIERTO' })
-  const variants = useQuery({ queryKey: queryKeys.catalog.variants, queryFn: catalogApi.variants.list, enabled: shift.data?.estado === 'ABIERTO' })
+  const inventory = useQuery({ queryKey: queryKeys.inventory.all, queryFn: () => inventoryApi.list(), enabled: shift.data?.estado === 'ABIERTO' })
+  const variants = useQuery({ queryKey: queryKeys.catalog.variants, queryFn: () => catalogApi.variants.list(), enabled: shift.data?.estado === 'ABIERTO' })
   const warehouse = useMemo(() => {
     if (!shift.data) return undefined
     if (shift.data.caja.almacenDefault) return shift.data.caja.almacenDefault

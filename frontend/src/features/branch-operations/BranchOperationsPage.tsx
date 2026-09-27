@@ -36,9 +36,9 @@ function InventoryManagement() {
   const [reserved, setReserved] = useState(0)
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
-  const inventory = useQuery({ queryKey: queryKeys.inventory.all, queryFn: inventoryApi.list })
+  const inventory = useQuery({ queryKey: queryKeys.inventory.all, queryFn: () => inventoryApi.list() })
   const warehouses = useQuery({ queryKey: queryKeys.warehouses.all, queryFn: warehousesApi.list })
-  const variants = useQuery({ queryKey: queryKeys.catalog.variants, queryFn: catalogApi.variants.list })
+  const variants = useQuery({ queryKey: queryKeys.catalog.variants, queryFn: () => catalogApi.variants.list() })
   const branches = useMemo(() => [...new Map([
     ...(inventory.data ?? []).flatMap(item => item.sucursal ? [[item.sucursal.idSucursal, item.sucursal] as const] : []),
     ...(warehouses.data ?? []).flatMap(item => item.sucursal ? [[item.sucursal.idSucursal, item.sucursal] as const] : []),

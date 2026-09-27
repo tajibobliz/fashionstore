@@ -38,8 +38,8 @@ export default function CatalogScreen() {
 
   const load = useCallback(async () => {
     try {
-      setError(null)
       const [branchData] = await Promise.all([shopService.getBranches()])
+      setError(null)
       const activeBranches = branchData.filter((branch) => branch.estado)
       const branchId = activeBranches.some((branch) => branch.idSucursal === selectedBranchId)
         ? selectedBranchId
@@ -59,7 +59,13 @@ export default function CatalogScreen() {
     }
   }, [selectedBranchId, setSelectedBranchId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    let active = true
+    void Promise.resolve().then(() => {
+      if (active) return load()
+    })
+    return () => { active = false }
+  }, [load])
 
   const branchInventory = useMemo(() => inventory.filter((item) => item.sucursal.idSucursal === selectedBranchId && item.stockDisponible > 0), [inventory, selectedBranchId])
   const inventoryByProduct = useMemo(() => {

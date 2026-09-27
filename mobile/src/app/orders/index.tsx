@@ -25,8 +25,8 @@ export default function MyOrdersScreen() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      setError(null);
       const data = await salesService.getMySales();
+      setError(null);
       setOrders(data);
     } catch (e) {
       const err = e as AxiosError;
@@ -42,7 +42,13 @@ export default function MyOrdersScreen() {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchOrders();
+    });
+    return () => {
+      active = false;
+    };
   }, [fetchOrders]);
 
   const onRefresh = () => {
@@ -60,14 +66,11 @@ export default function MyOrdersScreen() {
     );
   }
 
-  // Header común (para reutilizar en todos los estados)
-  const Header = () => <AuthenticatedHeader title="Mis pedidos" />;
-
   // Estado de error
   if (error) {
     return (
       <View className="flex-1 bg-white">
-        <Header />
+        <AuthenticatedHeader title="Mis pedidos" />
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="alert-circle-outline" size={60} color="#d1d5db" />
           <Text className="mt-4 text-lg font-semibold text-gray-900">
@@ -86,7 +89,7 @@ export default function MyOrdersScreen() {
   if (orders.length === 0) {
     return (
       <View className="flex-1 bg-white">
-        <Header />
+        <AuthenticatedHeader title="Mis pedidos" />
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="bag-outline" size={80} color="#d1d5db" />
           <Text className="mt-4 text-lg font-semibold text-gray-900">
@@ -109,7 +112,7 @@ export default function MyOrdersScreen() {
   // Listado normal
   return (
     <View className="flex-1 bg-gray-50">
-      <Header />
+      <AuthenticatedHeader title="Mis pedidos" />
       <FlatList
         data={orders}
         keyExtractor={(item) => item.idVenta.toString()}

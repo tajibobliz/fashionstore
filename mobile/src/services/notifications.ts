@@ -21,10 +21,7 @@ function isExpoGo(): boolean {
  * En Expo Go no hace nada (solo avisa): el módulo nativo de push no existe ahí.
  */
 export function setupNotificationHandler() {
-  if (isExpoGo()) {
-    console.warn("[push] Expo Go: notificaciones push deshabilitadas. Usa un development build o un APK.");
-    return;
-  }
+  if (isExpoGo()) return;
   void import("expo-notifications").then((Notifications) => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -48,10 +45,7 @@ export function setupNotificationHandler() {
  * - Falla la petición a los servidores de Expo (sin conexión, timeout, etc.).
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (isExpoGo()) {
-    console.warn("[push] Push notifications solo funcionan en development build o APK, no en Expo Go.");
-    return null;
-  }
+  if (isExpoGo()) return null;
 
   if (!Device.isDevice) {
     console.warn("[push] No disponible en simulador/emulador: probar en un dispositivo físico.");

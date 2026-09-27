@@ -1,2 +1,13 @@
-import { api } from './axios'; import type { CreateInventarioRequest, CreateMovimientoRequest, Inventario } from '../types/inventory'
-export const inventoryApi = { list: () => api.get<Inventario[]>('/inventory/inventarios').then(r => r.data), get: (id: number) => api.get<Inventario>(`/inventory/inventarios/${id}`).then(r => r.data), create: (body: CreateInventarioRequest) => api.post<Inventario>('/inventory/inventarios', body).then(r => r.data), update: (id: number, body: Partial<CreateInventarioRequest>) => api.patch<Inventario>(`/inventory/inventarios/${id}`, body).then(r => r.data), remove: (id: number) => api.delete(`/inventory/inventarios/${id}`).then(r => r.data), movements: () => api.get('/inventory/movimientos').then(r => r.data), createMovement: (body: CreateMovimientoRequest) => api.post('/inventory/movimientos', body).then(r => r.data) }
+import { api } from './axios'
+import type { CreateInventarioRequest, CreateMovimientoRequest, Inventario } from '../types/inventory'
+
+export const inventoryApi = {
+  list: () => api.get<Inventario[]>('/inventory/inventarios').then(r => r.data),
+  listByBranch: (idSucursal: number) => api.get<Inventario[]>('/inventory/inventarios', { params: { idSucursal } }).then(r => r.data),
+  get: (id: number) => api.get<Inventario>(`/inventory/inventarios/${id}`).then(r => r.data),
+  create: (body: CreateInventarioRequest) => api.post<Inventario>('/inventory/inventarios', body).then(r => r.data),
+  update: (id: number, body: Partial<CreateInventarioRequest>) => api.patch<Inventario>(`/inventory/inventarios/${id}`, body).then(r => r.data),
+  remove: (id: number) => api.delete(`/inventory/inventarios/${id}`).then(r => r.data),
+  movements: () => api.get('/inventory/movimientos').then(r => r.data),
+  createMovement: (body: CreateMovimientoRequest) => api.post('/inventory/movimientos', body).then(r => r.data),
+}

@@ -1,8 +1,9 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, isAxiosError } from "axios";
 import { API_URL, API_TIMEOUT } from "@/config/env";
 import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
 import { getSessionItem, removeSessionItem, setSessionItem } from "@/services/sessionStorage";
 import { getRuntimeApiUrl } from "@/services/apiUrl.service";
+import { emitInvalidAuthSession } from "@/services/authSessionEvents";
 
 // Cliente axios configurado
 export const api = axios.create({
@@ -49,7 +50,7 @@ api.interceptors.response.use(
       message: Array.isArray(backendMessage) ? backendMessage.join(" | ") : backendMessage ?? error.message,
     });
     // Si el token expiró (401), intentar refresh
-    const authEndpoint = error.config?.url?.startsWith("/auth/");
+    const authEndpoint = /^\/auth\/(login|register|refresh|logout)(\/|$)/.test(error.config?.url ?? "");
     if (error.response?.status === 401 && !authEndpoint) {
       const refreshToken = await getSessionItem("refresh_token");
       if (refreshToken) {
@@ -70,9 +71,19 @@ api.interceptors.response.use(
           }
         } catch (refreshError) {
           mobileWarn("Refresh de sesión falló", { reason: refreshError instanceof Error ? refreshError.message : "Error desconocido" });
-          // Si el refresh también falla, borrar tokens (forzar login)
-          await removeSessionItem("access_token");
-          await removeSessionItem("refresh_token");
+          const refreshStatus = isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+          if (refreshStatus === 401 || refreshStatus === 403) {
+            mobileWarn("Refresh token rechazado; se limpia la sesión local", { status: refreshStatus });
+            await Promise.all([
+              removeSessionItem("access_token"),
+              removeSessionItem("refresh_token"),
+              removeSessionItem("user"),
+            ]);
+            emitInvalidAuthSession();
+          } else {
+            // Un timeout, fallo de conexión u otro error del servidor no invalida las credenciales guardadas.
+            return Promise.reject(refreshError);
+          }
         }
       }
     }

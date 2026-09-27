@@ -25,8 +25,8 @@ export default function MyReservationsScreen() {
 
   const fetchReservations = useCallback(async () => {
     try {
-      setError(null);
       const data = await reservationsService.getMine();
+      setError(null);
       // Ordenar de más reciente a más antigua
       const sorted = data.sort(
         (a, b) =>
@@ -48,7 +48,13 @@ export default function MyReservationsScreen() {
   }, []);
 
   useEffect(() => {
-    fetchReservations();
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchReservations();
+    });
+    return () => {
+      active = false;
+    };
   }, [fetchReservations]);
 
   const onRefresh = () => {
@@ -65,12 +71,10 @@ export default function MyReservationsScreen() {
     );
   }
 
-  const Header = () => <AuthenticatedHeader title="Mis reservas" />;
-
   if (error) {
     return (
       <View className="flex-1 bg-white">
-        <Header />
+        <AuthenticatedHeader title="Mis reservas" />
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="alert-circle-outline" size={60} color="#d1d5db" />
           <Text className="mt-4 text-lg font-semibold text-gray-900">
@@ -88,7 +92,7 @@ export default function MyReservationsScreen() {
   if (reservations.length === 0) {
     return (
       <View className="flex-1 bg-white">
-        <Header />
+        <AuthenticatedHeader title="Mis reservas" />
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="calendar-outline" size={80} color="#d1d5db" />
           <Text className="mt-4 text-lg font-semibold text-gray-900">
@@ -111,7 +115,7 @@ export default function MyReservationsScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <Header />
+      <AuthenticatedHeader title="Mis reservas" />
       <FlatList
         data={reservations}
         keyExtractor={(item) => item.idReserva.toString()}

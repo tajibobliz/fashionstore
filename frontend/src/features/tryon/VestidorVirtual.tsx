@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, RefreshCw } from 'lucide-react'
 import { catalogApi } from '../../api/catalog.api'
 import { queryKeys } from '../../api/queryKeys'
 import { getApiErrorMessage } from '../../utils/apiError'
+import { resolveImageUrl } from '../../utils/imageUrl'
 import type { TipoTryOn } from '../../types/catalog'
 import { createDetector } from './mediapipe'
 import type { Detector } from './mediapipe'
@@ -90,7 +91,7 @@ export default function VestidorVirtual() {
     </Notice>
   } else {
     // `key` reinicia por completo la cámara y el modelo cuando el usuario pulsa Reintentar.
-    content = <TryOnStage key={attempt} tryOnUrl={product.data.imagenTryOn} tipoTryOn={product.data.tipoTryOn} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
+    content = <TryOnStage key={attempt} tryOnUrl={resolveImageUrl(product.data.imagenTryOn)} tipoTryOn={product.data.tipoTryOn} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
   }
 
   return <main className={styles.page}>

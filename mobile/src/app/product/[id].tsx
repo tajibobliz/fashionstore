@@ -339,16 +339,19 @@ export default function ProductDetailScreen() {
           )}
 
           
-         {/* El vestidor 2D usa la imagen del producto; el modelo 3D es opcional. */}
-           {hasVirtualFittingAsset(producto) && (
+         {/* El vestidor requiere un overlay PNG/WebP de variante o producto. */}
+           {hasVirtualFittingAsset(producto, varianteSeleccionada) && (
            <View className="mt-6  mb-8" >
            <Button
             title="👗 Probar en vestidor virtual"
-            onPress={() => router.push(`/virtual-fitting/${producto.idProducto}` as any)}
+            onPress={() => router.push(`/virtual-fitting/${producto.idProducto}${varianteSeleccionada ? `?idVariante=${varianteSeleccionada.idVariante}` : ''}` as any)}
             variant="outline"
             compact
             />
           </View>
+         )}
+         {!hasVirtualFittingAsset(producto, varianteSeleccionada) && hasDeclaredVirtualFittingAsset(producto, varianteSeleccionada) && (
+           <Text accessibilityRole="alert" className="mt-3 text-center text-xs text-amber-700">El vestidor requiere una URL de overlay PNG o WebP válida.</Text>
          )}
         </View>
       </ScrollView>
@@ -382,7 +385,6 @@ export default function ProductDetailScreen() {
     </View>
   );
 }
-
 // Helper: extrae valores únicos de una lista (por ej. tallas únicas entre variantes)
 function getUnique<T, K extends { idTalla?: number; idColor?: number }>(
   items: T[],
@@ -398,14 +400,11 @@ function getUnique<T, K extends { idTalla?: number; idColor?: number }>(
   return Array.from(map.values());
 }
 
-function hasVirtualFittingAsset(producto: Producto) {
-  return isImageResource(producto.imagenUrl) || isImageResource(producto.recursoRaUrl) || isModelResource(producto.recursoRaUrl)
+function hasVirtualFittingAsset(producto: Producto, variant?: VarianteProducto | null) {
+  const transparent = (url?: string | null) => !!url && (/^data:image\/(png|webp);/i.test(url) || /\.(png|webp)(?:[?#].*)?$/i.test(url));
+  return transparent(variant?.imagenVestidorUrl) || transparent(producto.imagenVestidorUrl) || transparent(producto.imagenTryOn)
 }
 
-function isImageResource(url: string | null) {
-  return !!url?.trim() && (/^https?:\/\//i.test(url) || /^file:\/\//i.test(url) || /\.(png|jpe?g|webp)(?:[?#].*)?$/i.test(url))
-}
-
-function isModelResource(url: string | null) {
-  return !!url && /\.(glb|gltf)(?:[?#].*)?$/i.test(url)
+function hasDeclaredVirtualFittingAsset(producto: Producto, variant?: VarianteProducto | null) {
+  return Boolean(variant?.imagenVestidorUrl || producto.imagenVestidorUrl || producto.imagenTryOn)
 }

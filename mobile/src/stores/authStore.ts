@@ -7,6 +7,8 @@ import type { User } from "@/types";
 import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
 import { usersService } from "@/services/users.service";
 import { isExpoGo, registerForPushNotificationsAsync } from "@/services/notifications";
+import { isAxiosError } from "axios";
+import { onInvalidAuthSession } from "@/services/authSessionEvents";
 
 // Pide el permiso y registra el Expo Push Token en el backend. Nunca debe romper el login: si el
 // dispositivo no soporta push, el usuario niega el permiso, o falla la red, solo se registra en consola.
@@ -16,7 +18,6 @@ async function registerPushTokenSilently() {
     // importa que ni siquiera cargue expo-notifications), pero se corta acá también para no ni
     // siquiera intentar la llamada en Expo Go.
     if (isExpoGo()) {
-      console.warn("[push] Expo Go: no se registra el push token.");
       return;
     }
     const token = await registerForPushNotificationsAsync();
@@ -82,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadSession: async () => {
+    let storedUser: User | null = null;
     try {
       const token = await getSessionItem("access_token");
       const userJson = await getSessionItem("user");
@@ -90,7 +92,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      const storedUser = JSON.parse(userJson) as User;
+      storedUser = JSON.parse(userJson) as User;
       const profile = await authService.getProfile() as Pick<User, "idUsuario" | "email" | "rol">;
       if (profile.idUsuario !== storedUser.idUsuario) {
         throw new Error("La sesión almacenada no coincide con el usuario autenticado");
@@ -102,6 +104,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (storedUser && isAxiosError(error) && status !== 401 && status !== 403) {
+        mobileWarn("No se pudo validar la sesión por un error temporal; se conserva la sesión local", {
+          status: status ?? null,
+          code: isAxiosError(error) ? error.code ?? null : null,
+        });
+        set({ user: storedUser, isAuthenticated: true, isLoading: false });
+        return;
+      }
+
       mobileWarn("Sesión inválida; se mostrará Login", {
         reason: error instanceof Error ? error.message : "Error desconocido",
       });
@@ -110,3 +122,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+onInvalidAuthSession(() => {
+  useCartStore.getState().clearCartCache();
+  useAuthStore.setState({ user: null, isAuthenticated: false, isLoading: false });
+});
