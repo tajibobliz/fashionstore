@@ -87,7 +87,7 @@ function assessLivePose(landmarks: PoseLandmark[], zone: GarmentZone): LivePoseS
   const leftHip = landmarks[23];
   const rightHip = landmarks[24];
   if (zone === 'GORRA') {
-    const hat = getHatOverlayFromPose({ landmarks, width: 1, height: 1, imageAspect: 1 });
+    const hat = getHatOverlayFromPose({ landmarks, width: 1, height: 1, imageAspect: 1, live: true });
     if (hat.guidanceMessage === 'Acércate un poco') return 'TOO_FAR';
     if (hat.guidanceMessage === 'Aléjate un poco') return 'TOO_CLOSE';
     return hat.visible ? 'READY' : 'SEARCHING';
@@ -348,7 +348,7 @@ function PhotoFitting({
   const [poseStatus, setPoseStatus] = useState<'idle' | 'detecting' | 'adjusted' | 'failed'>('idle');
   const [analysisAttempt, setAnalysisAttempt] = useState(0);
   const [livePoseStatus, setLivePoseStatus] = useState<LivePoseState>('SEARCHING');
-  const [liveGuidanceMessage, setLiveGuidanceMessage] = useState('Ubica tu rostro dentro de la guía');
+  const [liveGuidanceMessage, setLiveGuidanceMessage] = useState('Ubica tu cabeza dentro de la guía');
   const [hatDebug, setHatDebug] = useState({ detected: false, headWidth: 0 });
   const [liveFrameDataUri, setLiveFrameDataUri] = useState<string | null>(null);
   const [liveAnalysisAttempt, setLiveAnalysisAttempt] = useState(0);
@@ -418,7 +418,7 @@ function PhotoFitting({
     setManualAdjustment(false);
     latestLiveLandmarks.current = null;
     missedHatFrames.current = 0;
-    setLiveGuidanceMessage('Ubica tu rostro dentro de la guía');
+    setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
     setLivePoseStatus('SEARCHING');
   };
 
@@ -427,7 +427,7 @@ function PhotoFitting({
     setCameraFacing((current) => current === 'front' ? 'back' : 'front');
     latestLiveLandmarks.current = null;
     missedHatFrames.current = 0;
-    setLiveGuidanceMessage('Ubica tu rostro dentro de la guía');
+    setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
     setLivePoseStatus('SEARCHING');
     setManualAdjustment(false);
   };
@@ -511,6 +511,7 @@ function PhotoFitting({
     mirrorX = false,
     updateStatus = true,
     smooth = false,
+    liveHat = false,
   ) => {
     if (!landmarks || !sourceSize || !previewSize || !garmentAspect) return false;
     const coverScale = Math.max(previewSize.width / sourceSize.width, previewSize.height / sourceSize.height);
@@ -523,7 +524,11 @@ function PhotoFitting({
       y: (offsetY + point.y * renderedHeight) / previewSize.height,
       visibility: point.visibility,
     }));
-    const next = getGarmentPlacement(zone, { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX });
+    const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX };
+    const hat = zone === 'GORRA' && liveHat ? getHatOverlayFromPose({ ...placementInput, live: true }) : null;
+    const next = hat
+      ? hat.visible ? { cx: hat.centerX, cy: hat.centerY, width: hat.width, height: hat.height, angle: hat.rotationDeg * Math.PI / 180 } : null
+      : getGarmentPlacement(zone, placementInput);
     if (!next) {
       setAutoPlacement(null);
       previousPlacement.current = null;
@@ -628,12 +633,12 @@ function PhotoFitting({
       if (zone === 'GORRA' && previousPlacement.current && missedHatFrames.current < 1) {
         missedHatFrames.current += 1;
         setHatDebug((current) => ({ ...current, detected: false }));
-        setLiveGuidanceMessage('Ubica tu rostro dentro de la guía');
+        setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
         return;
       }
       missedHatFrames.current = 0;
       setHatDebug({ detected: false, headWidth: 0 });
-      setLiveGuidanceMessage('Ubica tu rostro dentro de la guía');
+      setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
       setLivePoseStatus('FAILED');
       return;
     }
@@ -641,8 +646,8 @@ function PhotoFitting({
     latestLiveLandmarks.current = landmarks;
     const sourceSize = latestLiveFrameSize.current;
     if (zone === 'GORRA' && sourceSize) {
-      const hat = getHatOverlayFromPose({ landmarks, width: sourceSize.width, height: sourceSize.height, imageAspect: garmentAspect ?? 1, mirrored: cameraFacing === 'front' });
-      const estimatedHeadWidth = hat.width > 0 ? hat.width / 1.25 : 0;
+      const hat = getHatOverlayFromPose({ landmarks, width: sourceSize.width, height: sourceSize.height, imageAspect: garmentAspect ?? 1, mirrored: cameraFacing === 'front', live: true });
+      const estimatedHeadWidth = hat.width > 0 ? hat.width / 1.28 : 0;
       setHatDebug({ detected: hat.width > 0, headWidth: estimatedHeadWidth });
       setLiveGuidanceMessage(hat.guidanceMessage);
       if (!hat.visible) {
@@ -655,7 +660,7 @@ function PhotoFitting({
     const nextStatus = assessLivePose(landmarks, zone);
     setLivePoseStatus(nextStatus);
     if (nextStatus === 'READY' && !manualAdjustment) {
-      if (!sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true)) {
+      if (!sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true, zone === 'GORRA')) {
         setLivePoseStatus('SEARCHING');
       }
     }
@@ -806,7 +811,7 @@ function PhotoFitting({
             setManualAdjustment(false);
             const landmarks = latestLiveLandmarks.current;
             const sourceSize = latestLiveFrameSize.current;
-            if (!landmarks || !sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false)) setLivePoseStatus('SEARCHING');
+            if (!landmarks || !sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, false, zone === 'GORRA')) setLivePoseStatus('SEARCHING');
           }} /></View>
           <View className="w-24"><Button title="Reiniciar" compact variant="secondary" onPress={resetGarment} /></View>
         </View>
