@@ -28,8 +28,11 @@ import { catalogService } from '@/services/catalog.service';
 import { resolveImageUrl } from '@/services/imageUrl.service';
 import type { Producto, VarianteProducto } from '@/types/catalog.types';
 import { getGarmentPlacement, getHatOverlayFromPose, smoothPlacement, type Landmark, type Placement } from '@/features/tryon/strategies';
+import { VisionHatCamera } from '@/features/tryon/VisionHatCamera';
 
 type GarmentZone = NonNullable<Producto['tipoPrendaVestidor']>;
+
+const USE_NATIVE_HAT_TRACKING = true;
 
 type PoseLandmark = {
   x: number;
@@ -172,9 +175,17 @@ export default function VirtualFittingScreen() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
 
+  const usesNativeHatTracking = USE_NATIVE_HAT_TRACKING
+    && Platform.OS === 'android'
+    && product?.tipoPrendaVestidor === 'GORRA';
+
   const openLiveCamera = async () => {
     setCameraError(null);
     setCameraReady(false);
+    if (usesNativeHatTracking) {
+      setMode('live');
+      return;
+    }
     try {
       const permission = cameraPermission?.granted ? cameraPermission : await requestCameraPermission();
       if (!permission.granted) {
@@ -295,6 +306,8 @@ export default function VirtualFittingScreen() {
 
         {mode === 'model' && modelUrl ? (
           <ModelViewer modelUrl={modelUrl} />
+        ) : mode === 'live' && usesNativeHatTracking ? (
+          <VisionHatCamera garmentImage={resolvedGarmentImage} onBackToPhoto={() => setMode('photo')} />
         ) : (
           <PhotoFitting
             garmentImage={resolvedGarmentImage}
