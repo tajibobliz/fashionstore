@@ -1,7 +1,7 @@
 // Superposición que usa PoseLandmarker (33 puntos del cuerpo): polera / camiseta.
 // A diferencia de lentes y gorra (FaceLandmarker, que solo ve la cara), la polera necesita ver el torso.
 
-import { offsetAlong, screenLine } from './geometry'
+import { fitAspect, offsetAlong, screenLine } from './geometry'
 import type { Landmark, Placement } from './geometry'
 
 /**
@@ -13,6 +13,10 @@ export const POSE_LANDMARKS = {
   LEFT_SHOULDER: 11,
   RIGHT_HIP: 24,
   LEFT_HIP: 23,
+  RIGHT_KNEE: 26,
+  LEFT_KNEE: 25,
+  RIGHT_ANKLE: 28,
+  LEFT_ANKLE: 27,
 } as const
 
 /** Por debajo de este puntaje de `visibility` (0..1) que da MediaPipe, un punto se considera no confiable. */
@@ -71,4 +75,76 @@ export function shirtPlacement(
   // drawPlacement dibuja centrado en (cx, cy): el centro queda medio alto más abajo del borde superior.
   const center = offsetAlong(topEdge.x, topEdge.y, shoulders.angle, shirtHeight * (0.5 - SHIRT_VERTICAL_RAISE_RATIO))
   return { cx: center.x, cy: center.y, width: shirtWidth, height: shirtHeight, angle: shoulders.angle }
+}
+
+function validPosePoints(points: Array<Landmark | undefined>, imageAspect: number): points is Landmark[] {
+  return Number.isFinite(imageAspect)
+    && imageAspect > 0
+    && points.every(point => Boolean(point) && (point!.visibility ?? 1) >= POSE_MIN_VISIBILITY)
+}
+
+export function dressPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee], imageAspect)) return null
+
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
+  const regionHeight = Math.hypot(knees.midX - shoulders.midX, knees.midY - shoulders.midY)
+  const size = fitAspect(Math.max(shoulders.distance, hips.distance, knees.distance) * 1.10, regionHeight, imageAspect)
+  if (!size) return null
+  return { cx: (shoulders.midX + knees.midX) / 2, cy: (shoulders.midY + knees.midY) / 2, width: size.width, height: size.height, angle: shoulders.angle }
+}
+
+export function skirtPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  if (!validPosePoints([leftHip, rightHip, leftKnee, rightKnee], imageAspect)) return null
+
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
+  const regionHeight = Math.hypot(knees.midX - hips.midX, knees.midY - hips.midY)
+  const size = fitAspect(Math.max(hips.distance, knees.distance) * 1.15, regionHeight, imageAspect)
+  if (!size) return null
+  return { cx: (hips.midX + knees.midX) / 2, cy: (hips.midY + knees.midY) / 2, width: size.width, height: size.height, angle: hips.angle }
+}
+
+export function pantsPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
+  const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
+  if (!validPosePoints([leftHip, rightHip, leftAnkle, rightAnkle], imageAspect)) return null
+
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
+  const regionHeight = Math.hypot(ankles.midX - hips.midX, ankles.midY - hips.midY)
+  const size = fitAspect(hips.distance * 1.20, regionHeight, imageAspect)
+  if (!size) return null
+  return { cx: (hips.midX + ankles.midX) / 2, cy: (hips.midY + ankles.midY) / 2, width: size.width, height: size.height, angle: hips.angle }
 }

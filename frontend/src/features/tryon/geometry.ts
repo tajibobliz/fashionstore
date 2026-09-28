@@ -44,6 +44,15 @@ export function offsetAlong(x: number, y: number, angle: number, distance: numbe
   return { x: x - Math.sin(angle) * distance, y: y + Math.cos(angle) * distance }
 }
 
+/** Ajusta una imagen dentro del ancho/alto objetivo conservando su relación alto/ancho. */
+export function fitAspect(targetWidth: number, targetHeight: number, imageAspect: number) {
+  if (!(targetWidth > 0 && targetHeight > 0 && imageAspect > 0)) return null
+  const heightFromWidth = targetWidth * imageAspect
+  return heightFromWidth <= targetHeight
+    ? { width: targetWidth, height: heightFromWidth }
+    : { width: targetHeight / imageAspect, height: targetHeight }
+}
+
 /**
  * Suaviza el movimiento entre frames: los puntos de MediaPipe "tiemblan" ligeramente y eso hace vibrar
  * el PNG. Media móvil exponencial: alpha=1 sigue al dato nuevo sin suavizar; valores menores lo amortiguan.

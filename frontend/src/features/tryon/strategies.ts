@@ -4,7 +4,7 @@
 // puntos. Agregar una prenda nueva es agregar una entrada a este mapa, sin tocar el bucle de dibujo.
 
 import { capPlacement, glassesPlacement } from './faceOverlay'
-import { shirtPlacement } from './poseOverlay'
+import { dressPlacement, pantsPlacement, shirtPlacement, skirtPlacement } from './poseOverlay'
 import type { Landmark, Placement } from './geometry'
 import type { ResolvedTryOnGarmentType } from './tryOnAsset'
 
@@ -27,4 +27,7 @@ export const TRY_ON_STRATEGIES: Record<ResolvedTryOnGarmentType, TryOnStrategy> 
   CAMISA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
   BLUSA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
   TOP: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
+  VESTIDO: { model: 'pose', placement: dressPlacement, notDetectedHint: POSE_HINT },
+  FALDA: { model: 'pose', placement: skirtPlacement, notDetectedHint: POSE_HINT },
+  PANTALON: { model: 'pose', placement: pantsPlacement, notDetectedHint: POSE_HINT },
 }

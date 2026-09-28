@@ -1,6 +1,6 @@
 import type { Producto, TipoPrendaVestidor, Variante } from '../../types/catalog'
 
-export type ResolvedTryOnGarmentType = Extract<TipoPrendaVestidor, 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP'> | 'lentes'
+export type ResolvedTryOnGarmentType = Extract<TipoPrendaVestidor, 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON'> | 'lentes'
 
 export function resolveTryOnAsset(producto: Producto, variante?: Variante | null) {
   return variante?.imagenVestidorUrl?.trim()
@@ -13,7 +13,10 @@ export function resolveTryOnGarmentType(producto: Producto): ResolvedTryOnGarmen
   if (producto.tipoPrendaVestidor === 'GORRA'
     || producto.tipoPrendaVestidor === 'CAMISA'
     || producto.tipoPrendaVestidor === 'BLUSA'
-    || producto.tipoPrendaVestidor === 'TOP') return producto.tipoPrendaVestidor
+    || producto.tipoPrendaVestidor === 'TOP'
+    || producto.tipoPrendaVestidor === 'VESTIDO'
+    || producto.tipoPrendaVestidor === 'FALDA'
+    || producto.tipoPrendaVestidor === 'PANTALON') return producto.tipoPrendaVestidor
 
   if (producto.tipoTryOn === 'gorra') return 'GORRA'
   if (producto.tipoTryOn === 'polera') return 'TOP'
