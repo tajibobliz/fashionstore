@@ -16,6 +16,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
+import { useImageFaceDetector, type Face } from 'react-native-vision-camera-face-detector';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,11 +29,20 @@ import { catalogService } from '@/services/catalog.service';
 import { resolveImageUrl } from '@/services/imageUrl.service';
 import type { Producto, VarianteProducto } from '@/types/catalog.types';
 import { getGarmentPlacement, getHatOverlayFromPose, smoothPlacement, type Landmark, type Placement } from '@/features/tryon/strategies';
-import { VisionHatCamera } from '@/features/tryon/VisionHatCamera';
+import { VisionHatCameraLoader } from '@/features/tryon/VisionHatCameraLoader';
+import { getHatPlacementFromFace, mapFaceToPreview } from '@/features/tryon/faceDetectorAdapter';
+import { upperBodyPlacement } from '@/features/tryon/posePlacement';
 
 type GarmentZone = NonNullable<Producto['tipoPrendaVestidor']>;
 
 const USE_NATIVE_HAT_TRACKING = true;
+const IMAGE_HAT_DETECTOR_OPTIONS = {
+  performanceMode: 'accurate',
+  runLandmarks: true,
+  runContours: true,
+  runClassifications: false,
+  trackingEnabled: false,
+} as const;
 
 type PoseLandmark = {
   x: number;
@@ -94,7 +104,13 @@ function assessLivePose(landmarks: PoseLandmark[], zone: GarmentZone): LivePoseS
     if (hat.guidanceMessage === 'Acércate un poco') return 'TOO_FAR';
     if (hat.guidanceMessage === 'Aléjate un poco') return 'TOO_CLOSE';
     return hat.visible ? 'READY' : 'SEARCHING';
-  } else if (zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP' || zone === 'OTRO') {
+  } else if (zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') {
+    if (![leftShoulder, rightShoulder].every(isVisible)) return 'SEARCHING';
+    const shoulderWidth = distance(leftShoulder, rightShoulder);
+    if (shoulderWidth < 0.16) return 'TOO_FAR';
+    if (shoulderWidth > 0.62) return 'TOO_CLOSE';
+    return 'READY';
+  } else if (zone === 'OTRO') {
     if (![leftShoulder, rightShoulder, leftHip, rightHip].every(isVisible)) return 'SEARCHING';
   } else if (zone === 'VESTIDO') {
     if (![leftShoulder, rightShoulder, landmarks[25], landmarks[26]].every(isVisible)) return 'SEARCHING';
@@ -307,7 +323,7 @@ export default function VirtualFittingScreen() {
         {mode === 'model' && modelUrl ? (
           <ModelViewer modelUrl={modelUrl} />
         ) : mode === 'live' && usesNativeHatTracking ? (
-          <VisionHatCamera garmentImage={resolvedGarmentImage} onBackToPhoto={() => setMode('photo')} />
+          <VisionHatCameraLoader garmentImage={resolvedGarmentImage} onBackToPhoto={() => setMode('photo')} />
         ) : (
           <PhotoFitting
             garmentImage={resolvedGarmentImage}
@@ -347,6 +363,7 @@ function PhotoFitting({
   cameraReady: boolean;
   setCameraReady: (ready: boolean) => void;
 }) {
+  const imageFaceDetector = useImageFaceDetector(IMAGE_HAT_DETECTOR_OPTIONS);
   const cameraRef = useRef<CameraView>(null);
   const previewRef = useRef<View>(null);
   const [showGuide, setShowGuide] = useState(true);
@@ -360,9 +377,11 @@ function PhotoFitting({
   const [poseLandmarks, setPoseLandmarks] = useState<PoseLandmark[] | null>(null);
   const [poseStatus, setPoseStatus] = useState<'idle' | 'detecting' | 'adjusted' | 'failed'>('idle');
   const [analysisAttempt, setAnalysisAttempt] = useState(0);
+  const [hatPhotoAttempt, setHatPhotoAttempt] = useState(0);
   const [livePoseStatus, setLivePoseStatus] = useState<LivePoseState>('SEARCHING');
   const [liveGuidanceMessage, setLiveGuidanceMessage] = useState('Ubica tu cabeza dentro de la guía');
   const [hatDebug, setHatDebug] = useState({ detected: false, headWidth: 0 });
+  const [torsoDebug, setTorsoDebug] = useState({ shoulderWidth: 0, torsoHeight: 0, shirtWidth: 0, shirtHeight: 0 });
   const [liveFrameDataUri, setLiveFrameDataUri] = useState<string | null>(null);
   const [liveAnalysisAttempt, setLiveAnalysisAttempt] = useState(0);
   const [liveAnalysisProcessing, setLiveAnalysisProcessing] = useState(false);
@@ -376,6 +395,7 @@ function PhotoFitting({
   const latestLiveLandmarks = useRef<PoseLandmark[] | null>(null);
   const latestLiveFrameSize = useRef<PreviewSize | null>(null);
   const missedHatFrames = useRef(0);
+  const torsoLossTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zone = useMemo(() => resolveGarmentZone(garmentType), [garmentType]);
   const detectorAvailable = Platform.OS !== 'web';
 
@@ -485,6 +505,13 @@ function PhotoFitting({
     scale.value = withSpring(1);
     rotation.value = withSpring(0);
 
+    if (zone === 'GORRA' && Platform.OS !== 'web') {
+      setPhotoDataUri(asset.base64 ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}` : null);
+      setPoseStatus('detecting');
+      setHatPhotoAttempt((current) => current + 1);
+      return;
+    }
+
     if (!asset.base64) {
       setPhotoDataUri(null);
       setPoseStatus('failed');
@@ -498,7 +525,54 @@ function PhotoFitting({
     } else {
       setPoseStatus('idle');
     }
-  }, [detectorAvailable, rotation, scale, translateX, translateY]);
+  }, [detectorAvailable, rotation, scale, translateX, translateY, zone]);
+
+  useEffect(() => {
+    if (zone !== 'GORRA' || Platform.OS === 'web' || !photoUri || !photoSize || !previewSize || !garmentAspect || hatPhotoAttempt === 0) return;
+    const timer = setTimeout(() => {
+      try {
+      const faces = imageFaceDetector.detectFaces(photoUri);
+      const face = faces.reduce<Face | undefined>((largest, candidate) => {
+        const area = candidate.bounds.width * candidate.bounds.height;
+        return !largest || area > largest.bounds.width * largest.bounds.height ? candidate : largest;
+      }, undefined);
+      if (!face) {
+        setAutoPlacement(null);
+        setPoseStatus('failed');
+        return;
+      }
+      const mapped = mapFaceToPreview(
+        face,
+        { width: face.frameWidth || photoSize.width, height: face.frameHeight || photoSize.height },
+        previewSize,
+        'back',
+      );
+      if (!mapped) {
+        setAutoPlacement(null);
+        setPoseStatus('failed');
+        return;
+      }
+      const hat = getHatPlacementFromFace(mapped, garmentAspect, previewSize, 'photo');
+      if (!hat.visible) {
+        setAutoPlacement(null);
+        setPoseStatus('failed');
+        return;
+      }
+      const placement = { cx: hat.centerX, cy: hat.centerY, width: hat.width, height: hat.height, angle: hat.rotationDeg * Math.PI / 180 };
+      previousPlacement.current = placement;
+      setAutoPlacement(placement);
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      scale.value = withSpring(1);
+      rotation.value = withSpring(placement.angle);
+      setPoseStatus('adjusted');
+      } catch {
+        setAutoPlacement(null);
+        setPoseStatus('failed');
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [garmentAspect, hatPhotoAttempt, imageFaceDetector, photoSize, photoUri, previewSize, rotation, scale, translateX, translateY, zone]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -537,11 +611,13 @@ function PhotoFitting({
       y: (offsetY + point.y * renderedHeight) / previewSize.height,
       visibility: point.visibility,
     }));
-    const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX };
+    const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX, mode } as const;
     const hat = zone === 'GORRA' && liveHat ? getHatOverlayFromPose({ ...placementInput, live: true }) : null;
-    const next = hat
+    const upperBody = zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP' ? upperBodyPlacement(placementInput) : null;
+    if (upperBody) setTorsoDebug({ shoulderWidth: upperBody.shoulderWidth, torsoHeight: upperBody.torsoHeight, shirtWidth: upperBody.shirtWidth, shirtHeight: upperBody.shirtHeight });
+    const next = upperBody?.placement ?? (hat
       ? hat.visible ? { cx: hat.centerX, cy: hat.centerY, width: hat.width, height: hat.height, angle: hat.rotationDeg * Math.PI / 180 } : null
-      : getGarmentPlacement(zone, placementInput);
+      : getGarmentPlacement(zone, placementInput));
     if (!next) {
       setAutoPlacement(null);
       previousPlacement.current = null;
@@ -556,7 +632,7 @@ function PhotoFitting({
     rotation.value = withSpring(placement.angle);
     if (updateStatus) setPoseStatus('adjusted');
     return true;
-  }, [photoSize, poseLandmarks, previewSize, garmentAspect, rotation, scale, translateX, translateY, zone]);
+  }, [photoSize, poseLandmarks, previewSize, garmentAspect, mode, rotation, scale, translateX, translateY, zone]);
 
   useEffect(() => {
     if (!poseLandmarks || analysisAttempt === 0 || appliedAttempt.current === analysisAttempt) return;
@@ -592,6 +668,12 @@ function PhotoFitting({
   };
 
   const rerunAutoFit = () => {
+    if (zone === 'GORRA' && photoUri && Platform.OS !== 'web') {
+      setManualAdjustment(false);
+      setPoseStatus('detecting');
+      setHatPhotoAttempt((current) => current + 1);
+      return;
+    }
     if (!photoDataUri || !detectorAvailable) return;
     appliedAttempt.current = 0;
     setManualAdjustment(false);
@@ -604,6 +686,10 @@ function PhotoFitting({
     if (mode !== 'live' || !cameraReady || !cameraPermission?.granted || frozenUri) {
       liveAnalysisBusy.current = false;
       liveCaptureRequested.current = false;
+      if (torsoLossTimer.current) {
+        clearTimeout(torsoLossTimer.current);
+        torsoLossTimer.current = null;
+      }
       return;
     }
 
@@ -638,11 +724,26 @@ function PhotoFitting({
     };
   }, [cameraPermission?.granted, cameraReady, frozenUri, mode, zone]);
 
+  useEffect(() => () => {
+    if (torsoLossTimer.current) clearTimeout(torsoLossTimer.current);
+  }, []);
+
   const finishLiveAnalysis = (landmarks: PoseLandmark[] | null) => {
     liveAnalysisBusy.current = false;
     setLiveAnalysisProcessing(false);
     if (mode !== 'live') return;
     if (!landmarks) {
+      if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && previousPlacement.current) {
+        if (torsoLossTimer.current) clearTimeout(torsoLossTimer.current);
+        setLivePoseStatus('READY');
+        torsoLossTimer.current = setTimeout(() => {
+          setLivePoseStatus('FAILED');
+          setAutoPlacement(null);
+          previousPlacement.current = null;
+          torsoLossTimer.current = null;
+        }, 500);
+        return;
+      }
       if (zone === 'GORRA' && previousPlacement.current && missedHatFrames.current < 1) {
         missedHatFrames.current += 1;
         setHatDebug((current) => ({ ...current, detected: false }));
@@ -657,6 +758,10 @@ function PhotoFitting({
     }
 
     latestLiveLandmarks.current = landmarks;
+    if (torsoLossTimer.current) {
+      clearTimeout(torsoLossTimer.current);
+      torsoLossTimer.current = null;
+    }
     const sourceSize = latestLiveFrameSize.current;
     if (zone === 'GORRA' && sourceSize) {
       const hat = getHatOverlayFromPose({ landmarks, width: sourceSize.width, height: sourceSize.height, imageAspect: garmentAspect ?? 1, mirrored: cameraFacing === 'front', live: true });
@@ -671,6 +776,16 @@ function PhotoFitting({
       missedHatFrames.current = 0;
     }
     const nextStatus = assessLivePose(landmarks, zone);
+    if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && nextStatus !== 'READY' && previousPlacement.current) {
+      setLivePoseStatus('READY');
+      torsoLossTimer.current = setTimeout(() => {
+        setLivePoseStatus(nextStatus);
+        setAutoPlacement(null);
+        previousPlacement.current = null;
+        torsoLossTimer.current = null;
+      }, 500);
+      return;
+    }
     setLivePoseStatus(nextStatus);
     if (nextStatus === 'READY' && !manualAdjustment) {
       if (!sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true, zone === 'GORRA')) {
@@ -750,6 +865,14 @@ function PhotoFitting({
           </View>
         ) : null}
 
+        {(zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && autoPlacement ? (
+          <View pointerEvents="none" className="absolute right-2 top-2 rounded-lg border border-white/70 px-2 py-1">
+            <Text className="text-[10px] text-white">Hombros: {Math.round(torsoDebug.shoulderWidth)} px</Text>
+            <Text className="text-[10px] text-white">Torso: {Math.round(torsoDebug.torsoHeight)} px</Text>
+            <Text className="text-[10px] text-white">Prenda: {Math.round(torsoDebug.shirtWidth)}×{Math.round(torsoDebug.shirtHeight)} px</Text>
+          </View>
+        ) : null}
+
         {(mode === 'live' && cameraPermission?.granted && cameraReady && livePoseStatus === 'READY' || mode === 'photo' && photoUri && autoPlacement) && autoPlacement ? (
           <GestureDetector gesture={gesture}>
             <Animated.View
@@ -810,7 +933,7 @@ function PhotoFitting({
             <View className="w-12"><Button title="+" compact variant="secondary" onPress={() => { scale.value = withSpring(Math.min(3, scale.value + 0.1)); }} /></View>
             <View className="w-12"><Button title="↶" compact variant="secondary" onPress={() => { rotation.value = withSpring(rotation.value - Math.PI / 12); }} /></View>
             <View className="w-12"><Button title="↷" compact variant="secondary" onPress={() => { rotation.value = withSpring(rotation.value + Math.PI / 12); }} /></View>
-            <View className="w-28"><Button title="Autoajustar" compact variant="secondary" onPress={rerunAutoFit} disabled={!photoDataUri || !detectorAvailable || poseStatus === 'detecting'} /></View>
+            <View className="w-28"><Button title="Autoajustar" compact variant="secondary" onPress={rerunAutoFit} disabled={zone === 'GORRA' ? !photoUri || poseStatus === 'detecting' : !photoDataUri || !detectorAvailable || poseStatus === 'detecting'} /></View>
             <View className="w-24"><Button title="Reiniciar" compact variant="secondary" onPress={resetGarment} /></View>
           </View>
         </>
@@ -832,7 +955,7 @@ function PhotoFitting({
 
       {mode === 'live' ? <Text className="mt-2 text-center text-sm text-slate-600">{!detectorAvailable && cameraReady ? 'Detección de postura no disponible aquí' : zone === 'GORRA' ? liveGuidanceMessage : LIVE_POSE_MESSAGE[livePoseStatus]}</Text> : null}
 
-      {(mode === 'photo' && photoDataUri || mode === 'live' && liveFrameDataUri && detectorAvailable) ? (
+      {(mode === 'photo' && photoDataUri && zone !== 'GORRA' || mode === 'live' && liveFrameDataUri && detectorAvailable) ? (
         <WebView
           key={mode === 'live' ? `live-${liveAnalysisAttempt}` : `photo-${analysisAttempt}-${photoDataUri?.length ?? 0}`}
           originWhitelist={['*']}

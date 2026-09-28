@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { useCameraDevice, useCameraPermission, type Constraint } from 'react-native-vision-camera';
-import { Camera, type Face } from 'react-native-vision-camera-face-detector';
+import { Camera, useCameraDevice, useCameraPermission, type CameraRef, type Constraint } from 'react-native-vision-camera';
+import { transformFacesToPreviewCoordinates, useFaceDetectorOutput, type Face } from 'react-native-vision-camera-face-detector';
 
-import { getHatPlacementFromFace, mapFaceToPreview, type CameraFacing, type Size } from './faceDetectorAdapter';
+import { getHatPlacementFromFace, mappedFaceFromPreview, type CameraFacing, type Size } from './faceDetectorAdapter';
 
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are updated by native detector callbacks. */
 
@@ -22,6 +22,7 @@ type DebugState = {
   faceCount: number;
   faceDetected: boolean;
   faceWidth: number;
+  earWidth: number;
   headWidth: number;
   hatWidth: number;
   hatBottomY: number;
@@ -32,10 +33,12 @@ type DebugState = {
   geometry?: DebugGeometry;
   guidance: string;
 };
-const EMPTY_DEBUG: DebugState = { callbacksPerSecond: 0, debugUpdatesPerSecond: 0, faceCount: 0, faceDetected: false, faceWidth: 0, headWidth: 0, hatWidth: 0, hatBottomY: 0, centerX: 0, centerY: 0, eyeAngle: 0, frameSize: '—', guidance: 'Ubica tu cabeza dentro de la guía' };
-const CAMERA_CONSTRAINTS: Constraint[] = [{ fps: 30 }, { binned: true }];
+const EMPTY_DEBUG: DebugState = { callbacksPerSecond: 0, debugUpdatesPerSecond: 0, faceCount: 0, faceDetected: false, faceWidth: 0, earWidth: 0, headWidth: 0, hatWidth: 0, hatBottomY: 0, centerX: 0, centerY: 0, eyeAngle: 0, frameSize: '—', guidance: 'Ubica tu cabeza dentro de la guía' };
+const CAMERA_CONSTRAINTS: Constraint[] = [{ fps: 30 }];
+const SHOW_TRYON_DEBUG = __DEV__ && true;
 
 export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
+  const cameraRef = useRef<CameraRef>(null);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>('front');
   const device = useCameraDevice(cameraFacing);
   const { hasPermission, canRequestPermission, requestPermission } = useCameraPermission();
@@ -67,7 +70,9 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
 
   const hideAfterMisses = useCallback(() => {
     missedCallbacks.current += 1;
-    if (missedCallbacks.current >= 3) opacity.value = withTiming(0, { duration: 90 });
+    if (missedCallbacks.current >= 3) {
+      opacity.value = withTiming(0, { duration: 90 });
+    }
   }, [opacity]);
 
   const handleFacesDetected = useCallback((faces: Face[]) => {
@@ -82,7 +87,10 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
       counter.startedAt = now;
     }
 
-    const face = faces.reduce<Face | undefined>((largest, candidate) => {
+    const previewFaces = cameraRef.current?.preview
+      ? transformFacesToPreviewCoordinates(faces, cameraRef.current)
+      : [];
+    const face = previewFaces.reduce<Face | undefined>((largest, candidate) => {
       const area = candidate.bounds.width * candidate.bounds.height;
       return !largest || area > largest.bounds.width * largest.bounds.height ? candidate : largest;
     }, undefined);
@@ -91,17 +99,15 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
     if (!face || !previewSize) {
       hideAfterMisses();
     } else {
-      const mapped = mapFaceToPreview(face, { width: face.frameWidth, height: face.frameHeight }, previewSize, cameraFacing);
-      if (!mapped) {
-        hideAfterMisses();
-      } else {
-        const placement = getHatPlacementFromFace(mapped, imageAspect, previewSize);
+      const mapped = mappedFaceFromPreview(face);
+        const placement = getHatPlacementFromFace(mapped, imageAspect, previewSize, 'live');
         nextDebug = {
           callbacksPerSecond: counter.fps,
           debugUpdatesPerSecond: debugCounter.current.fps,
           faceCount: faces.length,
           faceDetected: true,
           faceWidth: mapped.bounds.width,
+          earWidth: placement.earWidth,
           headWidth: placement.headWidth,
           hatWidth: placement.width,
           hatBottomY: placement.hatBottomY,
@@ -114,14 +120,13 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
         };
         if (placement.visible && garmentImage) {
           missedCallbacks.current = 0;
-          centerX.value = withTiming(placement.centerX, { duration: 90 });
-          centerY.value = withTiming(placement.centerY, { duration: 90 });
-          overlayWidth.value = withTiming(placement.width, { duration: 100 });
-          overlayHeight.value = withTiming(placement.height, { duration: 100 });
-          rotationDeg.value = withTiming(placement.rotationDeg, { duration: 90 });
-          opacity.value = withTiming(1, { duration: 80 });
+          centerX.value = withTiming(placement.centerX, { duration: 75 });
+          centerY.value = withTiming(placement.centerY, { duration: 75 });
+          overlayWidth.value = withTiming(placement.width, { duration: 80 });
+          overlayHeight.value = withTiming(placement.height, { duration: 80 });
+          rotationDeg.value = withTiming(placement.rotationDeg, { duration: 75 });
+          opacity.value = withTiming(1, { duration: 70 });
         } else hideAfterMisses();
-      }
     }
 
     if (now - lastDebugAt.current >= 500) {
@@ -139,7 +144,21 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
       setDebug(nextDebug);
       if (__DEV__) console.debug('[VisionHatCamera]', nextDebug);
     }
-  }, [cameraFacing, centerX, centerY, garmentImage, hideAfterMisses, imageAspect, opacity, overlayHeight, overlayWidth, previewSize, rotationDeg]);
+  }, [centerX, centerY, garmentImage, hideAfterMisses, imageAspect, opacity, overlayHeight, overlayWidth, previewSize, rotationDeg]);
+
+  const faceDetectorOutput = useFaceDetectorOutput({
+    onFacesDetected: handleFacesDetected,
+    onError: (error) => setCameraError(error.message),
+    performanceMode: 'fast',
+    runLandmarks: true,
+    runContours: false,
+    runClassifications: false,
+    trackingEnabled: true,
+    cameraFacing,
+    mirrorMode: cameraFacing === 'front' ? 'on' : 'off',
+    autoMode: true,
+    minFaceSize: 0.1,
+  });
 
   const overlayStyle = useAnimatedStyle(() => ({
     left: centerX.value - overlayWidth.value / 2,
@@ -176,34 +195,24 @@ export function VisionHatCamera({ garmentImage, onBackToPhoto }: Props) {
     <View style={styles.preview} onLayout={onLayout}>
       <Camera
         key={cameraFacing}
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
         isActive
         constraints={CAMERA_CONSTRAINTS}
-        cameraFacing={cameraFacing}
         mirrorMode={cameraFacing === 'front' ? 'on' : 'off'}
-        autoMode={false}
         resizeMode="cover"
-        outputResolution="preview"
-        performanceMode="fast"
-        runLandmarks
-        runContours={false}
-        runClassifications={false}
-        trackingEnabled
-        minFaceSize={0.1}
-        onFacesDetected={handleFacesDetected}
-        onError={(error) => { setCameraError(error.message); console.error('[VisionHatCamera]', error); }}
+        outputs={[faceDetectorOutput]}
+        onError={(error) => setCameraError(error.message)}
       />
       {garmentImage ? <Animated.View pointerEvents="none" style={[styles.overlay, overlayStyle]}><Image source={{ uri: garmentImage }} resizeMode="contain" style={styles.garment} /></Animated.View> : null}
-      {__DEV__ ? <View pointerEvents="none" style={styles.debugPanel}>
-        <Text style={styles.debugText}>Detector: VisionCamera</Text>
-        <Text style={styles.debugText}>Callbacks: {debug.callbacksPerSecond.toFixed(1)}/s · debug: {debug.debugUpdatesPerSecond.toFixed(1)}/s</Text>
-        <Text style={styles.debugText}>Rostros: {debug.faceCount} · frame: {debug.frameSize} · {cameraFacing}</Text>
-        <Text style={styles.debugText}>Face/head/hat: {debug.faceWidth.toFixed(0)}/{debug.headWidth.toFixed(0)}/{debug.hatWidth.toFixed(0)}</Text>
-        <Text style={styles.debugText}>BottomY: {debug.hatBottomY.toFixed(0)} · X/Y: {debug.centerX.toFixed(0)}/{debug.centerY.toFixed(0)}</Text>
-        <Text style={styles.debugText}>Eye angle: {debug.eyeAngle.toFixed(1)}°</Text>
+      {SHOW_TRYON_DEBUG ? <View pointerEvents="none" style={styles.debugPanel}>
+        <Text style={styles.debugText}>Face width: {debug.faceWidth.toFixed(0)}</Text>
+        <Text style={styles.debugText}>Ear width: {debug.earWidth.toFixed(0)}</Text>
+        <Text style={styles.debugText}>Head width: {debug.headWidth.toFixed(0)}</Text>
+        <Text style={styles.debugText}>Hat width: {debug.hatWidth.toFixed(0)}</Text>
       </View> : null}
-      {__DEV__ && debug.geometry ? <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {SHOW_TRYON_DEBUG && debug.geometry ? <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View style={[styles.faceBounds, debug.geometry.bounds]} />
         {debug.geometry.leftEye ? <View style={[styles.eyePoint, { left: debug.geometry.leftEye.x - 3, top: debug.geometry.leftEye.y - 3 }]} /> : null}
         {debug.geometry.rightEye ? <View style={[styles.eyePoint, { left: debug.geometry.rightEye.x - 3, top: debug.geometry.rightEye.y - 3 }]} /> : null}
@@ -231,11 +240,11 @@ const styles = StyleSheet.create({
   buttonText: { color: 'white', fontWeight: '700' },
   secondaryButton: { borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', paddingHorizontal: 18, paddingVertical: 12 },
   secondaryText: { color: '#475569', fontWeight: '700' },
-  debugPanel: { position: 'absolute', top: 12, left: 12, borderRadius: 10, backgroundColor: 'rgba(0,0,0,.62)', padding: 9 },
-  debugText: { color: 'white', fontSize: 10, lineHeight: 14 },
+  debugPanel: { position: 'absolute', top: 12, left: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,.75)', padding: 9 },
+  debugText: { color: 'white', fontSize: 10, lineHeight: 14, textShadowColor: 'black', textShadowRadius: 2 },
   faceBounds: { position: 'absolute', borderWidth: 1, borderColor: '#22d3ee' },
   eyePoint: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#facc15' },
   earPoint: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80' },
   guidance: { position: 'absolute', left: 12, right: 12, bottom: 14, alignItems: 'center' },
-  guidanceText: { overflow: 'hidden', borderRadius: 12, backgroundColor: 'rgba(0,0,0,.58)', color: 'white', paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, fontWeight: '600' },
+  guidanceText: { overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.75)', color: 'white', paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, fontWeight: '600', textShadowColor: 'black', textShadowRadius: 2 },
 });
