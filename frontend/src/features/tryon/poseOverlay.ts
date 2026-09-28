@@ -101,10 +101,14 @@ export function dressPlacement(
   const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
   const hips = screenLine(leftHip, rightHip, width, height, mirrored)
   const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
-  const regionHeight = Math.hypot(knees.midX - shoulders.midX, knees.midY - shoulders.midY)
-  const size = fitAspect(Math.max(shoulders.distance, hips.distance, knees.distance) * 1.10, regionHeight, imageAspect)
-  if (!size) return null
-  return { cx: (shoulders.midX + knees.midX) / 2, cy: (shoulders.midY + knees.midY) / 2, width: size.width, height: size.height, angle: shoulders.angle }
+  const baseDressHeight = Math.hypot(knees.midX - shoulders.midX, knees.midY - shoulders.midY)
+  const baseDressWidth = Math.max(shoulders.distance, hips.distance, knees.distance) * 1.10
+  const baseSize = fitAspect(baseDressWidth, baseDressHeight, imageAspect)
+  if (!baseSize) return null
+  const dressWidth = baseSize.width * 4.025
+  const dressHeight = baseSize.height * 4.025
+  const center = offsetAlong(shoulders.midX, shoulders.midY, shoulders.angle, dressHeight / 2)
+  return { cx: center.x, cy: center.y, width: dressWidth, height: dressHeight, angle: shoulders.angle }
 }
 
 export function skirtPlacement(
