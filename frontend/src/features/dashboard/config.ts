@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -15,6 +15,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'cajas', label: 'Cajas', icon: Wallet },
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'reportes', label: 'Reportes', icon: BarChart3 },
  ] },
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
