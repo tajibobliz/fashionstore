@@ -8,10 +8,11 @@ export interface GarmentPlacementInput {
   imageAspect: number;
   mirrored?: boolean;
   mode?: 'photo' | 'live';
+  garmentType?: GarmentType;
 }
 
 const MIN_VISIBILITY = 0.5;
-const visible = (p?: Landmark) => Boolean(p && (p.visibility ?? 1) >= MIN_VISIBILITY);
+const visible = (p?: Landmark, minimum = MIN_VISIBILITY) => Boolean(p && (p.visibility ?? 1) >= minimum);
 
 export type UpperBodyPlacementResult = {
   placement: Placement;
@@ -19,32 +20,55 @@ export type UpperBodyPlacementResult = {
   torsoHeight: number;
   shirtWidth: number;
   shirtHeight: number;
+  shoulderCenterY: number;
+  hipCenterY: number | null;
   usedHipFallback: boolean;
 };
 
-export function upperBodyPlacement({ landmarks: lm, width, height, mirrored = false, mode = 'photo' }: GarmentPlacementInput): UpperBodyPlacementResult | null {
+export function upperBodyPlacement({ landmarks: lm, width, height, mirrored = false, mode = 'photo', garmentType }: GarmentPlacementInput): UpperBodyPlacementResult | null {
   const ls = lm[11], rs = lm[12], lh = lm[23], rh = lm[24];
-  if (![ls, rs].every(visible)) return null;
+  const calibratedShirt = garmentType === 'CAMISA' || garmentType === 'BLUSA';
+  const minimumVisibility = calibratedShirt && mode === 'live' ? 0.25 : MIN_VISIBILITY;
+  if (![ls, rs].every((point) => visible(point, minimumVisibility))) return null;
   const shoulders = screenLine(ls!, rs!, width, height, mirrored);
-  const hipsAvailable = [lh, rh].every(visible);
+  const hipsAvailable = [lh, rh].every((point) => visible(point, minimumVisibility));
   const hips = hipsAvailable ? screenLine(lh!, rh!, width, height, mirrored) : null;
+  if (calibratedShirt && mode === 'live' && !hips) return null;
   const torsoHeight = hips
     ? Math.abs(hips.midY - shoulders.midY)
     : shoulders.distance * 1.25;
   if (!(shoulders.distance > 0) || !(torsoHeight > 0)) return null;
-  const shirtWidth = shoulders.distance * (mode === 'live' ? 1.78 : 1.85);
-  const shirtHeight = torsoHeight * (mode === 'live' ? 1.34 : 1.42);
-  const centerX = hips
-    ? (shoulders.midX * 2 + hips.midX * 2) / 4
-    : shoulders.midX;
-  const shirtTopY = shoulders.midY - shirtHeight * (mode === 'live' ? 0.08 : 0.10);
-  const centerY = shirtTopY + shirtHeight / 2;
+  const shirtWidth = calibratedShirt
+    ? mode === 'live'
+      ? Math.max(shoulders.distance * 2.35, hips!.distance * 1.20)
+      : shoulders.distance * 2.85 * 0.90
+    : shoulders.distance * (mode === 'live' ? 1.78 : 1.85);
+  const shirtHeight = calibratedShirt
+    ? torsoHeight * (mode === 'live' ? 1.55 : 1.72 * 0.90)
+    : torsoHeight * (mode === 'live' ? 1.34 : 1.42);
+  const centerX = hips ? (shoulders.midX + hips.midX) / 2 : shoulders.midX;
+  let centerY: number;
+  if (calibratedShirt && mode === 'live') {
+    const shirtTopY = shoulders.midY - shirtHeight * 0.03;
+    centerY = shirtTopY + shirtHeight / 2;
+  } else if (calibratedShirt) {
+    const previousHeight = torsoHeight * 1.72;
+    const previousTopY = shoulders.midY - previousHeight * 0.28;
+    const previousCenterY = previousTopY + previousHeight / 2;
+    const currentCenterY = previousCenterY + shirtHeight * 0.06;
+    centerY = currentCenterY - shirtHeight * 0.04;
+  } else {
+    const shirtTopY = shoulders.midY - shirtHeight * (mode === 'live' ? 0.08 : 0.10);
+    centerY = shirtTopY + shirtHeight / 2;
+  }
   return {
     placement: { cx: centerX, cy: centerY, width: shirtWidth, height: shirtHeight, angle: shoulders.angle },
     shoulderWidth: shoulders.distance,
     torsoHeight,
     shirtWidth,
     shirtHeight,
+    shoulderCenterY: shoulders.midY,
+    hipCenterY: hips?.midY ?? null,
     usedHipFallback: !hipsAvailable,
   };
 }
@@ -56,7 +80,7 @@ export function posePlacement(type: GarmentType, { landmarks: lm, width, height,
   let targetWidth: number;
 
   if (type === 'CAMISA' || type === 'BLUSA' || type === 'TOP') {
-    return upperBodyPlacement({ landmarks: lm, width, height, imageAspect, mirrored, mode })?.placement ?? null;
+    return upperBodyPlacement({ landmarks: lm, width, height, imageAspect, mirrored, mode, garmentType: type })?.placement ?? null;
   } else if (type === 'OTRO') {
     if (![ls, rs, lh, rh].every(visible)) return null;
     const shoulders = screenLine(ls!, rs!, width, height, mirrored);

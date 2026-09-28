@@ -104,7 +104,20 @@ function assessLivePose(landmarks: PoseLandmark[], zone: GarmentZone): LivePoseS
     if (hat.guidanceMessage === 'Acércate un poco') return 'TOO_FAR';
     if (hat.guidanceMessage === 'Aléjate un poco') return 'TOO_CLOSE';
     return hat.visible ? 'READY' : 'SEARCHING';
-  } else if (zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') {
+  } else if (zone === 'CAMISA' || zone === 'BLUSA') {
+    const torsoPointVisible = (point?: PoseLandmark) => Boolean(point && (point.visibility === undefined || point.visibility >= 0.25));
+    if (![leftShoulder, rightShoulder, leftHip, rightHip].every(torsoPointVisible)) return 'SEARCHING';
+    const shoulderWidth = distance(leftShoulder, rightShoulder);
+    const hipWidth = distance(leftHip, rightHip);
+    const shoulderCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+    const hipCenterY = (leftHip.y + rightHip.y) / 2;
+    const torsoHeight = hipCenterY - shoulderCenterY;
+    const shoulderAngle = Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x);
+    if (shoulderWidth < 0.16 || hipWidth < 0.10 || torsoHeight < 0.14) return 'TOO_FAR';
+    if (shoulderWidth > 0.62 || torsoHeight > 0.52) return 'TOO_CLOSE';
+    if (!(shoulderCenterY < hipCenterY) || Math.abs(shoulderAngle) > 35 * Math.PI / 180) return 'SEARCHING';
+    return 'READY';
+  } else if (zone === 'TOP') {
     if (![leftShoulder, rightShoulder].every(isVisible)) return 'SEARCHING';
     const shoulderWidth = distance(leftShoulder, rightShoulder);
     if (shoulderWidth < 0.16) return 'TOO_FAR';
@@ -381,7 +394,8 @@ function PhotoFitting({
   const [livePoseStatus, setLivePoseStatus] = useState<LivePoseState>('SEARCHING');
   const [liveGuidanceMessage, setLiveGuidanceMessage] = useState('Ubica tu cabeza dentro de la guía');
   const [hatDebug, setHatDebug] = useState({ detected: false, headWidth: 0 });
-  const [torsoDebug, setTorsoDebug] = useState({ shoulderWidth: 0, torsoHeight: 0, shirtWidth: 0, shirtHeight: 0 });
+  const [torsoDebug, setTorsoDebug] = useState({ shoulderWidth: 0, torsoHeight: 0, shirtWidth: 0, shirtHeight: 0, shoulderCenterY: 0, hipCenterY: 0 });
+  const [torsoPoseReady, setTorsoPoseReady] = useState(false);
   const [liveFrameDataUri, setLiveFrameDataUri] = useState<string | null>(null);
   const [liveAnalysisAttempt, setLiveAnalysisAttempt] = useState(0);
   const [liveAnalysisProcessing, setLiveAnalysisProcessing] = useState(false);
@@ -397,6 +411,7 @@ function PhotoFitting({
   const missedHatFrames = useRef(0);
   const torsoLossTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zone = useMemo(() => resolveGarmentZone(garmentType), [garmentType]);
+  const freeUpperBodyOverlay = zone === 'CAMISA' || zone === 'BLUSA';
   const detectorAvailable = Platform.OS !== 'web';
 
   useEffect(() => {
@@ -611,10 +626,10 @@ function PhotoFitting({
       y: (offsetY + point.y * renderedHeight) / previewSize.height,
       visibility: point.visibility,
     }));
-    const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX, mode } as const;
+    const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX, mode, garmentType: zone } as const;
     const hat = zone === 'GORRA' && liveHat ? getHatOverlayFromPose({ ...placementInput, live: true }) : null;
     const upperBody = zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP' ? upperBodyPlacement(placementInput) : null;
-    if (upperBody) setTorsoDebug({ shoulderWidth: upperBody.shoulderWidth, torsoHeight: upperBody.torsoHeight, shirtWidth: upperBody.shirtWidth, shirtHeight: upperBody.shirtHeight });
+    if (upperBody) setTorsoDebug({ shoulderWidth: upperBody.shoulderWidth, torsoHeight: upperBody.torsoHeight, shirtWidth: upperBody.shirtWidth, shirtHeight: upperBody.shirtHeight, shoulderCenterY: upperBody.shoulderCenterY, hipCenterY: upperBody.hipCenterY ?? 0 });
     const next = upperBody?.placement ?? (hat
       ? hat.visible ? { cx: hat.centerX, cy: hat.centerY, width: hat.width, height: hat.height, angle: hat.rotationDeg * Math.PI / 180 } : null
       : getGarmentPlacement(zone, placementInput));
@@ -623,7 +638,7 @@ function PhotoFitting({
       previousPlacement.current = null;
       return false;
     }
-    const placement = smooth ? smoothPlacement(previousPlacement.current, next) : next;
+    const placement = smooth ? smoothPlacement(previousPlacement.current, next, freeUpperBodyOverlay ? 0.55 : undefined) : next;
     previousPlacement.current = placement;
     setAutoPlacement(placement);
     translateX.value = withSpring(0);
@@ -632,7 +647,7 @@ function PhotoFitting({
     rotation.value = withSpring(placement.angle);
     if (updateStatus) setPoseStatus('adjusted');
     return true;
-  }, [photoSize, poseLandmarks, previewSize, garmentAspect, mode, rotation, scale, translateX, translateY, zone]);
+  }, [photoSize, poseLandmarks, previewSize, freeUpperBodyOverlay, garmentAspect, mode, rotation, scale, translateX, translateY, zone]);
 
   useEffect(() => {
     if (!poseLandmarks || analysisAttempt === 0 || appliedAttempt.current === analysisAttempt) return;
@@ -715,14 +730,14 @@ function PhotoFitting({
     };
 
     void analyzeFrame();
-    const timer = setInterval(() => void analyzeFrame(), zone === 'GORRA' ? 900 : 1800);
+    const timer = setInterval(() => void analyzeFrame(), zone === 'GORRA' ? 900 : freeUpperBodyOverlay ? 700 : 1800);
     return () => {
       active = false;
       clearInterval(timer);
       liveAnalysisBusy.current = false;
       liveCaptureRequested.current = false;
     };
-  }, [cameraPermission?.granted, cameraReady, frozenUri, mode, zone]);
+  }, [cameraPermission?.granted, cameraReady, freeUpperBodyOverlay, frozenUri, mode, zone]);
 
   useEffect(() => () => {
     if (torsoLossTimer.current) clearTimeout(torsoLossTimer.current);
@@ -733,6 +748,7 @@ function PhotoFitting({
     setLiveAnalysisProcessing(false);
     if (mode !== 'live') return;
     if (!landmarks) {
+      if (freeUpperBodyOverlay) setTorsoPoseReady(false);
       if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && previousPlacement.current) {
         if (torsoLossTimer.current) clearTimeout(torsoLossTimer.current);
         setLivePoseStatus('READY');
@@ -741,7 +757,7 @@ function PhotoFitting({
           setAutoPlacement(null);
           previousPlacement.current = null;
           torsoLossTimer.current = null;
-        }, 500);
+        }, freeUpperBodyOverlay ? 120 : 500);
         return;
       }
       if (zone === 'GORRA' && previousPlacement.current && missedHatFrames.current < 1) {
@@ -776,6 +792,7 @@ function PhotoFitting({
       missedHatFrames.current = 0;
     }
     const nextStatus = assessLivePose(landmarks, zone);
+    if (freeUpperBodyOverlay) setTorsoPoseReady(nextStatus === 'READY');
     if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && nextStatus !== 'READY' && previousPlacement.current) {
       setLivePoseStatus('READY');
       torsoLossTimer.current = setTimeout(() => {
@@ -783,11 +800,11 @@ function PhotoFitting({
         setAutoPlacement(null);
         previousPlacement.current = null;
         torsoLossTimer.current = null;
-      }, 500);
+      }, freeUpperBodyOverlay ? 120 : 500);
       return;
     }
     setLivePoseStatus(nextStatus);
-    if (nextStatus === 'READY' && !manualAdjustment) {
+    if (nextStatus === 'READY' && (!manualAdjustment || freeUpperBodyOverlay)) {
       if (!sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true, zone === 'GORRA')) {
         setLivePoseStatus('SEARCHING');
       }
@@ -820,7 +837,13 @@ function PhotoFitting({
     <View className="mt-3">
       {cameraError ? <Text accessibilityRole="alert" className="mb-2 text-center text-xs text-amber-700">{cameraError}</Text> : null}
 
-      <View ref={previewRef} collapsable={false} onLayout={onPreviewLayout} className="relative h-[480px] overflow-hidden rounded-2xl bg-slate-950">
+      <View
+        ref={previewRef}
+        collapsable={false}
+        onLayout={onPreviewLayout}
+        className="relative h-[480px] rounded-2xl bg-slate-950"
+        style={mode === 'live' && freeUpperBodyOverlay ? { overflow: 'visible' } : { overflow: 'hidden' }}
+      >
         {mode === 'live' && frozenUri ? (
           <Image
             source={{ uri: frozenUri }}
@@ -849,7 +872,7 @@ function PhotoFitting({
           </View>
         )}
 
-        {mode === 'live' && !frozenUri && cameraPermission?.granted && cameraReady && showGuide ? (
+        {mode === 'live' && !freeUpperBodyOverlay && !frozenUri && cameraPermission?.granted && cameraReady && showGuide ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <View className="absolute left-[20%] top-[24%] h-[42%] w-[60%] rounded-[45%] border border-white/30" />
             <View className="absolute left-[27%] top-[29%] h-px w-[46%] bg-white/45" />
@@ -865,28 +888,39 @@ function PhotoFitting({
           </View>
         ) : null}
 
-        {(zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && autoPlacement ? (
+        {((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && autoPlacement || freeUpperBodyOverlay && mode === 'live') ? (
           <View pointerEvents="none" className="absolute right-2 top-2 rounded-lg border border-white/70 px-2 py-1">
             <Text className="text-[10px] text-white">Hombros: {Math.round(torsoDebug.shoulderWidth)} px</Text>
             <Text className="text-[10px] text-white">Torso: {Math.round(torsoDebug.torsoHeight)} px</Text>
             <Text className="text-[10px] text-white">Prenda: {Math.round(torsoDebug.shirtWidth)}×{Math.round(torsoDebug.shirtHeight)} px</Text>
+            {freeUpperBodyOverlay && mode === 'live' ? <>
+              <Text className="text-[10px] text-white">Pose lista: {torsoPoseReady ? 'sí' : 'no'}</Text>
+              <Text className="text-[10px] text-white">Hombros Y: {Math.round(torsoDebug.shoulderCenterY)} px</Text>
+              <Text className="text-[10px] text-white">Caderas Y: {Math.round(torsoDebug.hipCenterY)} px</Text>
+            </> : null}
+            {freeUpperBodyOverlay && mode === 'live' ? <>
+              <Text className="text-[10px] text-white">Overlay libre: sí</Text>
+              <Text className="text-[10px] text-white">Círculo activo: no</Text>
+            </> : null}
           </View>
         ) : null}
 
         {(mode === 'live' && cameraPermission?.granted && cameraReady && livePoseStatus === 'READY' || mode === 'photo' && photoUri && autoPlacement) && autoPlacement ? (
-          <GestureDetector gesture={gesture}>
-            <Animated.View
-              style={[{
-                position: 'absolute',
-                left: autoPlacement.cx - autoPlacement.width / 2,
-                top: autoPlacement.cy - autoPlacement.height / 2,
-                width: autoPlacement.width,
-                height: autoPlacement.height,
-              }, garmentStyle]}
-            >
-              <Image source={{ uri: garmentImage }} resizeMode="contain" className="h-full w-full" />
-            </Animated.View>
-          </GestureDetector>
+          <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { overflow: freeUpperBodyOverlay && mode === 'live' ? 'visible' : 'hidden' }]}>
+            <GestureDetector gesture={gesture}>
+              <Animated.View
+                style={[{
+                  position: 'absolute',
+                  left: autoPlacement.cx - autoPlacement.width / 2,
+                  top: autoPlacement.cy - autoPlacement.height / 2,
+                  width: autoPlacement.width,
+                  height: autoPlacement.height,
+                }, garmentStyle]}
+              >
+                <Image source={{ uri: garmentImage }} resizeMode="contain" className="h-full w-full" />
+              </Animated.View>
+            </GestureDetector>
+          </View>
         ) : null}
 
         {mode === 'live' && cameraPermission?.granted && !cameraReady && !cameraError ? (
@@ -953,7 +987,7 @@ function PhotoFitting({
         </View>
       ) : null}
 
-      {mode === 'live' ? <Text className="mt-2 text-center text-sm text-slate-600">{!detectorAvailable && cameraReady ? 'Detección de postura no disponible aquí' : zone === 'GORRA' ? liveGuidanceMessage : LIVE_POSE_MESSAGE[livePoseStatus]}</Text> : null}
+      {mode === 'live' ? <Text className="mt-2 text-center text-sm text-slate-600">{!detectorAvailable && cameraReady ? 'Detección de postura no disponible aquí' : zone === 'GORRA' ? liveGuidanceMessage : freeUpperBodyOverlay && livePoseStatus !== 'READY' ? 'Coloca tu torso frente a la cámara' : LIVE_POSE_MESSAGE[livePoseStatus]}</Text> : null}
 
       {(mode === 'photo' && photoDataUri && zone !== 'GORRA' || mode === 'live' && liveFrameDataUri && detectorAvailable) ? (
         <WebView
