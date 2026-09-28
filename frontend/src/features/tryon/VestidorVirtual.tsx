@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { ArrowLeft, Camera, RefreshCw } from 'lucide-react'
@@ -8,12 +8,13 @@ import { catalogApi } from '../../api/catalog.api'
 import { queryKeys } from '../../api/queryKeys'
 import { getApiErrorMessage } from '../../utils/apiError'
 import { resolveImageUrl } from '../../utils/imageUrl'
-import type { TipoTryOn } from '../../types/catalog'
 import { createDetector } from './mediapipe'
 import type { Detector } from './mediapipe'
 import { drawPlacement, smoothPlacement } from './geometry'
 import type { Placement } from './geometry'
 import { TRY_ON_STRATEGIES } from './strategies'
+import { resolveTryOnAsset, resolveTryOnGarmentType } from './tryOnAsset'
+import type { ResolvedTryOnGarmentType } from './tryOnAsset'
 import styles from './VestidorVirtual.module.css'
 
 // Frames consecutivos sin rostro que se toleran antes de quitar el PNG (evita parpadeos por una detección fallida).
@@ -59,6 +60,7 @@ const ERROR_COPY: Record<StageError, { title: string; text: string; retry: boole
 
 export default function VestidorVirtual() {
   const { productoId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [attempt, setAttempt] = useState(0)
   const id = Number(productoId)
@@ -69,6 +71,10 @@ export default function VestidorVirtual() {
     enabled: validId,
     retry: false,
   })
+  const selectedVariantId = Number(searchParams.get('idVariante')) || undefined
+  const selectedVariant = product.data?.variantes?.find(item => item.idVariante === selectedVariantId)
+  const tryOnAsset = product.data ? resolveTryOnAsset(product.data, selectedVariant) : null
+  const tryOnGarmentType = product.data ? resolveTryOnGarmentType(product.data) : null
   // La ficha del producto es estado interno de /tienda; se le indica cuál reabrir al volver.
   const backToProduct = () => navigate('/tienda', { state: { productoId: id } })
   const backToStore = () => navigate('/tienda')
@@ -85,13 +91,13 @@ export default function VestidorVirtual() {
       <button type="button" className={`primary-button ${styles.action}`} onClick={() => void product.refetch()}><RefreshCw size={18} aria-hidden="true" />Reintentar</button>
       <button type="button" className={styles.secondary} onClick={backToStore}>Volver a la tienda</button>
     </Notice>
-  } else if (!product.data.imagenTryOn || !product.data.tipoTryOn) {
+  } else if (!tryOnAsset || !tryOnGarmentType) {
     content = <Notice title="Este producto aún no tiene vestidor virtual" text="Todavía no cargamos la imagen necesaria para probártelo.">
       <button type="button" className={`primary-button ${styles.action}`} onClick={backToProduct}><ArrowLeft size={18} aria-hidden="true" />Volver al producto</button>
     </Notice>
   } else {
     // `key` reinicia por completo la cámara y el modelo cuando el usuario pulsa Reintentar.
-    content = <TryOnStage key={attempt} tryOnUrl={resolveImageUrl(product.data.imagenTryOn)} tipoTryOn={product.data.tipoTryOn} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
+    content = <TryOnStage key={attempt} tryOnUrl={resolveImageUrl(tryOnAsset)} tipoTryOn={tryOnGarmentType} productName={product.data.nombre} onBack={backToProduct} onRetry={() => setAttempt(value => value + 1)} />
   }
 
   return <main className={styles.page}>
@@ -113,7 +119,7 @@ function Notice({ title, text, children }: { title: string; text?: string; child
 
 interface StageProps {
   tryOnUrl: string
-  tipoTryOn: TipoTryOn
+  tipoTryOn: ResolvedTryOnGarmentType
   productName: string
   onBack: () => void
   onRetry: () => void

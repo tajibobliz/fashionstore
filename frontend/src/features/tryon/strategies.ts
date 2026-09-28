@@ -6,7 +6,7 @@
 import { capPlacement, glassesPlacement } from './faceOverlay'
 import { shirtPlacement } from './poseOverlay'
 import type { Landmark, Placement } from './geometry'
-import type { TipoTryOn } from '../../types/catalog'
+import type { ResolvedTryOnGarmentType } from './tryOnAsset'
 
 /** Qué modelo de MediaPipe necesita cada prenda: 'face' (FaceLandmarker) o 'pose' (PoseLandmarker). */
 export type TryOnModel = 'face' | 'pose'
@@ -21,8 +21,10 @@ export interface TryOnStrategy {
 const FACE_HINT = 'No detectamos tu rostro. Mira a la cámara y busca buena luz.'
 const POSE_HINT = 'Colócate a 1-2 metros de la cámara para verte de cuerpo entero.'
 
-export const TRY_ON_STRATEGIES: Record<TipoTryOn, TryOnStrategy> = {
+export const TRY_ON_STRATEGIES: Record<ResolvedTryOnGarmentType, TryOnStrategy> = {
   lentes: { model: 'face', placement: glassesPlacement, notDetectedHint: FACE_HINT },
-  gorra: { model: 'face', placement: capPlacement, notDetectedHint: FACE_HINT },
-  polera: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
+  GORRA: { model: 'face', placement: capPlacement, notDetectedHint: FACE_HINT },
+  CAMISA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
+  BLUSA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
+  TOP: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
 }

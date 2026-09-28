@@ -27,6 +27,9 @@ export const SHIRT_HEIGHT_RATIO = 1.7
 /** Cuánto sube el borde superior de la polera por encima del punto medio de los hombros, para cubrir el cuello. */
 export const SHIRT_NECK_OFFSET_RATIO = 0.35
 
+/** Elevación visual adicional respecto al alto final de la prenda, sin modificar su escala. */
+export const SHIRT_VERTICAL_RAISE_RATIO = 0.08
+
 /**
  * Calcula dónde poner el PNG de la polera a partir de los 4 puntos del torso (hombros y caderas).
  *
@@ -66,6 +69,6 @@ export function shirtPlacement(
   // Borde superior: punto medio de los hombros, desplazado hacia arriba (offset negativo) para tapar el cuello.
   const topEdge = offsetAlong(shoulders.midX, shoulders.midY, shoulders.angle, -shoulders.distance * SHIRT_NECK_OFFSET_RATIO)
   // drawPlacement dibuja centrado en (cx, cy): el centro queda medio alto más abajo del borde superior.
-  const center = offsetAlong(topEdge.x, topEdge.y, shoulders.angle, shirtHeight / 2)
+  const center = offsetAlong(topEdge.x, topEdge.y, shoulders.angle, shirtHeight * (0.5 - SHIRT_VERTICAL_RAISE_RATIO))
   return { cx: center.x, cy: center.y, width: shirtWidth, height: shirtHeight, angle: shoulders.angle }
 }

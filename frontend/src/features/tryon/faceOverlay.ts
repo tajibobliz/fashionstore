@@ -70,10 +70,13 @@ export function glassesPlacement(
 // ===== GORRA =====
 
 /** Ancho de la gorra respecto a la distancia entre mejillas (234↔454: el ancho de la cabeza). */
-export const CAP_WIDTH_RATIO = 1.3
+export const CAP_WIDTH_RATIO = 2.48
 
 /** Cuánto sube el borde inferior de la gorra por encima de la frente (FOREHEAD_TOP), como fracción del alto de cara. */
 export const CAP_TOP_OFFSET_RATIO = 0.05
+
+/** Descenso adicional del borde inferior respecto a su posición anterior, como fracción del alto facial. */
+export const CAP_VERTICAL_DROP_RATIO = 0.12
 
 /**
  * Calcula dónde poner el PNG de una gorra o sombrero.
@@ -105,12 +108,14 @@ export function capPlacement(
   const faceHeight = screenLine(forehead, chin, width, height, mirrored).distance
   if (head.distance === 0 || faceHeight === 0) return null
 
-  const capWidth = head.distance * CAP_WIDTH_RATIO
+  const capWidthActual = head.distance * CAP_WIDTH_RATIO
+  const capWidth = capWidthActual * 0.95
   const capHeight = capWidth * imageAspect
   const foreheadPoint = toCanvasPoint(forehead, width, height, mirrored)
   // Borde inferior de la gorra: la frente desplazada hacia arriba (offset negativo) el % configurado del alto de cara.
-  const bottomEdge = offsetAlong(foreheadPoint.x, foreheadPoint.y, eyes.angle, -faceHeight * CAP_TOP_OFFSET_RATIO)
+  const bottomEdge = offsetAlong(foreheadPoint.x, foreheadPoint.y, eyes.angle, faceHeight * (CAP_VERTICAL_DROP_RATIO - CAP_TOP_OFFSET_RATIO))
   // drawPlacement dibuja centrado en (cx, cy): el centro queda medio alto más arriba todavía del borde inferior.
-  const center = offsetAlong(bottomEdge.x, bottomEdge.y, eyes.angle, -capHeight / 2)
-  return { cx: center.x, cy: center.y, width: capWidth, height: capHeight, angle: eyes.angle }
+  const centerActual = offsetAlong(bottomEdge.x, bottomEdge.y, eyes.angle, -capHeight / 2)
+  const verticalLift = capHeight * 0.30
+  return { cx: centerActual.x, cy: centerActual.y + verticalLift, width: capWidth, height: capHeight, angle: eyes.angle }
 }
