@@ -94,6 +94,29 @@ function distance(first: PoseLandmark, second: PoseLandmark) {
   return Math.hypot(first.x - second.x, first.y - second.y);
 }
 
+function isUpperBodyZone(zone: GarmentZone) {
+  return zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP';
+}
+
+function assessUpperBodyPose(
+  landmarks: PoseLandmark[],
+  zone: GarmentZone,
+  sourceSize: PreviewSize,
+  imageAspect: number,
+  mirrored: boolean,
+) {
+  if (!isUpperBodyZone(zone)) return null;
+  return upperBodyPlacement({
+    landmarks,
+    width: sourceSize.width,
+    height: sourceSize.height,
+    imageAspect,
+    mirrored,
+    mode: 'live',
+    garmentType: zone,
+  });
+}
+
 function assessLivePose(landmarks: PoseLandmark[], zone: GarmentZone): LivePoseState {
   const leftShoulder = landmarks[11];
   const rightShoulder = landmarks[12];
@@ -104,25 +127,6 @@ function assessLivePose(landmarks: PoseLandmark[], zone: GarmentZone): LivePoseS
     if (hat.guidanceMessage === 'Acércate un poco') return 'TOO_FAR';
     if (hat.guidanceMessage === 'Aléjate un poco') return 'TOO_CLOSE';
     return hat.visible ? 'READY' : 'SEARCHING';
-  } else if (zone === 'CAMISA' || zone === 'BLUSA') {
-    const torsoPointVisible = (point?: PoseLandmark) => Boolean(point && (point.visibility === undefined || point.visibility >= 0.25));
-    if (![leftShoulder, rightShoulder, leftHip, rightHip].every(torsoPointVisible)) return 'SEARCHING';
-    const shoulderWidth = distance(leftShoulder, rightShoulder);
-    const hipWidth = distance(leftHip, rightHip);
-    const shoulderCenterY = (leftShoulder.y + rightShoulder.y) / 2;
-    const hipCenterY = (leftHip.y + rightHip.y) / 2;
-    const torsoHeight = hipCenterY - shoulderCenterY;
-    const shoulderAngle = Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x);
-    if (shoulderWidth < 0.16 || hipWidth < 0.10 || torsoHeight < 0.14) return 'TOO_FAR';
-    if (shoulderWidth > 0.62 || torsoHeight > 0.52) return 'TOO_CLOSE';
-    if (!(shoulderCenterY < hipCenterY) || Math.abs(shoulderAngle) > 35 * Math.PI / 180) return 'SEARCHING';
-    return 'READY';
-  } else if (zone === 'TOP') {
-    if (![leftShoulder, rightShoulder].every(isVisible)) return 'SEARCHING';
-    const shoulderWidth = distance(leftShoulder, rightShoulder);
-    if (shoulderWidth < 0.16) return 'TOO_FAR';
-    if (shoulderWidth > 0.62) return 'TOO_CLOSE';
-    return 'READY';
   } else if (zone === 'OTRO') {
     if (![leftShoulder, rightShoulder, leftHip, rightHip].every(isVisible)) return 'SEARCHING';
   } else if (zone === 'VESTIDO') {
@@ -382,6 +386,7 @@ function PhotoFitting({
   const [showGuide, setShowGuide] = useState(true);
   const [capturing, setCapturing] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('front');
+  const [cameraSessionKey, setCameraSessionKey] = useState(0);
   const [frozenUri, setFrozenUri] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
@@ -394,9 +399,10 @@ function PhotoFitting({
   const [livePoseStatus, setLivePoseStatus] = useState<LivePoseState>('SEARCHING');
   const [liveGuidanceMessage, setLiveGuidanceMessage] = useState('Ubica tu cabeza dentro de la guía');
   const [hatDebug, setHatDebug] = useState({ detected: false, headWidth: 0 });
-  const [torsoDebug, setTorsoDebug] = useState({ shoulderWidth: 0, torsoHeight: 0, shirtWidth: 0, shirtHeight: 0, shoulderCenterY: 0, hipCenterY: 0 });
+  const [torsoDebug, setTorsoDebug] = useState({ shoulderWidth: 0, torsoHeight: 0, shirtWidth: 0, shirtHeight: 0, shoulderCenterY: 0, hipCenterY: 0, leftShoulderVisibility: 0, rightShoulderVisibility: 0, leftHipVisibility: 0, rightHipVisibility: 0 });
   const [torsoPoseReady, setTorsoPoseReady] = useState(false);
   const [liveFrameDataUri, setLiveFrameDataUri] = useState<string | null>(null);
+  const [liveAnalysisSessionId, setLiveAnalysisSessionId] = useState(0);
   const [liveAnalysisAttempt, setLiveAnalysisAttempt] = useState(0);
   const [liveAnalysisProcessing, setLiveAnalysisProcessing] = useState(false);
   const [manualAdjustment, setManualAdjustment] = useState(false);
@@ -410,8 +416,9 @@ function PhotoFitting({
   const latestLiveFrameSize = useRef<PreviewSize | null>(null);
   const missedHatFrames = useRef(0);
   const torsoLossTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cameraSessionId = useRef(0);
   const zone = useMemo(() => resolveGarmentZone(garmentType), [garmentType]);
-  const freeUpperBodyOverlay = zone === 'CAMISA' || zone === 'BLUSA';
+  const freeUpperBodyOverlay = isUpperBodyZone(zone);
   const detectorAvailable = Platform.OS !== 'web';
 
   useEffect(() => {
@@ -471,13 +478,27 @@ function PhotoFitting({
   };
 
   const changeCameraFacing = () => {
-    setCameraReady(false);
-    setCameraFacing((current) => current === 'front' ? 'back' : 'front');
+    if (torsoLossTimer.current) {
+      clearTimeout(torsoLossTimer.current);
+      torsoLossTimer.current = null;
+    }
+    cameraSessionId.current += 1;
+    liveAnalysisBusy.current = false;
+    liveCaptureRequested.current = false;
     latestLiveLandmarks.current = null;
-    missedHatFrames.current = 0;
-    setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
+    latestLiveFrameSize.current = null;
+    previousPlacement.current = null;
+    setLiveFrameDataUri(null);
+    setLiveAnalysisProcessing(false);
+    setAutoPlacement(null);
+    setTorsoPoseReady(false);
     setLivePoseStatus('SEARCHING');
     setManualAdjustment(false);
+    setCameraReady(false);
+    setCameraSessionKey((current) => current + 1);
+    setCameraFacing((current) => current === 'front' ? 'back' : 'front');
+    missedHatFrames.current = 0;
+    setLiveGuidanceMessage('Ubica tu cabeza dentro de la guía');
   };
 
   const translateX = useSharedValue(0);
@@ -629,7 +650,18 @@ function PhotoFitting({
     const placementInput = { landmarks: viewportLandmarks, width: previewSize.width, height: previewSize.height, imageAspect: garmentAspect, mirrored: mirrorX, mode, garmentType: zone } as const;
     const hat = zone === 'GORRA' && liveHat ? getHatOverlayFromPose({ ...placementInput, live: true }) : null;
     const upperBody = zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP' ? upperBodyPlacement(placementInput) : null;
-    if (upperBody) setTorsoDebug({ shoulderWidth: upperBody.shoulderWidth, torsoHeight: upperBody.torsoHeight, shirtWidth: upperBody.shirtWidth, shirtHeight: upperBody.shirtHeight, shoulderCenterY: upperBody.shoulderCenterY, hipCenterY: upperBody.hipCenterY ?? 0 });
+    if (upperBody) setTorsoDebug({
+      shoulderWidth: upperBody.shoulderWidth,
+      torsoHeight: upperBody.torsoHeight,
+      shirtWidth: upperBody.shirtWidth,
+      shirtHeight: upperBody.shirtHeight,
+      shoulderCenterY: upperBody.shoulderCenterY,
+      hipCenterY: upperBody.hipCenterY ?? 0,
+      leftShoulderVisibility: upperBody.leftShoulderVisibility,
+      rightShoulderVisibility: upperBody.rightShoulderVisibility,
+      leftHipVisibility: upperBody.leftHipVisibility,
+      rightHipVisibility: upperBody.rightHipVisibility,
+    });
     const next = upperBody?.placement ?? (hat
       ? hat.visible ? { cx: hat.centerX, cy: hat.centerY, width: hat.width, height: hat.height, angle: hat.rotationDeg * Math.PI / 180 } : null
       : getGarmentPlacement(zone, placementInput));
@@ -711,14 +743,16 @@ function PhotoFitting({
     let active = true;
     const analyzeFrame = async () => {
       if (!active || liveAnalysisBusy.current || liveCaptureRequested.current || !cameraRef.current) return;
+      const analysisSessionId = cameraSessionId.current;
       liveAnalysisBusy.current = true;
       setLiveAnalysisProcessing(true);
       try {
         const frame = await cameraRef.current.takePictureAsync({ quality: zone === 'GORRA' ? 0.18 : 0.25, base64: true });
-        if (!active) return;
+        if (!active || analysisSessionId !== cameraSessionId.current) return;
         if (!frame.base64) throw new Error('Camera frame has no base64 data');
         const frameSize = { width: frame.width, height: frame.height };
         latestLiveFrameSize.current = frameSize;
+        setLiveAnalysisSessionId(analysisSessionId);
         setLiveFrameDataUri(`data:image/jpeg;base64,${frame.base64}`);
         setLiveAnalysisAttempt((attempt) => attempt + 1);
       } catch {
@@ -749,7 +783,7 @@ function PhotoFitting({
     if (mode !== 'live') return;
     if (!landmarks) {
       if (freeUpperBodyOverlay) setTorsoPoseReady(false);
-      if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && previousPlacement.current) {
+      if (isUpperBodyZone(zone) && previousPlacement.current) {
         if (torsoLossTimer.current) clearTimeout(torsoLossTimer.current);
         setLivePoseStatus('READY');
         torsoLossTimer.current = setTimeout(() => {
@@ -779,6 +813,32 @@ function PhotoFitting({
       torsoLossTimer.current = null;
     }
     const sourceSize = latestLiveFrameSize.current;
+    if (isUpperBodyZone(zone)) {
+      const upperBody = sourceSize && garmentAspect
+        ? assessUpperBodyPose(landmarks, zone, sourceSize, garmentAspect, cameraFacing === 'front')
+        : null;
+      setTorsoPoseReady(Boolean(upperBody));
+      if (upperBody && sourceSize) {
+        setLivePoseStatus('READY');
+        if (!applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true, false)) {
+          setTorsoPoseReady(false);
+          setLivePoseStatus('SEARCHING');
+        }
+        return;
+      }
+      if (previousPlacement.current) {
+        setLivePoseStatus('READY');
+        torsoLossTimer.current = setTimeout(() => {
+          setLivePoseStatus('SEARCHING');
+          setAutoPlacement(null);
+          previousPlacement.current = null;
+          torsoLossTimer.current = null;
+        }, freeUpperBodyOverlay ? 120 : 500);
+      } else {
+        setLivePoseStatus('SEARCHING');
+      }
+      return;
+    }
     if (zone === 'GORRA' && sourceSize) {
       const hat = getHatOverlayFromPose({ landmarks, width: sourceSize.width, height: sourceSize.height, imageAspect: garmentAspect ?? 1, mirrored: cameraFacing === 'front', live: true });
       const estimatedHeadWidth = hat.width > 0 ? hat.width / 1.28 : 0;
@@ -792,17 +852,6 @@ function PhotoFitting({
       missedHatFrames.current = 0;
     }
     const nextStatus = assessLivePose(landmarks, zone);
-    if (freeUpperBodyOverlay) setTorsoPoseReady(nextStatus === 'READY');
-    if ((zone === 'CAMISA' || zone === 'BLUSA' || zone === 'TOP') && nextStatus !== 'READY' && previousPlacement.current) {
-      setLivePoseStatus('READY');
-      torsoLossTimer.current = setTimeout(() => {
-        setLivePoseStatus(nextStatus);
-        setAutoPlacement(null);
-        previousPlacement.current = null;
-        torsoLossTimer.current = null;
-      }, freeUpperBodyOverlay ? 120 : 500);
-      return;
-    }
     setLivePoseStatus(nextStatus);
     if (nextStatus === 'READY' && (!manualAdjustment || freeUpperBodyOverlay)) {
       if (!sourceSize || !applyAutoFit(landmarks, sourceSize, cameraFacing === 'front', false, true, zone === 'GORRA')) {
@@ -852,7 +901,7 @@ function PhotoFitting({
           />
         ) : mode === 'live' && cameraPermission?.granted && !cameraError ? (
           <CameraView
-            key={cameraFacing}
+            key={`${cameraFacing}-${cameraSessionKey}`}
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing={cameraFacing}
@@ -893,6 +942,11 @@ function PhotoFitting({
             <Text className="text-[10px] text-white">Hombros: {Math.round(torsoDebug.shoulderWidth)} px</Text>
             <Text className="text-[10px] text-white">Torso: {Math.round(torsoDebug.torsoHeight)} px</Text>
             <Text className="text-[10px] text-white">Prenda: {Math.round(torsoDebug.shirtWidth)}×{Math.round(torsoDebug.shirtHeight)} px</Text>
+            <Text className="text-[10px] text-white">Hombro L vis.: {torsoDebug.leftShoulderVisibility.toFixed(2)}</Text>
+            <Text className="text-[10px] text-white">Hombro R vis.: {torsoDebug.rightShoulderVisibility.toFixed(2)}</Text>
+            <Text className="text-[10px] text-white">Cadera L vis.: {torsoDebug.leftHipVisibility.toFixed(2)}</Text>
+            <Text className="text-[10px] text-white">Cadera R vis.: {torsoDebug.rightHipVisibility.toFixed(2)}</Text>
+            <Text className="text-[10px] text-white">Cámara: {cameraFacing}</Text>
             {freeUpperBodyOverlay && mode === 'live' ? <>
               <Text className="text-[10px] text-white">Pose lista: {torsoPoseReady ? 'sí' : 'no'}</Text>
               <Text className="text-[10px] text-white">Hombros Y: {Math.round(torsoDebug.shoulderCenterY)} px</Text>
@@ -999,6 +1053,7 @@ function PhotoFitting({
             try {
               const message = JSON.parse(event.nativeEvent.data) as { type?: string; landmarks?: PoseLandmark[] };
               if (mode === 'live') {
+                if (liveAnalysisSessionId !== cameraSessionId.current) return;
                 finishLiveAnalysis(message.type === 'POSE' && Array.isArray(message.landmarks) ? message.landmarks : null);
               } else if (message.type === 'POSE' && Array.isArray(message.landmarks)) setPoseLandmarks(message.landmarks);
               else if (message.type === 'FAILED') setPoseStatus('failed');
@@ -1008,7 +1063,10 @@ function PhotoFitting({
             }
           }}
           onError={() => {
-            if (mode === 'live') finishLiveAnalysis(null);
+            if (mode === 'live') {
+              if (liveAnalysisSessionId !== cameraSessionId.current) return;
+              finishLiveAnalysis(null);
+            }
             else setPoseStatus('failed');
           }}
         />

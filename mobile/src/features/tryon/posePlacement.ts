@@ -22,25 +22,29 @@ export type UpperBodyPlacementResult = {
   shirtHeight: number;
   shoulderCenterY: number;
   hipCenterY: number | null;
+  leftShoulderVisibility: number;
+  rightShoulderVisibility: number;
+  leftHipVisibility: number;
+  rightHipVisibility: number;
   usedHipFallback: boolean;
 };
 
 export function upperBodyPlacement({ landmarks: lm, width, height, mirrored = false, mode = 'photo', garmentType }: GarmentPlacementInput): UpperBodyPlacementResult | null {
   const ls = lm[11], rs = lm[12], lh = lm[23], rh = lm[24];
   const calibratedShirt = garmentType === 'CAMISA' || garmentType === 'BLUSA';
-  const minimumVisibility = calibratedShirt && mode === 'live' ? 0.25 : MIN_VISIBILITY;
+  const upperBodyLive = mode === 'live' && (calibratedShirt || garmentType === 'TOP');
+  const minimumVisibility = upperBodyLive ? 0.25 : MIN_VISIBILITY;
   if (![ls, rs].every((point) => visible(point, minimumVisibility))) return null;
   const shoulders = screenLine(ls!, rs!, width, height, mirrored);
   const hipsAvailable = [lh, rh].every((point) => visible(point, minimumVisibility));
   const hips = hipsAvailable ? screenLine(lh!, rh!, width, height, mirrored) : null;
-  if (calibratedShirt && mode === 'live' && !hips) return null;
   const torsoHeight = hips
     ? Math.abs(hips.midY - shoulders.midY)
-    : shoulders.distance * 1.25;
+    : shoulders.distance * (upperBodyLive ? 1.30 : 1.25);
   if (!(shoulders.distance > 0) || !(torsoHeight > 0)) return null;
   const shirtWidth = calibratedShirt
     ? mode === 'live'
-      ? Math.max(shoulders.distance * 2.35, hips!.distance * 1.20)
+      ? Math.max(shoulders.distance * 2.35, (hips?.distance ?? 0) * 1.20)
       : shoulders.distance * 2.85 * 0.90
     : shoulders.distance * (mode === 'live' ? 1.78 : 1.85);
   const shirtHeight = calibratedShirt
@@ -49,7 +53,7 @@ export function upperBodyPlacement({ landmarks: lm, width, height, mirrored = fa
   const centerX = hips ? (shoulders.midX + hips.midX) / 2 : shoulders.midX;
   let centerY: number;
   if (calibratedShirt && mode === 'live') {
-    const shirtTopY = shoulders.midY - shirtHeight * 0.03;
+    const shirtTopY = shoulders.midY - shirtHeight * 0.17;
     centerY = shirtTopY + shirtHeight / 2;
   } else if (calibratedShirt) {
     const previousHeight = torsoHeight * 1.72;
@@ -69,6 +73,10 @@ export function upperBodyPlacement({ landmarks: lm, width, height, mirrored = fa
     shirtHeight,
     shoulderCenterY: shoulders.midY,
     hipCenterY: hips?.midY ?? null,
+    leftShoulderVisibility: ls?.visibility ?? 1,
+    rightShoulderVisibility: rs?.visibility ?? 1,
+    leftHipVisibility: lh?.visibility ?? 0,
+    rightHipVisibility: rh?.visibility ?? 0,
     usedHipFallback: !hipsAvailable,
   };
 }
