@@ -186,10 +186,153 @@ export function shortDressPlacement(
   const hips = screenLine(leftHip, rightHip, width, height, mirrored)
   const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
   const shoulderToKnee = Math.hypot(knees.midX - shoulders.midX, knees.midY - shoulders.midY)
-  return anchoredPlacement(shoulders, Math.max(shoulders.distance, hips.distance) * 1.18, shoulderToKnee * 0.96, imageAspect, -shoulders.distance * 0.12)
+  const basePlacement = anchoredPlacement(shoulders, Math.max(shoulders.distance, hips.distance) * 1.18, shoulderToKnee * 0.96, imageAspect, -shoulders.distance * 0.12)
+  if (!basePlacement) return null
+
+  const SHORT_DRESS_SCALE = 2.20
+  const VERTICAL_LIFT_RATIO = -0.40
+  const verticalLift = basePlacement.height * VERTICAL_LIFT_RATIO
+  const center = offsetAlong(basePlacement.cx, basePlacement.cy, shoulders.angle, -verticalLift)
+
+  return {
+    cx: center.x,
+    cy: center.y,
+    width: basePlacement.width * SHORT_DRESS_SCALE,
+    height: basePlacement.height * SHORT_DRESS_SCALE,
+    angle: shoulders.angle,
+  }
 }
 
 export function longDressPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
+  const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
+
+  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle], imageAspect)) return null
+
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
+
+  const shoulderToAnkle = Math.hypot(ankles.midX - shoulders.midX, ankles.midY - shoulders.midY)
+
+  const baseWidth = Math.max(shoulders.distance, hips.distance) * 1.16
+  const baseHeight = shoulderToAnkle * 0.98
+
+  const finalWidth = baseWidth * 3.10
+  const finalHeight = baseHeight * 3.10
+
+  const offsetY = -(shoulders.distance * 0.12) - (baseHeight * 0.10)
+
+  return anchoredPlacement(
+    shoulders,
+    finalWidth,
+    finalHeight,
+    imageAspect,
+    offsetY,
+  )
+}
+
+export function shortSkirtPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+
+  if (!validPosePoints(
+    [leftHip, rightHip, leftKnee, rightKnee],
+    imageAspect,
+  )) return null
+
+  const hips = screenLine(
+    leftHip,
+    rightHip,
+    width,
+    height,
+    mirrored,
+  )
+
+  const knees = screenLine(
+    leftKnee,
+    rightKnee,
+    width,
+    height,
+    mirrored,
+  )
+
+  const hipToKnee = Math.hypot(
+    knees.midX - hips.midX,
+    knees.midY - hips.midY,
+  )
+
+  if (!(hips.distance > 0) || !(hipToKnee > 0)) return null
+
+  // Tamaño base proporcional al cuerpo.
+  const baseWidth = Math.max(
+    hips.distance,
+    knees.distance,
+  ) * 1.16
+
+  const baseHeight = hipToKnee * 0.94
+
+  const baseSize = fitAspect(
+    baseWidth,
+    baseHeight,
+    imageAspect,
+  )
+
+  if (!baseSize) return null
+
+  // Aumentar 200% más respecto al tamaño actual:
+  // tamaño final = 300% = x3.
+  const SHORT_SKIRT_SCALE = 3.5
+
+  const skirtWidth = baseSize.width * SHORT_SKIRT_SCALE
+  const skirtHeight = baseSize.height * SHORT_SKIRT_SCALE
+
+  // Subir 30% del tamaño actual/final para acercar
+  // la parte superior a la cintura.
+  const VERTICAL_LIFT_RATIO = 0.10
+
+  const baseCenterX = (hips.midX + knees.midX) / 2
+  const baseCenterY = (hips.midY + knees.midY) / 2
+
+  const center = offsetAlong(
+    baseCenterX,
+    baseCenterY,
+    hips.angle,
+    -skirtHeight * VERTICAL_LIFT_RATIO,
+  )
+
+  return {
+    cx: center.x,
+    cy: center.y,
+    width: skirtWidth,
+    height: skirtHeight,
+    angle: hips.angle,
+  }
+}
+
+let lastLongSkirtDebugAt = 0
+
+export function longSkirtPlacement(
   landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
 ): Placement | null {
   const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
@@ -200,43 +343,37 @@ export function longDressPlacement(
   const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
   const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
   const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
-  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle], imageAspect)) return null
+  if (!validPosePoints([
+    leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle,
+  ], imageAspect)) return null
+
   const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
   const hips = screenLine(leftHip, rightHip, width, height, mirrored)
   const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
-  const shoulderToAnkle = Math.hypot(ankles.midX - shoulders.midX, ankles.midY - shoulders.midY)
-  return anchoredPlacement(shoulders, Math.max(shoulders.distance, hips.distance) * 1.16, shoulderToAnkle * 0.98, imageAspect, -shoulders.distance * 0.12)
-}
+  const hipWidth = hips.distance
+  const waistY = hips.midY - (hips.midY - shoulders.midY) * 0.35
+  const waistWidth = hipWidth * 0.82
+  const targetSkirtWidth = waistWidth * 4
+  const targetSkirtHeight = Math.abs(ankles.midY - waistY) * 1.35
+  const fitted = fitAspect(targetSkirtWidth, targetSkirtHeight, imageAspect)
+  if (!fitted) return null
 
-export function shortSkirtPlacement(
-  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
-): Placement | null {
-  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
-  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
-  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
-  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
-  if (!validPosePoints([leftHip, rightHip, leftKnee, rightKnee], imageAspect)) return null
-  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
-  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
-  const hipToKnee = Math.hypot(knees.midX - hips.midX, knees.midY - hips.midY)
-  return anchoredPlacement(hips, Math.max(hips.distance, knees.distance) * 1.16, hipToKnee * 0.94, imageAspect, -hips.distance * 0.08)
-}
+  // `fitAspect` conserva la proporción dentro del área objetivo. La ampliación posterior hace que
+  // ninguna dimensión quede por debajo del ancho/alto solicitado para esta falda deliberadamente grande.
+  const coverScale = Math.max(targetSkirtWidth / fitted.width, targetSkirtHeight / fitted.height)
+  const skirtWidth = fitted.width * coverScale
+  const skirtHeight = fitted.height * coverScale
+  const center = offsetAlong(hips.midX, waistY, hips.angle, skirtHeight / 2)
 
-export function longSkirtPlacement(
-  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
-): Placement | null {
-  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
-  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
-  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
-  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
-  const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
-  const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
-  if (!validPosePoints([leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle], imageAspect)) return null
-  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
-  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
-  const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
-  const hipToAnkle = Math.hypot(ankles.midX - hips.midX, ankles.midY - hips.midY)
-  return anchoredPlacement(hips, Math.max(hips.distance, knees.distance) * 1.16, hipToAnkle * 0.98, imageAspect, -hips.distance * 0.08)
+  if (import.meta.env.DEV) {
+    const now = performance.now()
+    if (now - lastLongSkirtDebugAt >= 1_000) {
+      lastLongSkirtDebugAt = now
+      console.debug('[FALDA_LARGA]', { hipWidth, waistWidth, skirtWidth, skirtHeight, waistY })
+    }
+  }
+
+  return { cx: center.x, cy: center.y, width: skirtWidth, height: skirtHeight, angle: hips.angle }
 }
 
 export function necklacePlacement(
