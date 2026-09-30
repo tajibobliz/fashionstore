@@ -119,3 +119,40 @@ export function capPlacement(
   const verticalLift = capHeight * 0.30
   return { cx: centerActual.x, cy: centerActual.y + verticalLift, width: capWidth, height: capHeight, angle: eyes.angle }
 }
+
+// ===== SOMBRERO =====
+
+/** Los sombreros suelen incluir ala, por eso ocupan algo más que una gorra respecto al ancho de cabeza. */
+export const HAT_WIDTH_RATIO = 2.78
+
+/**
+ * Placement independiente para SOMBRERO. Reutiliza las mismas referencias faciales estables que GORRA,
+ * pero deja intacta la calibración de `capPlacement` y da más espacio horizontal al ala del sombrero.
+ */
+export function hatPlacement(
+  landmarks: readonly Landmark[],
+  width: number,
+  height: number,
+  imageAspect: number,
+  mirrored = true,
+): Placement | null {
+  const rightCheek = landmarks[FACE_LANDMARKS.RIGHT_CHEEK]
+  const leftCheek = landmarks[FACE_LANDMARKS.LEFT_CHEEK]
+  const forehead = landmarks[FACE_LANDMARKS.FOREHEAD_TOP]
+  const chin = landmarks[FACE_LANDMARKS.CHIN]
+  const rightEye = landmarks[FACE_LANDMARKS.RIGHT_EYE_OUTER]
+  const leftEye = landmarks[FACE_LANDMARKS.LEFT_EYE_OUTER]
+  if (!rightCheek || !leftCheek || !forehead || !chin || !rightEye || !leftEye || !Number.isFinite(imageAspect) || imageAspect <= 0) return null
+
+  const head = screenLine(rightCheek, leftCheek, width, height, mirrored)
+  const eyes = screenLine(rightEye, leftEye, width, height, mirrored)
+  const faceHeight = screenLine(forehead, chin, width, height, mirrored).distance
+  if (!head.distance || !faceHeight) return null
+
+  const hatWidth = head.distance * HAT_WIDTH_RATIO
+  const hatHeight = hatWidth * imageAspect
+  const foreheadPoint = toCanvasPoint(forehead, width, height, mirrored)
+  const bottomEdge = offsetAlong(foreheadPoint.x, foreheadPoint.y, eyes.angle, faceHeight * 0.10)
+  const center = offsetAlong(bottomEdge.x, bottomEdge.y, eyes.angle, -hatHeight * 0.42)
+  return { cx: center.x, cy: center.y, width: hatWidth, height: hatHeight, angle: eyes.angle }
+}

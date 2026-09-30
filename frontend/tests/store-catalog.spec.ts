@@ -3,12 +3,17 @@ const branch = { idSucursal: 4, nombre: 'Sucursal Centro', estado: true }
 const product = { idProducto: 40, nombre: 'Vestido Midi', descripcion: 'Vestido', precio: '150.00', estado: true, categoria: { idCategoria: 1, nombre: 'Vestidos' } }
 const variant = { idVariante: 50, sku: 'VES-MIDI-M-NEG', estado: true, producto: product, talla: { idTalla: 2, nombre: 'M' }, color: { idColor: 3, nombre: 'Negro' } }
 let details: { idDetalleCarrito: number; cantidad: number; precio: string; variante: typeof variant }[] = []
-async function openStore(page: import('@playwright/test').Page) {
+async function openStore(
+ page: import('@playwright/test').Page,
+ overrides: { product?: Record<string, unknown>; variant?: Record<string, unknown> } = {},
+) {
  details = []
+ const routedProduct = { ...product, ...overrides.product }
+ const routedVariant = { ...variant, producto: routedProduct, ...overrides.variant }
  await page.addInitScript(() => { sessionStorage.setItem('fashionstore.access_token', 'access'); sessionStorage.setItem('fashionstore.refresh_token', 'r'.repeat(96)) })
  await page.route('**/auth/profile', r => r.fulfill({ json: { idUsuario: 9, nombre: 'Cliente', email: 'cliente@example.com', rol: 'CLIENTE' } }))
  await page.route('**/branches/sucursales', r => r.fulfill({ json: [branch] }))
- await page.route('**/catalog/productos', r => r.fulfill({ json: [product] })); await page.route('**/catalog/variantes', r => r.fulfill({ json: [variant] })); await page.route('**/catalog/categorias', r => r.fulfill({ json: [{ idCategoria: 1, nombre: 'Vestidos' }] })); await page.route('**/inventory/inventarios', r => r.fulfill({ json: [{ idInventario: 60, stockDisponible: 2, stockReservado: 0, sucursal: branch, variante: { idVariante: 50 } }] }))
+ await page.route('**/catalog/productos', r => r.fulfill({ json: [routedProduct] })); await page.route('**/catalog/variantes', r => r.fulfill({ json: [routedVariant] })); await page.route('**/catalog/categorias', r => r.fulfill({ json: [{ idCategoria: 1, nombre: 'Vestidos' }] })); await page.route('**/inventory/inventarios', r => r.fulfill({ json: [{ idInventario: 60, stockDisponible: 2, stockReservado: 0, sucursal: branch, variante: { idVariante: 50 } }] }))
  await page.route(/\/cart\/me(?:\?.*)?$/, async r => { if (r.request().method() === 'GET') return r.fulfill({ json: { idCarrito: 1, estado: 'ACTIVO', detalles: details } }); return r.continue() })
  await page.route('**/cart/items', async r => { const body = r.request().postDataJSON(); const found = details[0]; if (found) found.cantidad += body.cantidad; else details = [{ idDetalleCarrito: 1, cantidad: body.cantidad, precio: '150.00' , variante: variant }]; await r.fulfill({ status: 201, json: { idCarrito: 1, estado: 'ACTIVO', detalles: details } }) })
  await page.route('**/cart/items/1', async r => { if (r.request().method() === 'PATCH') { details[0].cantidad = r.request().postDataJSON().cantidad; return r.fulfill({ json: { idCarrito: 1, detalles: details } }) }; details = []; return r.fulfill({ json: { idCarrito: 1, detalles: details } }) })
@@ -21,6 +26,25 @@ test('cliente agrega variante real, mantiene una sola linea y actualiza cantidad
 test('cliente elimina item y el carrito queda vacio en movil', async ({ page }) => { await page.setViewportSize({ width: 375, height: 812 }); await openStore(page); await addMidi(page); await page.getByRole('button', { name: /Carrito, 1/ }).click(); await page.getByRole('button', { name: 'Eliminar' }).click(); await expect(page.getByRole('heading', { name: 'Tu carrito esta vacio' })).toBeVisible(); await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true) })
 
 test('cliente reserva una variante en una sucursal con stock', async ({ page }) => { await openStore(page); await page.getByLabel('Sucursal del catalogo').selectOption('4'); await page.getByRole('button', { name: /Vestido Midi/ }).click(); await page.getByLabel('Talla').selectOption('2'); await page.getByLabel('Color').selectOption('3'); await page.getByRole('button', { name: 'VES-MIDI-M-NEG' }).click(); await page.getByLabel('Sucursal para reserva').selectOption('4'); await page.getByRole('button', { name: 'Confirmar reserva' }).click(); await expect(page.getByText('Reserva RES-21')).toBeVisible() })
+
+test('habilita vestidor con recurso general del producto', async ({ page }) => {
+ await openStore(page, { product: { tipoPrendaVestidor: 'VESTIDO_CORTO', imagenVestidorUrl: '/tryon/vestido-producto.png' } })
+ await page.getByRole('button', { name: /Vestido Midi/ }).click()
+ await expect(page.getByRole('button', { name: 'Probar con vestidor virtual' })).toBeVisible()
+})
+
+test('habilita vestidor con recurso de la variante', async ({ page }) => {
+ await openStore(page, {
+  product: { tipoPrendaVestidor: 'VESTIDO_LARGO', imagenVestidorUrl: null },
+  variant: { imagenVestidorUrl: '/tryon/vestido-variante.webp' },
+ })
+ await page.getByRole('button', { name: /Vestido Midi/ }).click()
+ await expect(page.getByRole('button', { name: 'Probar con vestidor virtual' })).toHaveCount(0)
+ await page.getByLabel('Talla').selectOption('2')
+ await page.getByLabel('Color').selectOption('3')
+ await page.getByRole('button', { name: 'VES-MIDI-M-NEG' }).click()
+ await expect(page.getByRole('button', { name: 'Probar con vestidor virtual' })).toBeVisible()
+})
 
 test('cliente registra QR pendiente para la venta digital sin crear una segunda venta', async ({ page }) => {
  await openStore(page)

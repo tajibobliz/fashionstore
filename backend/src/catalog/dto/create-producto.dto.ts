@@ -95,10 +95,10 @@ export class CreateProductoDto {
   @IsIn(['lentes', 'gorra', 'polera'])
   tipoTryOn?: 'lentes' | 'gorra' | 'polera' | null;
 
-  @ApiPropertyOptional({ enum: ['GORRA', 'CAMISA', 'BLUSA', 'TOP', 'VESTIDO', 'FALDA', 'PANTALON', 'CARTERA', 'OTRO'], nullable: true })
+  @ApiPropertyOptional({ enum: ['GORRA', 'SOMBRERO', 'CAMISA', 'BLUSA', 'TOP', 'PANTALON', 'VESTIDO_CORTO', 'VESTIDO_LARGO', 'FALDA_CORTA', 'FALDA_LARGA', 'COLLAR', 'CARTERA', 'BUFANDA', 'VESTIDO', 'FALDA', 'OTRO'], nullable: true })
   @IsOptional()
-  @IsIn(['GORRA', 'CAMISA', 'BLUSA', 'TOP', 'VESTIDO', 'FALDA', 'PANTALON', 'CARTERA', 'OTRO'])
-  tipoPrendaVestidor?: 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON' | 'CARTERA' | 'OTRO' | null;
+  @IsIn(['GORRA', 'SOMBRERO', 'CAMISA', 'BLUSA', 'TOP', 'PANTALON', 'VESTIDO_CORTO', 'VESTIDO_LARGO', 'FALDA_CORTA', 'FALDA_LARGA', 'COLLAR', 'CARTERA', 'BUFANDA', 'VESTIDO', 'FALDA', 'OTRO'])
+  tipoPrendaVestidor?: 'GORRA' | 'SOMBRERO' | 'CAMISA' | 'BLUSA' | 'TOP' | 'PANTALON' | 'VESTIDO_CORTO' | 'VESTIDO_LARGO' | 'FALDA_CORTA' | 'FALDA_LARGA' | 'COLLAR' | 'CARTERA' | 'BUFANDA' | 'VESTIDO' | 'FALDA' | 'OTRO' | null;
 
   @IsOptional()
   @IsBoolean()

@@ -3,8 +3,20 @@
 // 1) pide los puntos al detector que le dio esta estrategia (`model`), 2) llama a `placement` con esos
 // puntos. Agregar una prenda nueva es agregar una entrada a este mapa, sin tocar el bucle de dibujo.
 
-import { capPlacement, glassesPlacement } from './faceOverlay'
-import { dressPlacement, pantsPlacement, shirtPlacement, skirtPlacement } from './poseOverlay'
+import { capPlacement, glassesPlacement, hatPlacement } from './faceOverlay'
+import {
+  bagPlacement,
+  dressPlacement,
+  longDressPlacement,
+  longSkirtPlacement,
+  necklacePlacement,
+  pantsPlacement,
+  scarfPlacement,
+  shirtPlacement,
+  shortDressPlacement,
+  shortSkirtPlacement,
+  skirtPlacement,
+} from './poseOverlay'
 import type { Landmark, Placement } from './geometry'
 import type { ResolvedTryOnGarmentType } from './tryOnAsset'
 
@@ -24,10 +36,18 @@ const POSE_HINT = 'Colócate a 1-2 metros de la cámara para verte de cuerpo ent
 export const TRY_ON_STRATEGIES: Record<ResolvedTryOnGarmentType, TryOnStrategy> = {
   lentes: { model: 'face', placement: glassesPlacement, notDetectedHint: FACE_HINT },
   GORRA: { model: 'face', placement: capPlacement, notDetectedHint: FACE_HINT },
+  SOMBRERO: { model: 'face', placement: hatPlacement, notDetectedHint: FACE_HINT },
   CAMISA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
   BLUSA: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
   TOP: { model: 'pose', placement: shirtPlacement, notDetectedHint: POSE_HINT },
   VESTIDO: { model: 'pose', placement: dressPlacement, notDetectedHint: POSE_HINT },
+  VESTIDO_CORTO: { model: 'pose', placement: shortDressPlacement, notDetectedHint: POSE_HINT },
+  VESTIDO_LARGO: { model: 'pose', placement: longDressPlacement, notDetectedHint: POSE_HINT },
   FALDA: { model: 'pose', placement: skirtPlacement, notDetectedHint: POSE_HINT },
+  FALDA_CORTA: { model: 'pose', placement: shortSkirtPlacement, notDetectedHint: POSE_HINT },
+  FALDA_LARGA: { model: 'pose', placement: longSkirtPlacement, notDetectedHint: POSE_HINT },
   PANTALON: { model: 'pose', placement: pantsPlacement, notDetectedHint: POSE_HINT },
+  COLLAR: { model: 'pose', placement: necklacePlacement, notDetectedHint: POSE_HINT },
+  CARTERA: { model: 'pose', placement: bagPlacement, notDetectedHint: POSE_HINT },
+  BUFANDA: { model: 'pose', placement: scarfPlacement, notDetectedHint: POSE_HINT },
 }

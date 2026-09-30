@@ -1,0 +1,17 @@
+{
+  "name": "vision-camera-pose-landmarker",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "react-native": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "specs": "nitrogen"
+  },
+  "files": ["src", "android", "nitrogen", "nitro.json", "react-native.config.js"],
+  "peerDependencies": {
+    "react-native": "*",
+    "react-native-nitro-modules": ">=0.37.0",
+    "react-native-vision-camera": ">=5.2.3"
+  }
+}

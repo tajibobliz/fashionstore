@@ -183,14 +183,15 @@ function TryOnFields({ producto }: { producto: Producto | null }) {
   return <>
     <label>Tipo de prenda para vestidor<select name="tipoPrendaVestidor" value={tipo} onChange={event => setTipo(event.target.value as TipoPrendaVestidor | '')}>
       <option value="">Sin vestidor</option>
-      {(['GORRA', 'CAMISA', 'BLUSA', 'TOP', 'VESTIDO', 'FALDA', 'PANTALON', 'CARTERA', 'OTRO'] as const).map(value => <option key={value} value={value}>{value}</option>)}
+      {TIPO_PRENDA_OPTIONS.map(value => <option key={value} value={value}>{TIPO_TRY_ON_LABEL[value]}</option>)}
     </select></label>
     {/* Al pasar de "Sin vestidor" a un tipo (o viceversa) este key cambia y React remonta el campo, así que
         vuelve a leer su defaultValue: limpio si se acaba de elegir "Sin vestidor", o el valor guardado si no. */}
     <ImageUrlField key={tipo ? 'con-tipo' : 'sin-tipo'} name="imagenVestidorUrl" label="Imagen para vestidor virtual (overlay transparente)" placeholder="https://ejemplo.com/producto-overlay.webp" help="Para vestidor virtual pegue una URL PNG o WebP con fondo transparente y poco borde" alt="Vista previa de la imagen para el vestidor virtual" defaultValue={tipo ? (producto?.imagenVestidorUrl ?? producto?.imagenTryOn ?? '') : ''} format="transparent" uploadLocal transparent />
   </>
 }
-const TIPO_TRY_ON_LABEL: Record<TipoPrendaVestidor, string> = { GORRA: 'Gorra', CAMISA: 'Camisa', BLUSA: 'Blusa', TOP: 'Top', VESTIDO: 'Vestido', FALDA: 'Falda', PANTALON: 'Pantalón', CARTERA: 'Cartera', OTRO: 'Otro' }
+const TIPO_PRENDA_OPTIONS: readonly TipoPrendaVestidor[] = ['GORRA', 'SOMBRERO', 'CAMISA', 'BLUSA', 'TOP', 'PANTALON', 'VESTIDO_CORTO', 'VESTIDO_LARGO', 'FALDA_CORTA', 'FALDA_LARGA', 'COLLAR', 'CARTERA', 'BUFANDA', 'VESTIDO', 'FALDA', 'OTRO']
+const TIPO_TRY_ON_LABEL: Record<TipoPrendaVestidor, string> = { GORRA: 'Gorra', SOMBRERO: 'Sombrero', CAMISA: 'Camisa', BLUSA: 'Blusa', TOP: 'Top', PANTALON: 'Pantalón', VESTIDO_CORTO: 'Vestido corto', VESTIDO_LARGO: 'Vestido largo', FALDA_CORTA: 'Falda corta', FALDA_LARGA: 'Falda larga', COLLAR: 'Collar', CARTERA: 'Cartera', BUFANDA: 'Bufanda', VESTIDO: 'Vestido (legado)', FALDA: 'Falda (legado)', OTRO: 'Otro' }
 function tryOnBadge(item: Producto) {
   if (item.imagenVestidorUrl && item.tipoPrendaVestidor) return <span className={styles.badgeOn} title="Tiene imagen y tipo para el vestidor virtual"><Glasses size={14} aria-hidden="true" />Configurado ({TIPO_TRY_ON_LABEL[item.tipoPrendaVestidor!]})</span>
   if (item.imagenVestidorUrl) return <span className={styles.badgeOn} title="Tiene imagen, pero falta elegir el tipo de prenda: el botón del vestidor no se mostrará hasta que lo definas"><Glasses size={14} aria-hidden="true" />Configurado (sin tipo)</span>

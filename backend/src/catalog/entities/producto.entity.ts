@@ -55,7 +55,7 @@ export class Producto {
   tipoTryOn: 'lentes' | 'gorra' | 'polera' | null;
 
   @Column({ name: 'tipo_prenda_vestidor', type: 'varchar', length: 20, nullable: true })
-  tipoPrendaVestidor: 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON' | 'CARTERA' | 'OTRO' | null;
+  tipoPrendaVestidor: 'GORRA' | 'SOMBRERO' | 'CAMISA' | 'BLUSA' | 'TOP' | 'PANTALON' | 'VESTIDO_CORTO' | 'VESTIDO_LARGO' | 'FALDA_CORTA' | 'FALDA_LARGA' | 'COLLAR' | 'CARTERA' | 'BUFANDA' | 'VESTIDO' | 'FALDA' | 'OTRO' | null;
 
   @ManyToOne(() => Sucursal, { nullable: true, eager: true })
   @JoinColumn({ name: 'id_sucursal_origen' })

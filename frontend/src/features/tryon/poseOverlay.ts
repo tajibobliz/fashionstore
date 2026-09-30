@@ -1,7 +1,7 @@
 // Superposición que usa PoseLandmarker (33 puntos del cuerpo): polera / camiseta.
 // A diferencia de lentes y gorra (FaceLandmarker, que solo ve la cara), la polera necesita ver el torso.
 
-import { fitAspect, offsetAlong, screenLine } from './geometry'
+import { fitAspect, offsetAlong, screenLine, toCanvasPoint } from './geometry'
 import type { Landmark, Placement } from './geometry'
 
 /**
@@ -9,8 +9,13 @@ import type { Landmark, Placement } from './geometry'
  * "izquierdo/derecho" es desde la perspectiva del propio usuario, no de la imagen.
  */
 export const POSE_LANDMARKS = {
+  NOSE: 0,
+  MOUTH_RIGHT: 10,
+  MOUTH_LEFT: 9,
   RIGHT_SHOULDER: 12,
   LEFT_SHOULDER: 11,
+  RIGHT_WRIST: 16,
+  LEFT_WRIST: 15,
   RIGHT_HIP: 24,
   LEFT_HIP: 23,
   RIGHT_KNEE: 26,
@@ -151,4 +156,149 @@ export function pantsPlacement(
   const size = fitAspect(hips.distance * 1.20, regionHeight, imageAspect)
   if (!size) return null
   return { cx: (hips.midX + ankles.midX) / 2, cy: (hips.midY + ankles.midY) / 2, width: size.width, height: size.height, angle: hips.angle }
+}
+
+function anchoredPlacement(
+  anchor: { midX: number; midY: number; angle: number },
+  bodyWidth: number,
+  bodyHeight: number,
+  imageAspect: number,
+  topOffset = 0,
+): Placement | null {
+  const size = fitAspect(bodyWidth, bodyHeight, imageAspect)
+  if (!size) return null
+  const top = offsetAlong(anchor.midX, anchor.midY, anchor.angle, topOffset)
+  const center = offsetAlong(top.x, top.y, anchor.angle, size.height / 2)
+  return { cx: center.x, cy: center.y, width: size.width, height: size.height, angle: anchor.angle }
+}
+
+export function shortDressPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee], imageAspect)) return null
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
+  const shoulderToKnee = Math.hypot(knees.midX - shoulders.midX, knees.midY - shoulders.midY)
+  return anchoredPlacement(shoulders, Math.max(shoulders.distance, hips.distance) * 1.18, shoulderToKnee * 0.96, imageAspect, -shoulders.distance * 0.12)
+}
+
+export function longDressPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
+  const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
+  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle], imageAspect)) return null
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
+  const shoulderToAnkle = Math.hypot(ankles.midX - shoulders.midX, ankles.midY - shoulders.midY)
+  return anchoredPlacement(shoulders, Math.max(shoulders.distance, hips.distance) * 1.16, shoulderToAnkle * 0.98, imageAspect, -shoulders.distance * 0.12)
+}
+
+export function shortSkirtPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  if (!validPosePoints([leftHip, rightHip, leftKnee, rightKnee], imageAspect)) return null
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
+  const hipToKnee = Math.hypot(knees.midX - hips.midX, knees.midY - hips.midY)
+  return anchoredPlacement(hips, Math.max(hips.distance, knees.distance) * 1.16, hipToKnee * 0.94, imageAspect, -hips.distance * 0.08)
+}
+
+export function longSkirtPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  const leftKnee = landmarks[POSE_LANDMARKS.LEFT_KNEE]
+  const rightKnee = landmarks[POSE_LANDMARKS.RIGHT_KNEE]
+  const leftAnkle = landmarks[POSE_LANDMARKS.LEFT_ANKLE]
+  const rightAnkle = landmarks[POSE_LANDMARKS.RIGHT_ANKLE]
+  if (!validPosePoints([leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle], imageAspect)) return null
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const knees = screenLine(leftKnee, rightKnee, width, height, mirrored)
+  const ankles = screenLine(leftAnkle, rightAnkle, width, height, mirrored)
+  const hipToAnkle = Math.hypot(ankles.midX - hips.midX, ankles.midY - hips.midY)
+  return anchoredPlacement(hips, Math.max(hips.distance, knees.distance) * 1.16, hipToAnkle * 0.98, imageAspect, -hips.distance * 0.08)
+}
+
+export function necklacePlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const mouthLeft = landmarks[POSE_LANDMARKS.MOUTH_LEFT]
+  const mouthRight = landmarks[POSE_LANDMARKS.MOUTH_RIGHT]
+  const nose = landmarks[POSE_LANDMARKS.NOSE]
+  if (!validPosePoints([leftShoulder, rightShoulder], imageAspect)) return null
+  const facePoint = mouthLeft && mouthRight && (mouthLeft.visibility ?? 1) >= POSE_MIN_VISIBILITY && (mouthRight.visibility ?? 1) >= POSE_MIN_VISIBILITY
+    ? screenLine(mouthLeft, mouthRight, width, height, mirrored)
+    : nose && (nose.visibility ?? 1) >= POSE_MIN_VISIBILITY
+      ? { ...toCanvasPoint(nose, width, height, mirrored), midX: toCanvasPoint(nose, width, height, mirrored).x, midY: toCanvasPoint(nose, width, height, mirrored).y }
+      : null
+  if (!facePoint) return null
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const neckCenter = {
+    x: shoulders.midX * 0.72 + facePoint.midX * 0.28,
+    y: shoulders.midY * 0.72 + facePoint.midY * 0.28,
+  }
+  const necklaceWidth = shoulders.distance * 0.52
+  return { cx: neckCenter.x, cy: neckCenter.y, width: necklaceWidth, height: necklaceWidth * imageAspect, angle: shoulders.angle }
+}
+
+export function scarfPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  if (!validPosePoints([leftShoulder, rightShoulder], imageAspect)) return null
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const scarfWidth = shoulders.distance * 1.28
+  const center = offsetAlong(shoulders.midX, shoulders.midY, shoulders.angle, -shoulders.distance * 0.14)
+  return { cx: center.x, cy: center.y, width: scarfWidth, height: scarfWidth * imageAspect, angle: shoulders.angle }
+}
+
+export function bagPlacement(
+  landmarks: readonly Landmark[], width: number, height: number, imageAspect: number, mirrored = true,
+): Placement | null {
+  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+  const leftHip = landmarks[POSE_LANDMARKS.LEFT_HIP]
+  const rightHip = landmarks[POSE_LANDMARKS.RIGHT_HIP]
+  if (!validPosePoints([leftShoulder, rightShoulder, leftHip, rightHip], imageAspect)) return null
+  const shoulders = screenLine(leftShoulder, rightShoulder, width, height, mirrored)
+  const hips = screenLine(leftHip, rightHip, width, height, mirrored)
+  const torsoHeight = Math.hypot(hips.midX - shoulders.midX, hips.midY - shoulders.midY)
+  const size = fitAspect(shoulders.distance * 0.62, torsoHeight * 0.72, imageAspect)
+  if (!size) return null
+
+  const wristCandidates = [landmarks[POSE_LANDMARKS.RIGHT_WRIST], landmarks[POSE_LANDMARKS.LEFT_WRIST]]
+    .filter((point): point is Landmark => Boolean(point) && (point.visibility ?? 1) >= POSE_MIN_VISIBILITY)
+    .map(point => toCanvasPoint(point, width, height, mirrored))
+  const hipCandidates = [toCanvasPoint(rightHip, width, height, mirrored), toCanvasPoint(leftHip, width, height, mirrored)]
+  const wrist = wristCandidates.sort((a, b) => Math.abs(b.x - hips.midX) - Math.abs(a.x - hips.midX))[0]
+  const sideHip = hipCandidates.sort((a, b) => wrist
+    ? Math.hypot(a.x - wrist.x, a.y - wrist.y) - Math.hypot(b.x - wrist.x, b.y - wrist.y)
+    : Math.abs(b.x - hips.midX) - Math.abs(a.x - hips.midX))[0]
+  const center = wrist
+    ? { x: wrist.x * 0.58 + sideHip.x * 0.42, y: wrist.y * 0.58 + sideHip.y * 0.42 }
+    : { x: sideHip.x + (sideHip.x - hips.midX) * 0.45, y: sideHip.y }
+  return { cx: center.x, cy: center.y, width: size.width, height: size.height, angle: shoulders.angle }
 }

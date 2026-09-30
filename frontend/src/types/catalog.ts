@@ -1,5 +1,5 @@
 export type TipoTryOn = 'lentes' | 'gorra' | 'polera'
-export type TipoPrendaVestidor = 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON' | 'CARTERA' | 'OTRO'
+export type TipoPrendaVestidor = 'GORRA' | 'SOMBRERO' | 'CAMISA' | 'BLUSA' | 'TOP' | 'PANTALON' | 'VESTIDO_CORTO' | 'VESTIDO_LARGO' | 'FALDA_CORTA' | 'FALDA_LARGA' | 'COLLAR' | 'CARTERA' | 'BUFANDA' | 'VESTIDO' | 'FALDA' | 'OTRO'
 export interface CatalogItem { idCategoria?: number; idTalla?: number; idColor?: number; idTemporada?: number; idColeccion?: number; idProveedor?: number; nombre: string; descripcion?: string; codigoHex?: string; estado?: boolean }
 export interface CatalogRecord { idCategoria?: number; idTalla?: number; idColor?: number; idTemporada?: number; idColeccion?: number; idProveedor?: number; nombre: string; descripcion?: string; codigoHex?: string; estado?: boolean }
 export interface Producto extends CatalogRecord { idProducto: number; categoria?: CatalogRecord; precio: number | string; precioMayorista?: number | string | null; cantidadMinimaMayorista?: number | null; imagenUrl?: string; imagenCatalogoUrl?: string | null; imagenVestidorUrl?: string | null; recursoRaUrl?: string; imagenTryOn?: string | null; tipoTryOn?: TipoTryOn | null; tipoPrendaVestidor?: TipoPrendaVestidor | null; variantes?: Variante[]; sucursalOrigen?: { idSucursal: number } | null }

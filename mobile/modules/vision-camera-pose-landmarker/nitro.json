@@ -1,0 +1,20 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["camera", "poselandmarker"],
+  "ios": {
+    "iosModuleName": "VisionCameraPoseLandmarker"
+  },
+  "android": {
+    "androidNamespace": ["camera", "poselandmarker"],
+    "androidCxxLibName": "VisionCameraPoseLandmarker"
+  },
+  "autolinking": {
+    "PoseLandmarkerFactory": {
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridPoseLandmarkerFactory"
+      }
+    }
+  },
+  "ignorePaths": ["**/node_modules"]
+}
