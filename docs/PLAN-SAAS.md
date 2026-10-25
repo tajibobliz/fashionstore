@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v0.7 (2026-10-25)
+> Versión: v0.8 (2026-10-25)
 
 ## Fechas clave
 
@@ -128,12 +128,27 @@ Límites y features son **configurables en BD** (requisito 9.4), no hardcodeados
 usuario*, usuario_sucursal, sucursal, almacen, categoria, talla, color, temporada, coleccion, proveedor, producto, variante_producto, inventario, movimiento_inventario, caja, turno_caja, carrito, venta, detalle_venta (vía venta), pago, reserva, devolucion, promocion, interaccion_cliente, refresh_session (vía usuario).
 `ciudad` y `rol` quedan globales. (*) SUPER_ADMIN tiene `id_empresa = NULL`.
 
-### 4.3 Mecanismo de aislamiento (defensa en capas)
-1. **JWT con `tid`** → `TenantContext` por request (AsyncLocalStorage, p. ej. `nestjs-cls`).
-2. **Filtro obligatorio en servicios**: helper `tenantScope(qb)` / `where: { empresa: { idEmpresa: tid } }`. Al crear, `id_empresa` se toma del token, **nunca** del body.
-3. **Verificación de pertenencia** en recursos por id (`/sales/:id` de otra empresa → 404, no 403, para no revelar existencia).
-4. *(Extra si da el tiempo)* **Row Level Security** de PostgreSQL como segunda barrera.
-5. **Pruebas automáticas**: usuario de Empresa A intenta leer/editar/borrar recursos de B → debe fallar (RNF02).
+### 4.3 Mecanismo de aislamiento (defensa en capas) — IMPLEMENTADO
+
+```
+Petición ──► JwtAuthGuard (token → idEmpresa del claim `tid`)
+         ──► TenantContextInterceptor → TenantContext (AsyncLocalStorage)
+                 usuario logueado → su empresa (el header X-Tenant se ignora)
+                 público          → X-Tenant: <slug>  ó  empresa por defecto
+                 SUPER_ADMIN      → sin filtro (modo plataforma)
+         ──► Servicio / TypeORM ──► conexión PostgreSQL
+                 tenant-rls.ts: set_config('app.tenant_id', <empresa>) en esa conexión
+         ──► PostgreSQL RLS: política tenant_isolation en 22 tablas
+                 USING      → solo se LEEN/EDITAN/BORRAN filas de esa empresa
+                 WITH CHECK → solo se ESCRIBEN filas de esa empresa
+```
+
+1. **JWT con `tid`** y **TenantContext** por request (AsyncLocalStorage).
+2. **Row Level Security (RLS)** de PostgreSQL como filtro **obligatorio y central**: aunque un servicio olvide filtrar, la BD no devuelve filas de otra empresa. Cubre también las consultas SQL directas de reportes. Se eligió en lugar de editar ~200 consultas una por una: menos riesgo de olvidos y se explica mejor en la defensa ("el aislamiento lo garantiza la base de datos").
+3. **Al crear**, `id_empresa` lo pone `TenantSubscriber` desde el contexto, **nunca** del body.
+4. **Recursos por id de otra empresa → 404** (no 403), para no revelar que existen: lo hace RLS automáticamente.
+5. **Requisito**: el backend debe conectarse con un rol **sin** superusuario ni BYPASSRLS. Al arrancar, el log indica si el aislamiento está activo. En local: `backend/scripts/crear-rol-app.sql`. En Render: verificar en el log de arranque.
+6. **Pruebas**: unitarias (interceptor, JWT, auth) + E2E con 2 empresas (ver bitácora). Pendiente convertir el E2E en test automático (tarea 1.7).
 
 ### 4.4 Planes y suscripción
 - `PlanService.assertFeature(tid, 'AI_REPORTS')` y `assertLimit(tid, recurso)`:
@@ -334,7 +349,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [ ] 1.1 ICONIX: requisitos, casos de uso y modelo de dominio — ✅ modelo de dominio (`docs/iconix/01-modelo-dominio.md`); faltan requisitos y casos de uso
 - [x] 1.2 Entidades `Plan`, `Empresa`, `Suscripcion` + migración multitenant con backfill (`1780000000000-AddMultitenancy`, probada up/down)
 - [x] 1.3 `tid` en JWT, `TenantContext`, rol `SUPER_ADMIN`: login/registro por empresa (`empresa` = slug), header `X-Tenant` para endpoints públicos, interceptor global que llena el contexto, tokens antiguos → Empresa A
-- [ ] 1.4 Filtro por tenant en todos los servicios (empezar por catálogo, sucursales, ventas, reservas, inventario)
+- [x] 1.4 Filtro por tenant en todos los servicios → resuelto con **RLS** (migración `1780000000001-EnableTenantRowLevelSecurity`) + `tenant-rls.ts`; endpoints públicos reconocen el token si viene
 - [ ] 1.5 `PlanService` + `PlanGuard` + límites de sucursales y usuarios
 - [ ] 1.6 Endpoints `/platform/*` y `/tenant/me`; seeds Empresa A y B
 - [ ] 1.7 Pruebas de aislamiento A↔B y de límites de plan
@@ -404,3 +419,4 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 2026-10-25 | v0.6: D1 y D3 resueltas; D5 revisada (conflicto con `requisitos_martinez`). **Implementado**: módulo `tenancy` (Plan, Empresa, Suscripcion, `TenantOwned`, `TenantSubscriber`, `TenantContext`), rol `SUPER_ADMIN`, `id_empresa` en 22 tablas, UNIQUE por empresa, migración `AddMultitenancy` y modelo de dominio ICONIX | Pruebas: migración up → esquema idéntico a las entidades; down → esquema original; datos asignados a Empresa A; registro, login y altas por API OK; tests unitarios igual que en `main` |
 | 2026-10-25 | D5 resuelta: no se usa `requisitos_martinez`; solo `main`. `docs/iconix/*.md` son fuente técnica para el documento Word | — |
 | 2026-10-25 | v0.7: tarea 1.3 completa. `TenantResolverService`, `TenantContextInterceptor`, `tid` en JWT, login con `empresa` (slug), registro por empresa, email único por empresa | Pruebas: 14 tests nuevos (auth, JwtStrategy, interceptor) en verde; prueba E2E con 2 empresas: mismo email en A y B, login por slug, SUPER_ADMIN sin empresa, refresh conserva `tid`, el header `X-Tenant` no permite cambiarse de empresa. **Pendiente**: las consultas aún no filtran por empresa (tarea 1.4) |
+| 2026-10-25 | v0.8: tarea 1.4 completa con RLS. Endpoints públicos identifican al usuario si envía token. Seeds de arranque corren en la empresa por defecto. Script `backend/scripts/crear-rol-app.sql` | Pruebas E2E con rol sin superusuario y 2 empresas: catálogo, sucursales, ventas, inventario, reservas y reportes separados por empresa; leer/editar/cancelar/borrar recursos de la otra empresa → 404; crear inventario en sucursal ajena → 404; SUPER_ADMIN ve todo; con superusuario el log avisa que RLS no aplica. Migración up/down OK. 127 tests en verde (las 6 suites que ya fallaban en `main` siguen igual) |

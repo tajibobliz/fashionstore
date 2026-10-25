@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Empresa } from './entities/empresa.entity';
@@ -11,6 +11,7 @@ import { DEFAULT_TENANT_SLUG, TenantContext } from './tenant-context';
  */
 @Injectable()
 export class TenantResolverService {
+  private readonly logger = new Logger(TenantResolverService.name);
   private defaultId: number | null = null;
 
   constructor(
@@ -40,6 +41,21 @@ export class TenantResolverService {
 
   findById(idEmpresa: number): Promise<Empresa | null> {
     return this.empresas.findOne({ where: { idEmpresa } });
+  }
+
+  /**
+   * Ejecuta `fn` como si fuera una petición de la empresa por defecto (seeds de arranque).
+   * Si la empresa por defecto aún no existe (migraciones sin correr), avisa y no ejecuta.
+   */
+  async runInDefault<T>(fn: () => Promise<T>): Promise<T | undefined> {
+    let idEmpresa: number;
+    try {
+      idEmpresa = await this.defaultTenantId();
+    } catch (error) {
+      this.logger.warn(`Datos iniciales omitidos: ${(error as Error).message}`);
+      return undefined;
+    }
+    return TenantContext.run({ idEmpresa }, fn);
   }
 
   /** Tenant de la petición actual o, si no hay, la empresa por defecto. */

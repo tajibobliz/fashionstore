@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../tenancy/tenant-resolver.service';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -72,10 +73,16 @@ export class ProductsSeed implements OnApplicationBootstrap {
     @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
     @InjectRepository(Almacen) private readonly almacenRepo: Repository<Almacen>,
     @InjectRepository(Inventario) private readonly inventarioRepo: Repository<Inventario>,
+    private readonly tenants: TenantResolverService,
   ) {}
 
   // Debe correr tras todos los onModuleInit: necesita categorías/tallas/colores creados por CatalogMasterSeed.
+  // Los datos iniciales pertenecen a la empresa por defecto (FashionStore).
   async onApplicationBootstrap() {
+    return this.tenants.runInDefault(() => this.seed());
+  }
+
+  private async seed() {
     const sucursales = await this.sucursalRepo.find();
     if (!sucursales.length) {
       this.logger.warn('No hay sucursales registradas; los productos se crearán sin inventario.');

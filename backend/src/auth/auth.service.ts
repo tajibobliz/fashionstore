@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -9,8 +14,10 @@ import { Repository } from 'typeorm';
 import { RefreshSession } from './entities/refresh-session.entity';
 import { ConfigService } from '@nestjs/config';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
+import { TenantContext } from '../tenancy/tenant-context';
 
-const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+const hashToken = (token: string) =>
+  createHash('sha256').update(token).digest('hex');
 
 @Injectable()
 export class AuthService {
@@ -29,20 +36,32 @@ export class AuthService {
    * - Sin slug: primero un usuario de plataforma (SUPER_ADMIN), luego la empresa por defecto.
    *   Así el login actual de la web y la app sigue funcionando sin cambios.
    */
-  async validateUser(email: string, password: string, empresaSlug?: string): Promise<any> {
+  async validateUser(
+    email: string,
+    password: string,
+    empresaSlug?: string,
+  ): Promise<any> {
     let user;
     if (empresaSlug) {
       const empresa = await this.tenants.findBySlug(empresaSlug);
       if (!empresa) return null;
-      user = await this.usersService.findByEmailWithPassword(email, empresa.idEmpresa);
+      user = await this.usersService.findByEmailWithPassword(
+        email,
+        empresa.idEmpresa,
+      );
     } else {
       user =
         (await this.usersService.findByEmailWithPassword(email, null)) ??
-        (await this.usersService.findByEmailWithPassword(email, await this.tenants.defaultTenantId()));
+        (await this.usersService.findByEmailWithPassword(
+          email,
+          await this.tenants.defaultTenantId(),
+        ));
     }
     if (!user || !user.estado) return null;
     if (user.empresa && user.empresa.estado !== 'ACTIVA') {
-      throw new ForbiddenException('La empresa está suspendida. Contacta al administrador de la plataforma.');
+      throw new ForbiddenException(
+        'La empresa está suspendida. Contacta al administrador de la plataforma.',
+      );
     }
 
     const passwordValido = await bcrypt.compare(password, user.passwordHash);
@@ -60,11 +79,13 @@ export class AuthService {
       throw new Error('REFRESH_TOKEN_TTL_DAYS debe estar entre 0 y 90');
     }
     const refreshToken = randomBytes(48).toString('hex');
-    await this.sessions.save(this.sessions.create({
-      userId: user.idUsuario,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + days * 86400000),
-    }));
+    await this.sessions.save(
+      this.sessions.create({
+        userId: user.idUsuario,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + days * 86400000),
+      }),
+    );
     return this.tokens(user, refreshToken);
   }
 
@@ -86,15 +107,25 @@ export class AuthService {
         rol: user.rol?.nombre,
         idEmpresa: user.idEmpresa ?? null,
         empresa: user.empresa
-          ? { idEmpresa: user.empresa.idEmpresa, nombre: user.empresa.nombre, slug: user.empresa.slug }
+          ? {
+              idEmpresa: user.empresa.idEmpresa,
+              nombre: user.empresa.nombre,
+              slug: user.empresa.slug,
+            }
           : null,
       },
     };
   }
 
   async refresh(refreshToken: string) {
+    // Es público (no hay token de acceso): la empresa sale del propio usuario de la sesión,
+    // por eso se busca en modo plataforma (sin filtro por empresa).
+    return TenantContext.runAsPlatform(() => this.rotate(refreshToken));
+  }
+
+  private async rotate(refreshToken: string) {
     // Bloqueo para que un token solo pueda rotarse una vez, incluso en paralelo.
-    return this.sessions.manager.transaction(async manager => {
+    return this.sessions.manager.transaction(async (manager) => {
       const repo = manager.getRepository(RefreshSession);
       const session = await repo.findOne({
         where: { tokenHash: hashToken(refreshToken) },
@@ -117,27 +148,31 @@ export class AuthService {
     return { message: 'Sesión cerrada' };
   }
 
- // Registro público: crea un cliente y devuelve los tokens de sesión.
+  // Registro público: crea un cliente y devuelve los tokens de sesión.
   async register(dto: RegisterDto) {
     // Empresa: la del body (`empresa`), si no la del header X-Tenant / por defecto.
     let idEmpresa: number;
     if (dto.empresa) {
       const empresa = await this.tenants.findBySlug(dto.empresa);
-      if (!empresa || empresa.estado !== 'ACTIVA') throw new NotFoundException('Tienda no encontrada');
+      if (!empresa || empresa.estado !== 'ACTIVA')
+        throw new NotFoundException('Tienda no encontrada');
       idEmpresa = empresa.idEmpresa;
     } else {
       idEmpresa = await this.tenants.currentOrDefault();
     }
-    const creado = await this.usersService.create({
-      idEmpresa,
-      nombre: dto.nombre,
-      apellido: dto.apellido,
-      email: dto.email,
-      password: dto.password,
-      telefono: dto.telefono,
-      rolNombre: 'CLIENTE', // Registro público crea clientes finales.
-    });
+    // Todo el registro corre en el contexto de esa empresa (RLS permite escribir solo ahí).
+    return TenantContext.run({ idEmpresa }, async () => {
+      const creado = await this.usersService.create({
+        idEmpresa,
+        nombre: dto.nombre,
+        apellido: dto.apellido,
+        email: dto.email,
+        password: dto.password,
+        telefono: dto.telefono,
+        rolNombre: 'CLIENTE', // Registro público crea clientes finales.
+      });
 
-    return this.login(await this.usersService.findById(creado.idUsuario));
+      return this.login(await this.usersService.findById(creado.idUsuario));
+    });
   }
 }

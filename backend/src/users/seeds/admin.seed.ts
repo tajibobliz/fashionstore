@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../tenancy/tenant-resolver.service';
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,9 +17,15 @@ export class AdminSeed implements OnModuleInit {
     @InjectRepository(Rol)
     private readonly rolRepo: Repository<Rol>,
     private readonly config: ConfigService,
+    private readonly tenants: TenantResolverService,
   ) {}
 
+  // Los datos iniciales pertenecen a la empresa por defecto (FashionStore).
   async onModuleInit() {
+    return this.tenants.runInDefault(() => this.seed());
+  }
+
+  private async seed() {
     const email = this.config.get<string>('ADMIN_EMAIL');
     const password = this.config.get<string>('ADMIN_PASSWORD');
     if (!email || !password) {
