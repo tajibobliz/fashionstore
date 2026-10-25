@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v0.6 (2026-10-25)
+> Versión: v0.7 (2026-10-25)
 
 ## Fechas clave
 
@@ -333,7 +333,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 ### Fase 1 — Multitenant + planes y límites (→ Presentación 1)
 - [ ] 1.1 ICONIX: requisitos, casos de uso y modelo de dominio — ✅ modelo de dominio (`docs/iconix/01-modelo-dominio.md`); faltan requisitos y casos de uso
 - [x] 1.2 Entidades `Plan`, `Empresa`, `Suscripcion` + migración multitenant con backfill (`1780000000000-AddMultitenancy`, probada up/down)
-- [ ] 1.3 `tid` en JWT, `TenantContext`, rol `SUPER_ADMIN` — ✅ `TenantContext` y rol `SUPER_ADMIN` creados; falta `tid` en el JWT y llenar el contexto por request
+- [x] 1.3 `tid` en JWT, `TenantContext`, rol `SUPER_ADMIN`: login/registro por empresa (`empresa` = slug), header `X-Tenant` para endpoints públicos, interceptor global que llena el contexto, tokens antiguos → Empresa A
 - [ ] 1.4 Filtro por tenant en todos los servicios (empezar por catálogo, sucursales, ventas, reservas, inventario)
 - [ ] 1.5 `PlanService` + `PlanGuard` + límites de sucursales y usuarios
 - [ ] 1.6 Endpoints `/platform/*` y `/tenant/me`; seeds Empresa A y B
@@ -403,3 +403,4 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 2026-10-25 | v0.5: propuesta para D1 (slug en URL + rutas actuales → Empresa A); §12 plan de paso a producción y compatibilidad | Pendiente: confirmar D1 y D3 |
 | 2026-10-25 | v0.6: D1 y D3 resueltas; D5 revisada (conflicto con `requisitos_martinez`). **Implementado**: módulo `tenancy` (Plan, Empresa, Suscripcion, `TenantOwned`, `TenantSubscriber`, `TenantContext`), rol `SUPER_ADMIN`, `id_empresa` en 22 tablas, UNIQUE por empresa, migración `AddMultitenancy` y modelo de dominio ICONIX | Pruebas: migración up → esquema idéntico a las entidades; down → esquema original; datos asignados a Empresa A; registro, login y altas por API OK; tests unitarios igual que en `main` |
 | 2026-10-25 | D5 resuelta: no se usa `requisitos_martinez`; solo `main`. `docs/iconix/*.md` son fuente técnica para el documento Word | — |
+| 2026-10-25 | v0.7: tarea 1.3 completa. `TenantResolverService`, `TenantContextInterceptor`, `tid` en JWT, login con `empresa` (slug), registro por empresa, email único por empresa | Pruebas: 14 tests nuevos (auth, JwtStrategy, interceptor) en verde; prueba E2E con 2 empresas: mismo email en A y B, login por slug, SUPER_ADMIN sin empresa, refresh conserva `tid`, el header `X-Tenant` no permite cambiarse de empresa. **Pendiente**: las consultas aún no filtran por empresa (tarea 1.4) |

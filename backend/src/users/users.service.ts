@@ -2,7 +2,9 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException } 
 import { CreateUserDto } from './dto/create-user.dto';
 import { Role } from '../auth/enums/role.enum';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { TenantContext } from '../tenancy/tenant-context';
+import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from './entities/user.entity';
 import { Rol } from './entities/rol.entity';
@@ -41,11 +43,12 @@ export class UsersService {
     private readonly rolRepo: Repository<Rol>,
     @InjectRepository(UsuarioSucursal) private readonly usuarioSucursalRepo: Repository<UsuarioSucursal>,
     @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
+    private readonly tenants?: TenantResolverService,
   ) {}
 
-  // Busca un usuario por email (usado para login)
-  async findByEmail(email: string): Promise<Usuario | null> {
-    return this.usuarioRepo.findOne({ where: { email } });
+  /** Busca un usuario por email dentro de una empresa (`null` = usuarios de plataforma). */
+  async findByEmail(email: string, idEmpresa: number | null): Promise<Usuario | null> {
+    return this.usuarioRepo.findOne({ where: { email, idEmpresa: idEmpresa ?? IsNull() } });
   }
 
   async updatePushToken(idUsuario: number, token: string) {
@@ -54,24 +57,29 @@ export class UsersService {
   }
 
   // Solo autenticación necesita cargar el hash, oculto por defecto en la entidad.
-  async findByEmailWithPassword(email: string): Promise<Usuario | null> {
-    return this.usuarioRepo
+  async findByEmailWithPassword(email: string, idEmpresa: number | null): Promise<Usuario | null> {
+    const qb = this.usuarioRepo
       .createQueryBuilder('usuario')
       .addSelect('usuario.passwordHash')
       .leftJoinAndSelect('usuario.rol', 'rol')
-      .where('usuario.email = :email', { email })
-      .getOne();
+      .leftJoinAndSelect('usuario.empresa', 'empresa')
+      .where('usuario.email = :email', { email });
+    if (idEmpresa == null) qb.andWhere('usuario.id_empresa IS NULL');
+    else qb.andWhere('usuario.id_empresa = :idEmpresa', { idEmpresa });
+    return qb.getOne();
   }
 
   // Busca un usuario por id
   async findById(id: number): Promise<Usuario> {
-    const user = await this.usuarioRepo.findOne({ where: { idUsuario: id } });
+    const user = await this.usuarioRepo.findOne({ where: { idUsuario: id }, relations: { empresa: true } });
     if (!user) throw new NotFoundException(`Usuario ${id} no encontrado`);
     return user;
   }
 
   // Crea un nuevo usuario con contraseña encriptada
   async create(data: {
+    /** Empresa del usuario. Si falta: la del request (TenantContext) o la empresa por defecto. */
+    idEmpresa?: number | null;
     nombre: string;
     apellido?: string;
     email: string;
@@ -79,12 +87,20 @@ export class UsersService {
     telefono?: string;
     rolNombre?: string;
   }): Promise<Usuario> {
-    // Verificar que el email no exista
-    const existe = await this.findByEmail(data.email);
-    if (existe) throw new ConflictException('El email ya está registrado');
-
     // Buscar el rol (por defecto CLIENTE)
     const rolNombre = data.rolNombre || 'CLIENTE';
+
+    // Empresa: la indicada, la del request o la por defecto. SUPER_ADMIN no tiene empresa.
+    const idEmpresa =
+      data.idEmpresa !== undefined
+        ? data.idEmpresa
+        : (TenantContext.currentTenantId() ??
+          (rolNombre === Role.SUPER_ADMIN ? null : ((await this.tenants?.defaultTenantId()) ?? null)));
+
+    // El email debe ser único dentro de la empresa.
+    const existe = await this.findByEmail(data.email, idEmpresa);
+    if (existe) throw new ConflictException('El email ya está registrado');
+
     const rol = await this.rolRepo.findOne({ where: { nombre: rolNombre } });
     if (!rol) throw new NotFoundException(`Rol ${rolNombre} no encontrado`);
 
@@ -99,6 +115,7 @@ export class UsersService {
       passwordHash,
       telefono: data.telefono,
       rol,
+      idEmpresa,
     });
 
     return this.usuarioRepo.save(nuevo);

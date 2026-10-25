@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntitySubscriberInterface, InsertEvent } from 'typeorm';
-import { DEFAULT_TENANT_SLUG, TenantContext } from './tenant-context';
+import { TenantContext } from './tenant-context';
+import { TenantResolverService } from './tenant-resolver.service';
 
 /**
  * Completa `id_empresa` en cada INSERT de una entidad del tenant.
@@ -10,10 +11,10 @@ import { DEFAULT_TENANT_SLUG, TenantContext } from './tenant-context';
  */
 @Injectable()
 export class TenantSubscriber implements EntitySubscriberInterface {
-  private readonly logger = new Logger(TenantSubscriber.name);
-  private defaultTenantId: number | null = null;
-
-  constructor(@InjectDataSource() dataSource: DataSource) {
+  constructor(
+    @InjectDataSource() dataSource: DataSource,
+    private readonly resolver: TenantResolverService,
+  ) {
     dataSource.subscribers.push(this);
   }
 
@@ -35,21 +36,6 @@ export class TenantSubscriber implements EntitySubscriberInterface {
       event.entity.rol?.nombre === 'SUPER_ADMIN'
     )
       return;
-    event.entity.idEmpresa = await this.resolveDefaultTenant(event);
-  }
-
-  private async resolveDefaultTenant(event: InsertEvent<any>): Promise<number> {
-    if (this.defaultTenantId != null) return this.defaultTenantId;
-    const rows = await event.manager.query(
-      'SELECT id_empresa FROM empresa WHERE slug = $1',
-      [DEFAULT_TENANT_SLUG],
-    );
-    if (!rows.length)
-      throw new Error(
-        `No existe la empresa por defecto "${DEFAULT_TENANT_SLUG}". Ejecuta las migraciones.`,
-      );
-    this.defaultTenantId = Number(rows[0].id_empresa);
-    this.logger.log(`Empresa por defecto: ${this.defaultTenantId}`);
-    return this.defaultTenantId;
+    event.entity.idEmpresa = await this.resolver.defaultTenantId();
   }
 }

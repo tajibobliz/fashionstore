@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RefreshSession } from './entities/refresh-session.entity';
 import { ConfigService } from '@nestjs/config';
+import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -19,12 +20,30 @@ export class AuthService {
     @InjectRepository(RefreshSession)
     private readonly sessions: Repository<RefreshSession>,
     private readonly config: ConfigService,
+    private readonly tenants: TenantResolverService,
   ) {}
 
-  // Valida email + password contra la BD. Devuelve el usuario (sin hash) o null.
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmailWithPassword(email);
+  /**
+   * Valida email + password dentro de una empresa. Devuelve el usuario (sin hash) o null.
+   * - Con `empresaSlug`: busca el usuario en esa empresa.
+   * - Sin slug: primero un usuario de plataforma (SUPER_ADMIN), luego la empresa por defecto.
+   *   Así el login actual de la web y la app sigue funcionando sin cambios.
+   */
+  async validateUser(email: string, password: string, empresaSlug?: string): Promise<any> {
+    let user;
+    if (empresaSlug) {
+      const empresa = await this.tenants.findBySlug(empresaSlug);
+      if (!empresa) return null;
+      user = await this.usersService.findByEmailWithPassword(email, empresa.idEmpresa);
+    } else {
+      user =
+        (await this.usersService.findByEmailWithPassword(email, null)) ??
+        (await this.usersService.findByEmailWithPassword(email, await this.tenants.defaultTenantId()));
+    }
     if (!user || !user.estado) return null;
+    if (user.empresa && user.empresa.estado !== 'ACTIVA') {
+      throw new ForbiddenException('La empresa está suspendida. Contacta al administrador de la plataforma.');
+    }
 
     const passwordValido = await bcrypt.compare(password, user.passwordHash);
     if (!passwordValido) return null;
@@ -54,6 +73,7 @@ export class AuthService {
       sub: user.idUsuario,
       email: user.email,
       rol: user.rol?.nombre,
+      tid: user.idEmpresa ?? null, // tenant: empresa del usuario (null = plataforma)
     };
 
     return {
@@ -64,6 +84,10 @@ export class AuthService {
         nombre: user.nombre,
         email: user.email,
         rol: user.rol?.nombre,
+        idEmpresa: user.idEmpresa ?? null,
+        empresa: user.empresa
+          ? { idEmpresa: user.empresa.idEmpresa, nombre: user.empresa.nombre, slug: user.empresa.slug }
+          : null,
       },
     };
   }
@@ -95,7 +119,17 @@ export class AuthService {
 
  // Registro público: crea un cliente y devuelve los tokens de sesión.
   async register(dto: RegisterDto) {
-    const nuevo = await this.usersService.create({
+    // Empresa: la del body (`empresa`), si no la del header X-Tenant / por defecto.
+    let idEmpresa: number;
+    if (dto.empresa) {
+      const empresa = await this.tenants.findBySlug(dto.empresa);
+      if (!empresa || empresa.estado !== 'ACTIVA') throw new NotFoundException('Tienda no encontrada');
+      idEmpresa = empresa.idEmpresa;
+    } else {
+      idEmpresa = await this.tenants.currentOrDefault();
+    }
+    const creado = await this.usersService.create({
+      idEmpresa,
       nombre: dto.nombre,
       apellido: dto.apellido,
       email: dto.email,
@@ -104,6 +138,6 @@ export class AuthService {
       rolNombre: 'CLIENTE', // Registro público crea clientes finales.
     });
 
-    return this.login(nuevo);
+    return this.login(await this.usersService.findById(creado.idUsuario));
   }
 }
