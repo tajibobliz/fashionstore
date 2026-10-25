@@ -19,9 +19,11 @@
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e:tenant": "nest build && jest --config ./test/jest-e2e.json --runInBand tenant-isolation",
     "migration:run": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
-    "migration:show": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:show"
+    "migration:show": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:show",
+    "seed:demo": "ts-node -P tsconfig.scripts.json --transpile-only src/tenancy/seeds/run-demo-seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
