@@ -8,6 +8,8 @@ import { UpdateCiudadDto } from './dto/update-ciudad.dto';
 import { CreateSucursalDto } from './dto/create-sucursal.dto';
 import { UpdateSucursalDto } from './dto/update-sucursal.dto';
 import { Almacen } from '../warehouses/entities/almacen.entity';
+import { PlanService } from '../tenancy/plan.service';
+import { TenantContext } from '../tenancy/tenant-context';
 
 @Injectable()
 export class BranchesService {
@@ -17,7 +19,14 @@ export class BranchesService {
     @InjectRepository(Sucursal)
     private readonly sucursalRepo: Repository<Sucursal>,
     private readonly dataSource: DataSource,
+    private readonly plans: PlanService,
   ) {}
+
+  /** Límite de sucursales activas del plan (enunciado §9.4). */
+  private async asegurarCupoSucursal() {
+    const idEmpresa = TenantContext.currentTenantId();
+    if (idEmpresa != null) await this.plans.asegurarCupo(idEmpresa, 'sucursales');
+  }
 
   // ===== CIUDADES =====
 
@@ -51,6 +60,7 @@ export class BranchesService {
   // ===== SUCURSALES =====
 
   async createSucursal(dto: CreateSucursalDto) {
+    if (dto.estado ?? true) await this.asegurarCupoSucursal();
     const ciudad = await this.findOneCiudad(dto.idCiudad);
     const sucursal = this.sucursalRepo.create({
       nombre: dto.nombre,
@@ -80,6 +90,7 @@ export class BranchesService {
 
   async updateSucursal(id: number, dto: UpdateSucursalDto) {
     const sucursal = await this.findOneSucursal(id);
+    if (dto.estado === true && !sucursal.estado) await this.asegurarCupoSucursal(); // reactivar cuenta como una más
     if (dto.idCiudad) {
       sucursal.ciudad = await this.findOneCiudad(dto.idCiudad);
     }

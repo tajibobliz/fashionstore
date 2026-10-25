@@ -135,4 +135,6 @@ classDiagram
 | RD2 | índice único parcial `UQ_suscripcion_activa_empresa` |
 | RD6, RD7 | constraints `UQ_<tabla>_empresa_<campo>` |
 | RD9 | `usuario.id_empresa` nullable + índice `UQ_usuario_email_plataforma` |
-| RD3, RD4, RD5 | pendiente (Fase 1, paso 7: `PlanService` / `PlanGuard`) |
+| RD3, RD4 | `PlanService.asegurarCupo()` en `BranchesService` y `UsersService` |
+| RD5 | `@RequiresFeature()` + `SubscriptionInterceptor` |
+| Suscripción vencida = solo lectura | `SubscriptionInterceptor` + `PlanService.asegurarVigente()` |

@@ -13,6 +13,7 @@ import {
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AllowWithoutSubscription } from '../tenancy/plan.decorators';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -48,6 +49,7 @@ export class UsersController {
   }
 
   @Post('me/push-token')
+  @AllowWithoutSubscription()
   updatePushToken(@Request() req: { user: AuthenticatedUser }, @Body() dto: UpdatePushTokenDto) {
     return this.usersService.updatePushToken(req.user.idUsuario, dto.token);
   }

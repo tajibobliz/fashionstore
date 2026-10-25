@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v0.9 (2026-10-25)
+> Versión: v1.0 (2026-10-25)
 
 ## Fechas clave
 
@@ -150,17 +150,20 @@ Petición ──► JwtAuthGuard (token → idEmpresa del claim `tid`)
 5. **Requisito**: el backend debe conectarse con un rol **sin** superusuario ni BYPASSRLS. Al arrancar, el log indica si el aislamiento está activo. En local: `backend/scripts/crear-rol-app.sql`. En Render: verificar en el log de arranque.
 6. **Pruebas**: unitarias (interceptor, JWT, auth) + E2E con 2 empresas (ver bitácora). Automatizadas en `backend/test/tenant-isolation.e2e-spec.ts` (`npm run test:e2e:tenant`).
 
-### 4.4 Planes y suscripción
-- `PlanService.assertFeature(tid, 'AI_REPORTS')` y `assertLimit(tid, recurso)`:
-  - `max_sucursales` → al crear/reactivar una sucursal (= tienda física; total de la empresa)
-  - `max_usuarios` → al crear/reactivar un empleado (D7)
+### 4.4 Planes y suscripción — IMPLEMENTADO
+- `PlanService` (`backend/src/tenancy/plan.service.ts`):
+  - `asegurarFuncionalidad(empresa, 'aiReports')` → usado con `@RequiresFeature('aiReports')` en `POST /ai/reporte-voz`.
+  - `asegurarCupo(empresa, 'sucursales')` → al crear/reactivar una sucursal (= tienda física; total de la empresa).
+  - `asegurarCupo(empresa, 'usuarios')` → al crear un empleado (rol ≠ CLIENTE, D7).
+  - `asegurarVigente(empresa)` → `SubscriptionInterceptor` bloquea **POST/PUT/PATCH/DELETE** si la suscripción venció o la empresa está suspendida; las consultas (GET) siguen permitidas. Excepciones con `@AllowWithoutSubscription()`: login/refresh/logout y `POST /tenant/suscripcion` (para poder renovar).
+- Respuestas 403 con `code`: `LIMITE_DEL_PLAN`, `PLAN_SIN_FUNCIONALIDAD`, `SUSCRIPCION_VENCIDA`, `EMPRESA_SUSPENDIDA` (el frontend puede mostrar un mensaje claro).
 - Si baja de plan y ya excede un límite: no se borra nada; solo se bloquea crear/activar más.
 - Valores de referencia (configurables en BD):
 
 | Límite / feature | Básico | Profesional | Empresarial |
 |---|---|---|---|
-| Sucursales activas (tiendas físicas) | 2 | 10 | Ilimitadas _(propuesta)_ |
-| Empleados (cuentas de staff) | 5 _(propuesta)_ | 20 _(propuesta)_ | Ilimitados _(propuesta)_ |
+| Sucursales activas (tiendas físicas) | 2 | 10 | Ilimitadas |
+| Empleados (cuentas de staff) | 5 | 20 | Ilimitados |
 | Clientes | Ilimitados | Ilimitados | Ilimitados |
 | Productos, ventas, reservas, offline, reportes convencionales, KPIs | Sí | Sí | Sí |
 | Reportes por voz / generativos con IA | No | Sí | Sí |
@@ -168,9 +171,21 @@ Petición ──► JwtAuthGuard (token → idEmpresa del claim `tid`)
 | Precio de referencia (simulado) | _por definir_ | _por definir_ | _por definir_ |
 
 Básico y Profesional respetan la tabla del enunciado (§9.4); Empresarial es aporte del equipo. Todo es configurable en la tabla `plan`.
-- `TenantGuard`: si la suscripción está vencida → solo lectura (o bloqueo, a definir).
-- Endpoints SUPER_ADMIN: `POST /platform/empresas`, `GET /platform/empresas`, `POST /platform/empresas/:id/suscripcion` (asignar/cambiar plan, renovar), `PATCH .../estado`.
-- Endpoints admin de empresa: `GET /tenant/me` (empresa, plan, límites, uso actual).
+- Suscripción vencida → **solo lectura** hasta renovar (decisión tomada).
+
+**Endpoints SUPER_ADMIN** (`/platform`, Swagger: "Plataforma SaaS"):
+
+| Método y ruta | Para qué (enunciado) |
+|---|---|
+| `GET /platform/planes` · `PATCH /platform/planes/:id` | ver y **configurar** límites/funcionalidades (§9.4) |
+| `GET /platform/empresas` · `GET /platform/empresas/:id` | empresas con plan, vigencia y uso |
+| `POST /platform/empresas` | **registrar empresa** + plan + **administrador** (§9.3) |
+| `PATCH /platform/empresas/:id/estado` | activar / suspender |
+| `POST /platform/empresas/:id/suscripcion` | **asignar, cambiar o renovar plan** (§9.5); la anterior queda `CANCELADA` en el historial |
+| `GET /platform/empresas/:id/suscripciones` | historial |
+| `PATCH /platform/empresas/:id/suscripcion/vencimiento` | simular vencimiento (pruebas y defensa) |
+
+**Endpoints de la empresa** (`/tenant`): `GET /tenant/me` (plan, vigencia, días restantes, límites y uso), `POST /tenant/suscripcion` (el ADMIN cambia/renueva su plan, contratación simulada), `GET /tenant/suscripciones` (historial).
 
 ### 4.5 Migración de datos existentes
 Migración `1780000000000-AddMultitenancy`: crea `plan/empresa/suscripcion`, crea **Empresa A = "FashionStore"** con todos los datos actuales, agrega `id_empresa` (primero nullable → backfill → NOT NULL), reemplaza UNIQUE globales por compuestos. `npm run seed:demo` crea la **Empresa B "Urban Step"** (`urban-step`, plan Básico, calzado y ropa deportiva) con 2 sucursales, almacenes, cajas, 5 usuarios, catálogo, inventario y 3 ventas; y el SUPER_ADMIN de la plataforma. No corre en producción.
@@ -350,9 +365,9 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 1.2 Entidades `Plan`, `Empresa`, `Suscripcion` + migración multitenant con backfill (`1780000000000-AddMultitenancy`, probada up/down)
 - [x] 1.3 `tid` en JWT, `TenantContext`, rol `SUPER_ADMIN`: login/registro por empresa (`empresa` = slug), header `X-Tenant` para endpoints públicos, interceptor global que llena el contexto, tokens antiguos → Empresa A
 - [x] 1.4 Filtro por tenant en todos los servicios → resuelto con **RLS** (migración `1780000000001-EnableTenantRowLevelSecurity`) + `tenant-rls.ts`; endpoints públicos reconocen el token si viene
-- [ ] 1.5 `PlanService` + `PlanGuard` + límites de sucursales y usuarios
-- [ ] 1.6 Endpoints `/platform/*` y `/tenant/me`; seeds Empresa A y B — ✅ seeds (`npm run seed:demo`); faltan endpoints
-- [ ] 1.7 Pruebas de aislamiento A↔B y de límites de plan — ✅ aislamiento (9 pruebas E2E); faltan límites de plan
+- [x] 1.5 `PlanService` + `SubscriptionInterceptor` + límites de sucursales y usuarios + IA solo en planes que la incluyen
+- [x] 1.6 Endpoints `/platform/*` y `/tenant/*`; seeds Empresa A y B (`npm run seed:demo`)
+- [x] 1.7 Pruebas de aislamiento A↔B (9 E2E) y de planes (11 E2E + 12 unitarias)
 - [ ] 1.8 Frontend: login con empresa, panel SUPER_ADMIN mínimo, ver plan
 
 ### Fase 2 — Offline + sync (→ Presentación 2)
@@ -417,7 +432,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 9 pruebas en verde |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 20 pruebas en verde (aislamiento + planes) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -444,3 +459,4 @@ La web y la app todavía no envían `empresa` ni `X-Tenant` (eso es la tarea 1.8
 | 2026-10-25 | v0.7: tarea 1.3 completa. `TenantResolverService`, `TenantContextInterceptor`, `tid` en JWT, login con `empresa` (slug), registro por empresa, email único por empresa | Pruebas: 14 tests nuevos (auth, JwtStrategy, interceptor) en verde; prueba E2E con 2 empresas: mismo email en A y B, login por slug, SUPER_ADMIN sin empresa, refresh conserva `tid`, el header `X-Tenant` no permite cambiarse de empresa. **Pendiente**: las consultas aún no filtran por empresa (tarea 1.4) |
 | 2026-10-25 | v0.8: tarea 1.4 completa con RLS. Endpoints públicos identifican al usuario si envía token. Seeds de arranque corren en la empresa por defecto. Script `backend/scripts/crear-rol-app.sql` | Pruebas E2E con rol sin superusuario y 2 empresas: catálogo, sucursales, ventas, inventario, reservas y reportes separados por empresa; leer/editar/cancelar/borrar recursos de la otra empresa → 404; crear inventario en sucursal ajena → 404; SUPER_ADMIN ve todo; con superusuario el log avisa que RLS no aplica. Migración up/down OK. 127 tests en verde (las 6 suites que ya fallaban en `main` siguen igual) |
 | 2026-10-25 | v0.9: `npm run seed:demo` (Empresa B Urban Step + SUPER_ADMIN), pruebas E2E automáticas de aislamiento (`npm run test:e2e:tenant`), sección 13 "Cómo probar". `reportes-compartidos/` a `.gitignore` | 9/9 pruebas E2E en verde; con RLS desactivado en 2 tablas fallan 4 (las pruebas sí detectan fugas); con superusuario se niegan a correr. 127 tests unitarios en verde |
+| 2026-10-25 | v1.0: tareas 1.5–1.7 completas. `PlanService`, `SubscriptionsService`, `SubscriptionInterceptor`, `@RequiresFeature`, `@AllowWithoutSubscription`, controladores `/platform` y `/tenant`. Backend de la Fase 1 terminado; falta el frontend (1.8) e ICONIX (1.1) | 20/20 E2E (aislamiento + planes: registro de empresa, límites de sucursales y empleados, clientes ilimitados, IA bloqueada en Básico, cambio de plan con historial, vencida = solo lectura y renovación, suspendida no entra, límites configurables) — repetible; 139 tests unitarios en verde |

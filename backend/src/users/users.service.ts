@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { TenantContext } from '../tenancy/tenant-context';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
+import { PlanService } from '../tenancy/plan.service';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from './entities/user.entity';
 import { Rol } from './entities/rol.entity';
@@ -44,6 +45,7 @@ export class UsersService {
     @InjectRepository(UsuarioSucursal) private readonly usuarioSucursalRepo: Repository<UsuarioSucursal>,
     @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
     private readonly tenants?: TenantResolverService,
+    private readonly plans?: PlanService,
   ) {}
 
   /** Busca un usuario por email dentro de una empresa (`null` = usuarios de plataforma). */
@@ -103,6 +105,9 @@ export class UsersService {
 
     const rol = await this.rolRepo.findOne({ where: { nombre: rolNombre } });
     if (!rol) throw new NotFoundException(`Rol ${rolNombre} no encontrado`);
+
+    // Los empleados (todo rol que no sea CLIENTE) cuentan para el límite del plan.
+    if (idEmpresa != null && rolNombre !== Role.CLIENTE) await this.plans?.asegurarCupo(idEmpresa, 'usuarios');
 
     // Encriptar la contraseña
     const passwordHash = await bcrypt.hash(data.password, 10);

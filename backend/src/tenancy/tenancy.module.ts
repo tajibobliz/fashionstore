@@ -9,6 +9,11 @@ import { TenantSubscriber } from './tenant.subscriber';
 import { TenantResolverService } from './tenant-resolver.service';
 import { TenantContextInterceptor } from './tenant-context.interceptor';
 import { installTenantRls } from './tenant-rls';
+import { PlanService } from './plan.service';
+import { SubscriptionsService } from './subscriptions.service';
+import { SubscriptionInterceptor } from './subscription.interceptor';
+import { PlatformController } from './platform.controller';
+import { TenantController } from './tenant.controller';
 
 /** Módulo SaaS: empresas (tenants), planes, suscripciones y aislamiento por empresa. */
 @Global()
@@ -17,9 +22,14 @@ import { installTenantRls } from './tenant-rls';
   providers: [
     TenantResolverService,
     TenantSubscriber,
+    PlanService,
+    SubscriptionsService,
+    // El orden importa: primero se decide la empresa, después se aplica su plan.
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor },
   ],
-  exports: [TypeOrmModule, TenantResolverService],
+  controllers: [PlatformController, TenantController],
+  exports: [TypeOrmModule, TenantResolverService, PlanService],
 })
 export class TenancyModule implements OnModuleInit {
   private readonly logger = new Logger('TenancyModule');
