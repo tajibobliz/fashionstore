@@ -1,7 +1,8 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity('proveedor')
-export class Proveedor {
+export class Proveedor extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_proveedor' })
   idProveedor: number;
 
@@ -19,4 +20,4 @@ export class Proveedor {
 
   @Column({ default: true })
   estado: boolean;
-}
+}

@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
    Check,
   Entity,
@@ -15,7 +16,7 @@ import { VarianteProducto } from './variante-producto.entity';
 @Entity('producto')
 @Check('CHK_producto_precio_mayorista', 'precio_mayorista IS NULL OR precio_mayorista >= 0')
 @Check('CHK_producto_cantidad_minima_mayorista', 'cantidad_minima_mayorista IS NULL OR cantidad_minima_mayorista > 0')
-export class Producto {
+export class Producto extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_producto' })
   idProducto: number;
 

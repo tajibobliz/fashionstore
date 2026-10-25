@@ -1,7 +1,8 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity('temporada')
-export class Temporada {
+export class Temporada extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_temporada' })
   idTemporada: number;
 
@@ -13,4 +14,4 @@ export class Temporada {
 
   @Column({ name: 'fecha_fin', type: 'date', nullable: true })
   fechaFin: Date;
-}
+}

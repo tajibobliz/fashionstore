@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
   Entity,
@@ -7,6 +8,7 @@ import {
   JoinColumn,
   OneToMany,
   CreateDateColumn,
+  Unique,
 } from 'typeorm';
 import { Usuario } from '../../users/entities/user.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
@@ -25,7 +27,8 @@ export type EstadoVenta =
   | 'DEVUELTA';
 
 @Entity('venta')
-export class Venta {
+@Unique('UQ_venta_empresa_comprobante', ['idEmpresa', 'numeroComprobante'])
+export class Venta extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_venta' })
   idVenta: number;
 
@@ -45,7 +48,7 @@ export class Venta {
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   total: number;
 
-  @Column({ name: 'numero_comprobante', length: 50, unique: true, nullable: true })
+  @Column({ name: 'numero_comprobante', length: 50, nullable: true })
   numeroComprobante: string;
 
   @Column({ length: 30, default: 'PENDIENTE' })

@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -17,7 +18,7 @@ export type TipoMovimiento =
   | 'AJUSTE';
 
 @Entity('movimiento_inventario')
-export class MovimientoInventario {
+export class MovimientoInventario extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_movimiento' })
   idMovimiento: number;
 
@@ -36,4 +37,4 @@ export class MovimientoInventario {
   @ManyToOne(() => Inventario, { eager: true })
   @JoinColumn({ name: 'id_inventario' })
   inventario: Inventario;
-}
+}

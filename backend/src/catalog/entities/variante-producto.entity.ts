@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -11,12 +12,13 @@ import { Talla } from './talla.entity';
 import { Color } from './color.entity';
 
 @Entity('variante_producto')
+@Unique('UQ_variante_empresa_sku', ['idEmpresa', 'sku'])
 @Unique(['producto', 'talla', 'color'])
-export class VarianteProducto {
+export class VarianteProducto extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_variante' })
   idVariante: number;
 
-  @Column({ length: 80, unique: true })
+  @Column({ length: 80 })
   sku: string;
 
   @ManyToOne(() => Producto, { eager: true })
@@ -30,4 +32,4 @@ export class VarianteProducto {
   @ManyToOne(() => Color, { eager: true, nullable: true })
   @JoinColumn({ name: 'id_color' })
   color: Color;
-}
+}

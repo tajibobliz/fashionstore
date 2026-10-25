@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -17,7 +18,7 @@ export type TipoInteraccion =
   | 'PRUEBA_VIRTUAL';
 
 @Entity('interaccion_cliente')
-export class InteraccionCliente {
+export class InteraccionCliente extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_interaccion' })
   idInteraccion: number;
 
@@ -34,4 +35,4 @@ export class InteraccionCliente {
   @ManyToOne(() => Producto, { eager: true })
   @JoinColumn({ name: 'id_producto' })
   producto: Producto;
-}
+}

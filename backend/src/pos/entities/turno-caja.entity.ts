@@ -1,9 +1,10 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { Caja } from './caja.entity'; import { Usuario } from '../../users/entities/user.entity';
 export type EstadoTurno='ABIERTO'|'CERRADO';
 @Entity('turno_caja')
-export class TurnoCaja {
+export class TurnoCaja extends TenantOwned {
  @PrimaryGeneratedColumn({name:'id_turno'}) idTurno:number;
  @ManyToOne(()=>Caja,{eager:true}) @JoinColumn({name:'id_caja'}) caja:Relation<Caja>;
  @ManyToOne(()=>Usuario,{eager:true}) @JoinColumn({name:'id_cajero'}) cajero:Relation<Usuario>;

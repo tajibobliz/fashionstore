@@ -14,8 +14,9 @@ export class RolesSeed implements OnModuleInit {
 
   async onModuleInit() {
     const roles = [
+      { nombre: 'SUPER_ADMIN', descripcion: 'Administrador de la plataforma SaaS' },
       { nombre: 'CLIENTE', descripcion: 'Cliente final que compra productos' },
-      { nombre: 'ADMIN', descripcion: 'Administrador del sistema' },
+      { nombre: 'ADMIN', descripcion: 'Administrador de la empresa' },
       { nombre: 'ENCARGADO', descripcion: 'Encargado de sucursal' },
       { nombre: 'ENCARGADO_SUCURSAL', descripcion: 'Encargado limitado a sucursales asignadas' },
       { nombre: 'CAJERO', descripcion: 'Cajero de punto de venta' },

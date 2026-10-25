@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,7 +11,7 @@ import { Temporada } from './temporada.entity';
 
 @Entity('coleccion')
 @Unique(['temporada', 'nombre'])
-export class Coleccion {
+export class Coleccion extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_coleccion' })
   idColeccion: number;
 
@@ -20,4 +21,4 @@ export class Coleccion {
   @ManyToOne(() => Temporada, { eager: true, nullable: true })
   @JoinColumn({ name: 'id_temporada' })
   temporada: Temporada;
-}
+}
