@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,14 +13,21 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
+import { tienda, slugDeTienda } from "@/config/tienda";
 
 export default function LoginScreen() {
   const login = useAuthStore((state) => state.login);
   const router = useRouter();
+  const [codigoTienda, setCodigoTienda] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+
+  // Recordar la última tienda usada (SaaS: cada empresa tiene su tienda).
+  useEffect(() => {
+    tienda.cargar().then((slug) => { if (slug && slug !== "fashionstore") setCodigoTienda(slug); });
+  }, []);
 
   // Validación en el cliente antes de llamar al backend
   const validate = () => {
@@ -36,7 +43,7 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await login(email.trim().toLowerCase(), password, slugDeTienda(codigoTienda) || undefined);
       // No navegamos aquí: _layout.tsx detecta isAuthenticated y redirige
     } catch (e) {
       const err = e as AxiosError<{ message?: string | string[] }>;
@@ -44,7 +51,7 @@ export default function LoginScreen() {
       if (!err.response) {
         msg = "Sin conexión con el servidor. Revisa la WiFi y que el backend esté corriendo.";
       } else if (err.response.status === 401) {
-        msg = "Correo o contraseña incorrectos";
+        msg = "Correo, contraseña o tienda incorrectos";
       } else if (err.response.data?.message) {
         const m = err.response.data.message;
         msg = Array.isArray(m) ? m.join("\n") : m;
@@ -68,6 +75,15 @@ export default function LoginScreen() {
         <Text className="mb-8 mt-2 text-base text-gray-500">
           Inicia sesión para continuar
         </Text>
+
+        <Input
+          label="Tienda (opcional)"
+          placeholder="Ej. urban-step · vacío = FashionStore"
+          value={codigoTienda}
+          onChangeText={setCodigoTienda}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
         <Input
           label="Correo electrónico"
@@ -104,4 +120,4 @@ export default function LoginScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+}

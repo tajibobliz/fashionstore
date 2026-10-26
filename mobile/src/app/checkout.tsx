@@ -18,7 +18,8 @@ import { cartService } from "@/services/cart.service";
 import { salesService } from "@/services/sales.service";
 import { paymentsService } from "@/services/payments.service";
 import { generateUUID } from "@/lib/uuid";
-import { DEFAULT_SUCURSAL_ID } from "@/config/env";
+import { useSucursalStore } from "@/stores/sucursalStore";
+import { SucursalPicker } from "@/components/shop/SucursalPicker";
 import { MetodoPago } from "@/types/checkout.types";
 
 // Métodos de pago disponibles.
@@ -52,6 +53,12 @@ export default function CheckoutScreen() {
       return;
     }
 
+    const idSucursal = useSucursalStore.getState().idSucursal;
+    if (!idSucursal) {
+      Alert.alert("Elige una sucursal", "Selecciona la sucursal donde recogerás tu compra.");
+      return;
+    }
+
     // Generamos un UUID para idempotencia (si la petición se reintenta, no se duplica la venta)
     const clientRequestId = generateUUID();
 
@@ -67,13 +74,13 @@ export default function CheckoutScreen() {
         await cartService.addItem(
           item.idVariante,
           item.cantidad,
-          DEFAULT_SUCURSAL_ID
+          idSucursal
         );
       }
 
       // 3) Crear la venta desde el carrito (queda PENDIENTE)
       const venta = await salesService.createFromCart({
-        idSucursal: DEFAULT_SUCURSAL_ID,
+        idSucursal,
         modalidadComercial: "MINORISTA",
         clientRequestId,
       });
@@ -153,6 +160,11 @@ export default function CheckoutScreen() {
           ))}
         </View>
 
+        {/* Sucursal donde se recoge la compra */}
+        <View className="mt-3 bg-white px-5 pb-4">
+          <SucursalPicker titulo="Sucursal de retiro" />
+        </View>
+
         {/* Método de pago */}
         <View className="mt-3 bg-white px-5 py-4">
           <Text className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
@@ -215,4 +227,4 @@ export default function CheckoutScreen() {
       </View>
     </View>
   );
-}
+}

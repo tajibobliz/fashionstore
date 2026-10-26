@@ -1,13 +1,16 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View } from "react-native";
 import { useCartStore } from "@/stores/cartStore";
+import { OfflineChip } from "@/components/offline/OfflineChip";
 export default function TabsLayout() {
   // insets = espacios que ocupan barras del sistema (arriba/abajo)
   const insets = useSafeAreaInsets();
   const totalItems = useCartStore((state) => state.getTotalItems());
   const cartBadge = totalItems > 0 ? totalItems : undefined;
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -73,5 +76,8 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    {/* Fase 2: aviso de "sin conexión" y de operaciones por enviar */}
+    <OfflineChip />
+    </View>
   );
-}
+}

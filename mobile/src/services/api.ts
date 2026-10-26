@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import * as SecureStore from "expo-secure-store";
 import { API_URL, API_TIMEOUT } from "@/config/env";
+import { tienda } from "@/config/tienda";
 
 // Cliente axios configurado
 export const api = axios.create({
@@ -16,6 +17,10 @@ api.interceptors.request.use(async (config) => {
   const token = await SecureStore.getItemAsync("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Sin sesión: el backend muestra el catálogo de la tienda elegida (SaaS multiempresa).
+    const slug = await tienda.cargar();
+    if (slug) config.headers["X-Tenant"] = slug;
   }
   return config;
 });
@@ -49,4 +54,4 @@ api.interceptors.response.use(
     }
     return Promise.reject(error);
   }
-);
+);

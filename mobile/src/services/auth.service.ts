@@ -4,6 +4,8 @@ import { AuthResponse } from "@/types";
 interface LoginData {
   email: string;
   password: string;
+  /** Slug de la tienda (empresa). Vacío = FashionStore. */
+  empresa?: string;
 }
 
 interface RegisterData {
@@ -12,6 +14,7 @@ interface RegisterData {
   email: string;
   password: string;
   telefono?: string;
+  empresa?: string;
 }
 
 export const authService = {
@@ -33,4 +36,4 @@ export const authService = {
     const response = await api.get("/auth/profile");
     return response.data;
   },
-};
+};

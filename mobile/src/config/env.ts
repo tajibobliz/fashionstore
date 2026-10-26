@@ -8,6 +8,5 @@ export const API_URL = "https://fashionstore-backend-si8t.onrender.com";
 
 export const API_TIMEOUT = 60000; // 15 segundos
 
-// ID de la sucursal por defecto para operaciones de carrito y venta.
-// TODO: en el futuro, permitir al usuario elegir sucursal.
-export const DEFAULT_SUCURSAL_ID = 1;
+// La sucursal ya no es fija: la clienta la elige (stores/sucursalStore.ts), porque en el
+// SaaS cada empresa tiene sus propias sucursales.

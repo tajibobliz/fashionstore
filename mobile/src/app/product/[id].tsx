@@ -19,7 +19,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuthStore } from "@/stores/authStore";
 import { reservationsService } from "@/services/reservations.service";
-import { DEFAULT_SUCURSAL_ID } from "@/config/env";
+import { useSucursalStore } from "@/stores/sucursalStore";
+import { SucursalPicker } from "@/components/shop/SucursalPicker";
+import { useOnline } from "@/offline/network";
+import { encolar } from "@/offline/queue";
+import { descontarStockLocal } from "@/offline/catalog";
+import { sincronizarPronto } from "@/offline/sync";
 
 const PLACEHOLDER_IMAGE =
   "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
@@ -30,6 +35,9 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const addItem = useCartStore((state) => state.addItem);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const sucursal = useSucursalStore();
+  const online = useOnline();
   const [reservando, setReservando] = useState(false);
   const [producto, setProducto] = useState<Producto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,9 +113,40 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    if (!sucursal.idSucursal) {
+      Alert.alert("Elige una sucursal", "Selecciona en qué sucursal quieres probarte la prenda.");
+      return;
+    }
+    const idSucursal = sucursal.idSucursal;
+    const detalle = `Talla ${varianteSeleccionada.talla?.nombre ?? "única"}, ${varianteSeleccionada.color?.nombre ?? "sin color"}`;
+    const items = [{ idVariante: varianteSeleccionada.idVariante, cantidad: 1 }];
+
+    // Sin conexión (o si la red falla al enviar): la reserva se guarda en el teléfono y se envía sola después.
+    const guardarSinConexion = async () => {
+      if (!user?.idEmpresa) {
+        Alert.alert("Sin conexión", "Vuelve a intentarlo cuando tengas internet.");
+        return;
+      }
+      await encolar({
+        tipo: "RESERVA", idEmpresa: user.idEmpresa, idUsuario: user.idUsuario, idSucursal,
+        payload: { detalles: items },
+        resumen: `Reserva · ${producto.nombre} (${detalle}) · ${sucursal.nombre ?? "sucursal"}`,
+      });
+      await descontarStockLocal(user.idEmpresa, idSucursal, items);
+      sincronizarPronto(1000);
+      Alert.alert(
+        "Reserva guardada sin conexión",
+        "Se enviará a la tienda apenas vuelva internet. Puedes ver su estado en Perfil → Operaciones pendientes.",
+        [
+          { text: "Ver pendientes", onPress: () => router.push("/offline/pendientes" as any) },
+          { text: "Ok", style: "cancel" },
+        ]
+      );
+    };
+
     Alert.alert(
       "Confirmar reserva",
-      `¿Reservar 1 unidad de ${producto.nombre} (Talla ${varianteSeleccionada.talla?.nombre}, ${varianteSeleccionada.color?.nombre}) para probártela en sucursal?`,
+      `¿Reservar 1 unidad de ${producto.nombre} (${detalle}) para probártela en ${sucursal.nombre ?? "la sucursal"}?${online ? "" : "\n\nEstás sin conexión: la reserva se enviará cuando vuelva internet."}`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -115,11 +154,13 @@ export default function ProductDetailScreen() {
           onPress: async () => {
             setReservando(true);
             try {
+              if (!online) {
+                await guardarSinConexion();
+                return;
+              }
               const reserva = await reservationsService.create({
-                idSucursal: DEFAULT_SUCURSAL_ID,
-                detalles: [
-                  { idVariante: varianteSeleccionada.idVariante, cantidad: 1 },
-                ],
+                idSucursal,
+                detalles: items,
               });
               Alert.alert(
                 "Reserva creada",
@@ -130,6 +171,10 @@ export default function ProductDetailScreen() {
                 ]
               );
             } catch (e: any) {
+              if (e?.isAxiosError && !e.response) {
+                await guardarSinConexion();
+                return;
+              }
               const msg =
                 e?.response?.data?.message ??
                 "No se pudo crear la reserva. Verifica que haya stock disponible.";
@@ -305,6 +350,9 @@ export default function ProductDetailScreen() {
           )}
 
           
+          {/* Sucursal donde se reserva (cada tienda del SaaS tiene las suyas) */}
+          <SucursalPicker titulo="Sucursal para reservar" />
+
          {/* Botón probador virtual (solo si hay recursoRaUrl) */}
            {producto.recursoRaUrl && (
            <View className="mt-6  mb-8" >
@@ -353,4 +401,4 @@ function getUnique<T, K extends { idTalla?: number; idColor?: number }>(
     if (!map.has(id)) map.set(id, key);
   }
   return Array.from(map.values());
-}
+}

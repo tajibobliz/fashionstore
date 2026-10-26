@@ -109,6 +109,11 @@ export default function ProfileScreen() {
               <Text className="mt-0.5 text-sm text-gray-500">
                 {user?.email}
               </Text>
+              {user?.empresa && (
+                <Text className="mt-0.5 text-xs font-semibold text-primary-500">
+                  Tienda: {user.empresa.nombre}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -125,6 +130,16 @@ export default function ProfileScreen() {
   label="Mis reservas"
   onPress={() => router.push("/reservations" as any)}
 />
+          <MenuItem
+            icon="cloud-offline-outline"
+            label="Catálogo sin conexión"
+            onPress={() => router.push("/offline" as any)}
+          />
+          <MenuItem
+            icon="sync-outline"
+            label="Operaciones pendientes"
+            onPress={() => router.push("/offline/pendientes" as any)}
+          />
           <MenuItem
             icon="heart-outline"
             label="Favoritos"
@@ -150,4 +165,4 @@ export default function ProfileScreen() {
       </ScrollView>
     </View>
   );
-}
+}

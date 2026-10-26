@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.5 (2026-10-26)
+> Versión: v1.6 (2026-10-26)
 
 ## Fechas clave
 
@@ -222,10 +222,13 @@ Ambos están en la tabla `usuario` con su `id_empresa`; lo que los diferencia es
 
 ## 6. Móvil offline (Desafío III) y sincronización (Desafío IV)
 
-### 6.1 Móvil
-- `expo-sqlite` con migraciones locales. Tablas: `producto`, `variante`, `inventario_local`, `sucursal`, `cliente_min`, `venta_local` + `detalle_venta_local`, `reserva_local` + `detalle_reserva_local`, `operacion_pendiente`, `sync_log`. FKs activas (`PRAGMA foreign_keys=ON`).
-- `@react-native-community/netinfo` para detectar conexión.
-- Pantallas: descargar catálogo, POS/venta offline, reserva offline, pendientes, resultado de sync.
+### 6.1 Móvil — implementado (v1.6)
+**Decisión D13:** la app móvil es la app de la **clienta**; el móvil offline cubre **catálogo y reservas** sin conexión. Las **ventas** offline las hace el cajero en el POS web (PWA, §5). Así no se duplica un POS en el teléfono.
+- `expo-sqlite` (`mobile/src/offline/db.ts`), base `fashionstore-offline.db`, migraciones con `PRAGMA user_version`, `PRAGMA foreign_keys = ON`. Tablas: `sucursal`, `producto`, `variante` (FK → producto), `inventario_local` (FK → sucursal y variante, `CHECK stock >= 0`), `operacion_pendiente` (cola, `CHECK` de tipo y estado), `sync_log` (bitácora de cada sincronización). Todo con `id_empresa`.
+- Catálogo: `offline/catalog.ts` descarga `/sync/catalog` de cada sucursal en una transacción, con **UPSERT** (`INSERT … ON CONFLICT DO UPDATE`; no `INSERT OR REPLACE`, que borraría en cascada).
+- `@react-native-community/netinfo` (`offline/network.ts`) detecta la conexión; `offline/sync.ts` sincroniza al volver la red, al volver la app a primer plano, al encolar y cada minuto, con backoff.
+- Pantallas: `app/offline/index.tsx` (catálogo guardado por sucursal + reservar), `app/offline/pendientes.tsx` (cola y resultado), aviso flotante en las pestañas (`components/offline/OfflineChip.tsx`), accesos en Perfil. En el detalle de producto, si no hay red (o falla al enviar), la reserva se guarda en la cola.
+- SaaS en el móvil: login y registro con campo **Tienda** (slug), header `X-Tenant` sin sesión (`config/tienda.ts`), y la **sucursal se elige** (`stores/sucursalStore.ts` + `SucursalPicker`) en lugar del antiguo `DEFAULT_SUCURSAL_ID = 1`.
 
 ### 6.2 Contrato de sincronización (compartido PWA y móvil) — implementado en `backend/src/sync/`
 ```
@@ -397,12 +400,12 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
   - [x] Backend: reglas de §6.4 y endpoints del panel (`/sync/operaciones`, `/sync/resumen`, `/resolver`)
   - [x] Pantalla del panel en la web (`features/sync/SyncPanelPage.tsx`)
 - [x] 2.3 PWA: manifest, service worker, Dexie, cola, UI de estados (ver §5)
-- [ ] 2.4 Móvil: expo-sqlite, cola, netinfo, pantallas offline
+- [x] 2.4 Móvil: expo-sqlite, cola, netinfo, pantallas offline (clienta: catálogo y reservas; ver D13 en §6.1)
 - [ ] 2.5 Cambios de prendas con plazo
 - [ ] 2.6 Pruebas: idempotencia, reintento, conflicto de stock (incluido el caso de dos ventas simultáneas de la última unidad, §6.4.1), persistencia tras reinicio
   - [x] Servidor: `backend/test/tenant-sync.e2e-spec.ts` (11 E2E)
   - [x] Web: recarga sin conexión, venta y reserva offline, reconexión y resultado (Playwright, modo offline)
-  - [ ] App móvil (con la 2.4)
+  - [x] App móvil: lógica SQLite + cola + sync probada contra el backend real (16 comprobaciones) y bundle Android compilado
 
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
 - [ ] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte
@@ -475,7 +478,9 @@ Usuarios de prueba (contraseña `demo1234`):
 4. DevTools (F12) → Network → **Offline** (o Application → Service workers → Offline). Recargar: la app abre igual. Vender o reservar.
 5. Volver a **No throttling**: el indicador de abajo a la izquierda envía las operaciones y muestra el resultado. Los conflictos aparecen en el dashboard del admin → **Sincronización offline**.
 
-Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (Empresa A), `/t/urban-step` y `/t/urban-step/tienda` (Empresa B), `/plataforma` (SUPER_ADMIN). La app móvil todavía no envía `empresa` (solo entra a la Empresa A).
+Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (Empresa A), `/t/urban-step` y `/t/urban-step/tienda` (Empresa B), `/plataforma` (SUPER_ADMIN). App móvil: en el login escribir la tienda (`urban-step`) o dejarla vacía para FashionStore.
+
+**Probar el móvil offline:** en `mobile/src/config/env.ts` poner `API_URL = "http://IP-DE-TU-PC:3000"` (el backend de Render todavía no tiene `/sync`), `npm install`, `npx expo start` y abrir con Expo Go. Iniciar sesión como `cliente@urbanstep.demo` con tienda `urban-step` → se guarda el catálogo. Activar el **modo avión** → aparece "Sin conexión · ver catálogo guardado" → reservar → desactivar el modo avión → Perfil → Operaciones pendientes muestra el resultado.
 
 ## 11. Bitácora de avance
 
@@ -498,3 +503,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-25 | v1.3: tareas 1.8.2 y 1.8.3 → **Fase 1 completa** (falta ICONIX 1.1). Panel `/plataforma` del SUPER_ADMIN (empresas con buscador, detalle con cambio de plan, vencimiento simulado, suspender/reactivar e historial; alta de empresa; edición de planes). Tienda por empresa `/t/:slug` (inicio, catálogo, login y registro de clientas; header `X-Tenant`; caché de React Query separada por usuario y tienda; sucursal recordada por tienda). Backend: `GET /saas/tiendas/:slug` | 25/25 E2E; prueba en navegador: suspender → login 403 → reactivar; precio editado se ve en `/saas/planes`; catálogo de Urban Step sin productos de FashionStore; registro en `/t/urban-step/register` → `/t/urban-step/tienda` con empresa 2; slug inexistente → "Tienda no encontrada"; sin desbordes a 390 px |
 | 2026-10-26 | v1.4: Fase 1 probada en la PC del equipo (12 pruebas manuales + 25 E2E). Corrección para Windows (`storeScope.ts` → `currentStore.ts`, choque de mayúsculas). **Fase 2, backend de sincronización**: tabla `operacion_sync` con RLS, `GET /sync/catalog`, `POST /sync/operations` (ventas y reservas offline, idempotencia por `operationId`, "gana la primera que llega" con bloqueo de fila, conflictos STOCK / SIN_STOCK con alternativas / PRECIO / TURNO_CERRADO), panel `/sync/operaciones` + `/resolver`. Corrección del seed: los almacenes de Urban Step ahora se llaman `PRINCIPAL` (antes `US-A1/2`, rompía reservas y compras online de la Empresa B; `npm run seed:demo` repara una BD existente) | 36/36 E2E repetibles (11 nuevas de sincronización: última unidad venta vs. reserva vs. venta, reenvío sin duplicar, precio dentro/fuera de ventana, rechazos sin cortar el lote, panel y aislamiento A↔B). Migración up/down OK y esquema = entidades. Unitarias: 139 en verde (las 6 suites de `main` siguen igual) |
 | 2026-10-26 | v1.5: **tarea 2.3 (PWA)** y pantalla del panel (2.2). Service worker + manifest (`vite-plugin-pwa`), IndexedDB con Dexie (catálogos y cola), motor de sincronización con backoff, POS sin conexión (turno y catálogo guardados, pago incluido), reservas sin conexión en la tienda, indicador flotante con la cola, panel **Sincronización offline**. Backend: la venta offline registra también su **pago** (efectivo aprobado; otros pendientes). Corrección: el campo Empresa del login tenía un `pattern` inválido en Chrome reciente | Playwright con red cortada: recarga sin conexión (service worker + sesión), 2 ventas offline → reconexión → 1 CONFIRMADA y 1 CONFLICTO (stock vaciado en el servidor mientras tanto) → el admin la ve en el panel y la resuelve; clienta reserva offline → reconexión → CONFIRMADA; sin desbordes a 1280 y 390 px; sin errores de consola. 36/36 E2E (se suma la verificación del pago) |
+| 2026-10-26 | v1.6: **tarea 2.4 (móvil offline)**. D13: el móvil es la app de la clienta → catálogo y reservas sin conexión (las ventas offline quedan en el POS web). SQLite con migraciones, FKs y CHECK; descarga de catálogo con UPSERT; cola + sincronización con NetInfo, backoff y `sync_log`; pantallas Catálogo sin conexión y Operaciones pendientes; aviso flotante. SaaS en el móvil: login/registro con tienda, `X-Tenant`, sucursal elegible (se elimina `DEFAULT_SUCURSAL_ID`) | Lógica real del móvil ejecutada en Node (SQLite de Node en lugar del teléfono) contra el backend: 16 comprobaciones (FK y CHECK activos, UPSERT, 2 reservas offline, falla de red → siguen PENDIENTES, reconexión → 1 CONFIRMADA y 1 CONFLICTO con sucursal alternativa, reenvío sin duplicar, bitácora). `expo export --platform android` compila. tsc sin errores nuevos; lint limpio en los archivos nuevos. **No probado en un teléfono real** |
