@@ -1,0 +1,21 @@
+/* Portada genérica de tienda: usa la paleta de la tienda (rosa de index.css). */
+.page { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 5%; background: #fff; border-bottom: 1px solid var(--border); }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.25rem; }
+.brand svg { color: var(--orange); }
+.nav { display: flex; align-items: center; gap: 18px; font-weight: 600; }
+.cta { padding: 9px 16px; border-radius: 99px; background: var(--orange); color: #fff; }
+.cta:hover { background: var(--orange-hover); }
+main { flex: 1; display: grid; place-items: center; padding: 64px 5%; }
+.hero { max-width: 720px; text-align: center; display: grid; gap: 18px; justify-items: center; }
+.eyebrow { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 99px; background: var(--orange-light); color: var(--orange); font-size: .8rem; font-weight: 700; }
+.hero h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); font-weight: 800; line-height: 1.05; letter-spacing: -.02em; }
+.hero > p:not(.eyebrow) { color: var(--muted); font-size: 1.08rem; line-height: 1.7; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 8px; }
+.primary, .secondary { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 22px; border-radius: 99px; font-weight: 700; }
+.primary { background: var(--orange); color: #fff; }
+.primary:hover { background: var(--orange-hover); }
+.secondary { border: 1px solid var(--border); background: #fff; }
+.footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 20px 5%; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--border); background: #fff; }
+.footer a { color: var(--orange); font-weight: 600; }
+@media (max-width: 520px) { .nav a:first-child { display: none; } }

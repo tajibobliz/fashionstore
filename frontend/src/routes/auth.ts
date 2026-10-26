@@ -5,7 +5,6 @@ export function getSessionPath(role: Role) {
   if (role === 'ENCARGADO_SUCURSAL') return '/dashboard/encargado-sucursal'
   if (role === 'CAJERO') return '/dashboard/cajero'
   if (role === 'CLIENTE') return '/tienda'
-  // Panel de plataforma: pendiente (tarea 1.8, paso 2).
-  if (role === 'SUPER_ADMIN') return '/'
+  if (role === 'SUPER_ADMIN') return '/plataforma'
   return '/'
 }

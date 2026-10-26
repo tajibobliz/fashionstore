@@ -32,6 +32,11 @@ export const saasApi = {
     const { data } = await api.get<{ slug: string; disponible: boolean }>('/saas/slug-disponible', { params: { slug } })
     return data
   },
+  /** Datos públicos de una tienda (/t/:slug). */
+  async tienda(slug: string) {
+    const { data } = await api.get<{ idEmpresa: number; nombre: string; slug: string }>(`/saas/tiendas/${encodeURIComponent(slug)}`)
+    return data
+  },
   /** Crea la empresa con su plan y su administrador, y deja la sesión iniciada. */
   async registrar(input: RegistroEmpresaInput) {
     const { data } = await api.post<AuthResponse>('/saas/registro', input)

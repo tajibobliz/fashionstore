@@ -5,6 +5,8 @@ import {
   HttpException,
   HttpStatus,
   Ip,
+  NotFoundException,
+  Param,
   Post,
   Query,
 } from '@nestjs/common';
@@ -68,6 +70,21 @@ export class SaasController {
     return {
       slug: limpio,
       disponible: !existe && !this.subscriptions.esReservado(limpio),
+    };
+  }
+
+  /** Datos públicos de una tienda (para la tienda online /t/:slug). */
+  @Get('tiendas/:slug')
+  async tienda(@Param('slug') slug: string) {
+    const empresa = await this.dataSource
+      .getRepository(Empresa)
+      .findOne({ where: { slug: slug.trim().toLowerCase() } });
+    if (!empresa || empresa.estado !== 'ACTIVA')
+      throw new NotFoundException('Tienda no encontrada');
+    return {
+      idEmpresa: empresa.idEmpresa,
+      nombre: empresa.nombre,
+      slug: empresa.slug,
     };
   }
 

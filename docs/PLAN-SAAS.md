@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.2 (2026-10-25)
+> Versión: v1.3 (2026-10-25)
 
 ## Fechas clave
 
@@ -369,11 +369,11 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 1.5 `PlanService` + `SubscriptionInterceptor` + límites de sucursales y usuarios + IA solo en planes que la incluyen
 - [x] 1.6 Endpoints `/platform/*` y `/tenant/*`; seeds Empresa A y B (`npm run seed:demo`)
 - [x] 1.7 Pruebas de aislamiento A↔B (9 E2E) y de planes (11 E2E + 12 unitarias)
-- [ ] 1.8 Frontend
+- [x] 1.8 Frontend
   - [x] 1.8.0 Página pública del SaaS (`/`) + contratación `/contratar` (auto-registro de empresa, sesión iniciada) + campo *Empresa* en el login
   - [x] 1.8.1 Dashboard de la empresa: "Mi plan" (plan, vigencia, uso vs. límites, cambiar/renovar) y avisos (por vencer, vencida, límite alcanzado, IA bloqueada)
-  - [ ] 1.8.2 Panel del SUPER_ADMIN (empresas, planes, suscripciones)
-  - [ ] 1.8.3 Tienda online por empresa `/t/:slug` (catálogo con `X-Tenant`, registro y login de clientes por tienda)
+  - [x] 1.8.2 Panel del SUPER_ADMIN en `/plataforma` (empresas, planes, suscripciones)
+  - [x] 1.8.3 Tienda online por empresa `/t/:slug` (catálogo con `X-Tenant`, registro y login de clientes por tienda)
 
 ### Fase 2 — Offline + sync (→ Presentación 2)
 - [ ] 2.1 `/sync/catalog` y `/sync/operations` + tabla `operacion_sync`
@@ -437,17 +437,17 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 20 pruebas en verde (aislamiento + planes) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 25 pruebas en verde (aislamiento + planes + SaaS público) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
 | Empresa | Email | Login |
 |---|---|---|
 | A — FashionStore | `ADMIN_EMAIL` del `.env` | como siempre (sin `empresa`) |
-| B — Urban Step | `admin@urbanstep.demo`, `encargado@…`, `encargado.centro@…`, `cajero@…`, `cliente@urbanstep.demo` | body con `"empresa": "urban-step"` (Swagger `/api/docs`) |
-| Plataforma | `superadmin@fashionstore.saas` | sin `empresa` |
+| B — Urban Step | `admin@urbanstep.demo`, `encargado@…`, `encargado.centro@…`, `cajero@…`, `cliente@urbanstep.demo` | web: `/login` con Empresa `urban-step`, o clientas en `/t/urban-step/login` |
+| Plataforma | `superadmin@fashionstore.saas` | `/login` sin empresa → entra a `/plataforma` |
 
-La web y la app todavía no envían `empresa` ni `X-Tenant` (eso es la tarea 1.8): por ahora se prueba con Swagger o Postman; en la web solo se puede entrar a la Empresa A.
+Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (Empresa A), `/t/urban-step` y `/t/urban-step/tienda` (Empresa B), `/plataforma` (SUPER_ADMIN). La app móvil todavía no envía `empresa` (solo entra a la Empresa A).
 
 ## 11. Bitácora de avance
 
@@ -467,3 +467,4 @@ La web y la app todavía no envían `empresa` ni `X-Tenant` (eso es la tarea 1.8
 | 2026-10-25 | v1.0: tareas 1.5–1.7 completas. `PlanService`, `SubscriptionsService`, `SubscriptionInterceptor`, `@RequiresFeature`, `@AllowWithoutSubscription`, controladores `/platform` y `/tenant`. Backend de la Fase 1 terminado; falta el frontend (1.8) e ICONIX (1.1) | 20/20 E2E (aislamiento + planes: registro de empresa, límites de sucursales y empleados, clientes ilimitados, IA bloqueada en Básico, cambio de plan con historial, vencida = solo lectura y renovación, suspendida no entra, límites configurables) — repetible; 139 tests unitarios en verde |
 | 2026-10-25 | v1.1: D12 (Opción A). Backend: `GET /saas/planes`, `GET /saas/slug-disponible`, `POST /saas/registro` (públicos, límite 5 registros/hora por IP), migración de precios referenciales (Bs 150 / 390 / 890). Frontend: `SaasLanding` en `/`, `ContratarPlan` en `/contratar`, campo Empresa en el login, Home de FashionStore en `/t/fashionstore` | 24/24 E2E (se suman 4 del SaaS público); prueba en navegador: landing sin desbordes a 1280 y 390 px, contratación → panel del admin, login de Urban Step con el campo Empresa |
 | 2026-10-25 | v1.2: tarea 1.8.1. Sección **Mi plan** (ADMIN puede cambiar/renovar; ENCARGADO solo ve), avisos en el dashboard (vencida = solo lectura, vence en ≤7 días, restricción del plan devuelta por el backend vía interceptor de axios), nombre de empresa y plan en la barra superior | Prueba en navegador con Urban Step: Mi plan muestra 2 de 2 sucursales y 4 de 5 empleados; aviso de "vence en 3 días"; vencida → aviso rojo → Renovar → aviso desaparece; crear 3ª sucursal → aviso con el mensaje del plan; sin desbordes a 390 px. Nota: `APP_TIMEZONE=America/La_Paz` debe estar en Render para que las fechas de suscripción usen la hora de Bolivia |
+| 2026-10-25 | v1.3: tareas 1.8.2 y 1.8.3 → **Fase 1 completa** (falta ICONIX 1.1). Panel `/plataforma` del SUPER_ADMIN (empresas con buscador, detalle con cambio de plan, vencimiento simulado, suspender/reactivar e historial; alta de empresa; edición de planes). Tienda por empresa `/t/:slug` (inicio, catálogo, login y registro de clientas; header `X-Tenant`; caché de React Query separada por usuario y tienda; sucursal recordada por tienda). Backend: `GET /saas/tiendas/:slug` | 25/25 E2E; prueba en navegador: suspender → login 403 → reactivar; precio editado se ve en `/saas/planes`; catálogo de Urban Step sin productos de FashionStore; registro en `/t/urban-step/register` → `/t/urban-step/tienda` con empresa 2; slug inexistente → "Tienda no encontrada"; sin desbordes a 390 px |

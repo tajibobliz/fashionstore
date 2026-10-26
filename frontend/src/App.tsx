@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import Home from './pages/home/Home'
 import SaasLanding from './pages/saas/SaasLanding'
 import ContratarPlan from './pages/saas/ContratarPlan'
+import PlatformPanel from './pages/platform/PlatformPanel'
+import StoreScope from './features/store/StoreScope'
+import StoreHome from './pages/store/StoreHome'
 import AuthForm from './features/auth/components/AuthForm'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import Workspace from './pages/Workspace'
@@ -26,11 +29,26 @@ export default function App() {
  {/* Página pública del SaaS (Opción A). La portada de la tienda FashionStore pasa a /t/fashionstore. */}
  <Route path="/" element={<SaasLanding />} />
  <Route path="/contratar" element={<ContratarPlan />} />
+ {/* Rutas de la tienda por defecto (FashionStore), sin /t/:slug. */}
+ <Route element={<StoreScope />}>
  <Route path="/t/fashionstore" element={<Home />} />
  <Route path="/login" element={<AuthForm key="login" mode="login" />} />
  <Route path="/register" element={<AuthForm key="register" mode="register" />} />
  <Route path="/tienda" element={<Workspace key="store" mode="store" />} />
+ </Route>
+ {/* Tienda online de cada empresa: el slug decide qué catálogo se muestra (X-Tenant). */}
+ <Route path="/t/:slug" element={<StoreScope />}>
+ <Route index element={<StoreHome />} />
+ <Route path="tienda" element={<Workspace key="store-slug" mode="store" />} />
+ <Route path="login" element={<AuthForm key="store-login" mode="login" />} />
+ <Route path="register" element={<AuthForm key="store-register" mode="register" />} />
+ </Route>
  <Route path="/vestidor/:productoId" element={<Suspense fallback={<main className="session-loading">Cargando vestidor…</main>}><VestidorVirtual /></Suspense>} />
+ {/* Panel del SUPER_ADMIN (administración de la plataforma SaaS). */}
+ <Route element={<ProtectedRoute roles={['SUPER_ADMIN']} />}>
+ <Route path="/plataforma" element={<Navigate to="/plataforma/empresas" replace />} />
+ <Route path="/plataforma/:tab" element={<PlatformPanel />} />
+ </Route>
  <Route element={<ProtectedRoute roles={roles} />}>
  {['/dashboard', '/panel', '/pos'].map(path => <Route key={path} path={path} element={<DashboardRedirect />} />)}
  {roles.map(role => <Route key={role} element={<ProtectedRoute roles={[role]} />}>

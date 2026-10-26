@@ -85,6 +85,13 @@ describe('SaaS público (e2e)', () => {
     ).toEqual([]);
   });
 
+  it('expone el nombre público de una tienda activa', async () => {
+    expect(
+      (await c.api('GET', `/saas/tiendas/${DEMO_SLUG}`)).body,
+    ).toMatchObject({ slug: DEMO_SLUG, nombre: 'Urban Step' });
+    expect((await c.api('GET', '/saas/tiendas/no-existe')).status).toBe(404);
+  });
+
   it('rechaza slugs repetidos o reservados', async () => {
     const admin = {
       nombre: 'X',
