@@ -6,12 +6,15 @@ import { useAuth } from '../../hooks/useAuth'
 import { dashboardConfig } from '../../features/dashboard/config'
 import type { DashboardRole } from '../../features/dashboard/config'
 import styles from './DashboardLayout.module.css'
+import PlanBanner from '../../features/plan/PlanBanner'
+import { usePlan } from '../../features/plan/usePlan'
 
 export default function DashboardLayout({ role }: { role: DashboardRole }) {
  const [open, setOpen] = useState(false)
  const { user, logout } = useAuth()
  const navigate = useNavigate()
  const config = dashboardConfig[role]
+ const plan = usePlan()
  async function signOut() {
    try { await logout() } catch { /* La sesión local ya se eliminó. */ }
    navigate('/', { replace: true })
@@ -24,6 +27,6 @@ export default function DashboardLayout({ role }: { role: DashboardRole }) {
  <nav className={styles.nav} aria-label="Menú del dashboard">{config.sections.map(({ id, label, icon: Icon, pending }) => <NavLink end to={`/dashboard/${config.slug}${id ? `/${id}` : ''}`} key={id} onClick={() => setOpen(false)} className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}><Icon size={19} aria-hidden="true" /><span>{label}</span>{pending && <span className={styles.soonDot} title="Próximamente" />}</NavLink>)}</nav>
  <div className={styles.sidebarBottom}><Link to="/tienda" className={styles.navItem}><Home size={18} />Ver tienda</Link><button className={styles.navItem} onClick={signOut}><LogOut size={18} />Cerrar sesión</button><div className={styles.userPill}><div className={styles.userAvatar}>{(user?.nombre || user?.email || 'F')[0].toUpperCase()}</div><div className={styles.userMeta}><span className={styles.userName}>{user?.nombre || user?.email}</span><span className={styles.userRole}>{role === 'ADMIN' ? 'Administrador' : role === 'ENCARGADO' ? 'Encargado nacional' : role === 'ENCARGADO_SUCURSAL' ? 'Encargado de sucursal' : 'Cajero'}</span></div></div></div>
  </aside>
- <main className={`${styles.main} ${styles.main_expanded}`}><header className={styles.topbar}><div className={styles.topbarIntro}><button className={styles.mobileToggle} aria-label="Abrir menú" aria-expanded={open} aria-controls="dashboard-menu" onClick={() => setOpen(!open)}><Menu size={21} /></button><span className={styles.topbarEyebrow}>Fashionstore · {config.subtitle}</span><p className={styles.topbarTitle}>{config.title}</p></div><div className={styles.topbarActions}><span className={styles.roleBadge}>{role}</span></div></header><Outlet /></main>
+ <main className={`${styles.main} ${styles.main_expanded}`}><header className={styles.topbar}><div className={styles.topbarIntro}><button className={styles.mobileToggle} aria-label="Abrir menú" aria-expanded={open} aria-controls="dashboard-menu" onClick={() => setOpen(!open)}><Menu size={21} /></button><span className={styles.topbarEyebrow}>Fashionstore · {config.subtitle}</span><p className={styles.topbarTitle}>{config.title}</p></div><div className={styles.topbarActions}>{plan.data && <span className={styles.roleBadge} title={`Plan ${plan.data.plan?.nombre ?? ''}`}>{plan.data.empresa.nombre} · {plan.data.plan?.nombre}</span>}<span className={styles.roleBadge}>{role}</span></div></header><PlanBanner planPath={config.sections.some(s => s.id === 'mi-plan') ? `/dashboard/${config.slug}/mi-plan` : null} /><Outlet /></main>
  </div>
 }

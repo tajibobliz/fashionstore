@@ -3,6 +3,7 @@ import { authSession } from '../features/auth/session'
 import { endpoints } from './endpoints'
 import type { AuthResponse } from '../features/auth/types'
 import type { InternalAxiosRequestConfig } from 'axios'
+import { publicarRestriccion } from '../features/plan/planEvents'
 
 type RetryConfig = InternalAxiosRequestConfig & { authRetried?: boolean }
 let refreshPromise: Promise<void> | null = null
@@ -22,6 +23,8 @@ api.interceptors.request.use(config => {
 })
 
 api.interceptors.response.use(response => response, async error => {
+  // Restricciones del plan (límite, funcionalidad, vencimiento): se avisan en el dashboard.
+  if (axios.isAxiosError(error) && error.response?.status === 403) publicarRestriccion(error.response.data)
   if (!axios.isAxiosError(error) || error.response?.status !== 401 || !error.config) {
     return Promise.reject(error)
   }

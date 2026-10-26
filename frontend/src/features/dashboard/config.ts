@@ -1,10 +1,11 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
 export const dashboardConfig: Record<DashboardRole, { slug: string; title: string; subtitle: string; sections: DashboardSection[] }> = {
- ADMIN: { slug: 'admin', title: 'Administración del sistema', subtitle: 'Superusuario · Vista general', sections: [
+ ADMIN: { slug: 'admin', title: 'Administración de la empresa', subtitle: 'Administrador · Vista general', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
+ { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
  { id: 'usuarios', label: 'Usuarios y roles', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
@@ -19,6 +20,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  ] },
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
+ { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
  { id: 'gestion-nacional', label: 'Gestión nacional', icon: Store, pending: true, description: 'Coordina la operación nacional de Fashionstore.' },
  { id: 'personal', label: 'Personal', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },

@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.1 (2026-10-25)
+> Versión: v1.2 (2026-10-25)
 
 ## Fechas clave
 
@@ -371,7 +371,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 1.7 Pruebas de aislamiento A↔B (9 E2E) y de planes (11 E2E + 12 unitarias)
 - [ ] 1.8 Frontend
   - [x] 1.8.0 Página pública del SaaS (`/`) + contratación `/contratar` (auto-registro de empresa, sesión iniciada) + campo *Empresa* en el login
-  - [ ] 1.8.1 Dashboard de la empresa: "Mi plan" (plan, vigencia, uso vs. límites, cambiar/renovar) y avisos (por vencer, vencida, límite alcanzado, IA bloqueada)
+  - [x] 1.8.1 Dashboard de la empresa: "Mi plan" (plan, vigencia, uso vs. límites, cambiar/renovar) y avisos (por vencer, vencida, límite alcanzado, IA bloqueada)
   - [ ] 1.8.2 Panel del SUPER_ADMIN (empresas, planes, suscripciones)
   - [ ] 1.8.3 Tienda online por empresa `/t/:slug` (catálogo con `X-Tenant`, registro y login de clientes por tienda)
 
@@ -466,3 +466,4 @@ La web y la app todavía no envían `empresa` ni `X-Tenant` (eso es la tarea 1.8
 | 2026-10-25 | v0.9: `npm run seed:demo` (Empresa B Urban Step + SUPER_ADMIN), pruebas E2E automáticas de aislamiento (`npm run test:e2e:tenant`), sección 13 "Cómo probar". `reportes-compartidos/` a `.gitignore` | 9/9 pruebas E2E en verde; con RLS desactivado en 2 tablas fallan 4 (las pruebas sí detectan fugas); con superusuario se niegan a correr. 127 tests unitarios en verde |
 | 2026-10-25 | v1.0: tareas 1.5–1.7 completas. `PlanService`, `SubscriptionsService`, `SubscriptionInterceptor`, `@RequiresFeature`, `@AllowWithoutSubscription`, controladores `/platform` y `/tenant`. Backend de la Fase 1 terminado; falta el frontend (1.8) e ICONIX (1.1) | 20/20 E2E (aislamiento + planes: registro de empresa, límites de sucursales y empleados, clientes ilimitados, IA bloqueada en Básico, cambio de plan con historial, vencida = solo lectura y renovación, suspendida no entra, límites configurables) — repetible; 139 tests unitarios en verde |
 | 2026-10-25 | v1.1: D12 (Opción A). Backend: `GET /saas/planes`, `GET /saas/slug-disponible`, `POST /saas/registro` (públicos, límite 5 registros/hora por IP), migración de precios referenciales (Bs 150 / 390 / 890). Frontend: `SaasLanding` en `/`, `ContratarPlan` en `/contratar`, campo Empresa en el login, Home de FashionStore en `/t/fashionstore` | 24/24 E2E (se suman 4 del SaaS público); prueba en navegador: landing sin desbordes a 1280 y 390 px, contratación → panel del admin, login de Urban Step con el campo Empresa |
+| 2026-10-25 | v1.2: tarea 1.8.1. Sección **Mi plan** (ADMIN puede cambiar/renovar; ENCARGADO solo ve), avisos en el dashboard (vencida = solo lectura, vence en ≤7 días, restricción del plan devuelta por el backend vía interceptor de axios), nombre de empresa y plan en la barra superior | Prueba en navegador con Urban Step: Mi plan muestra 2 de 2 sucursales y 4 de 5 empleados; aviso de "vence en 3 días"; vencida → aviso rojo → Renovar → aviso desaparece; crear 3ª sucursal → aviso con el mensaje del plan; sin desbordes a 390 px. Nota: `APP_TIMEZONE=America/La_Paz` debe estar en Render para que las fechas de suscripción usen la hora de Bolivia |
