@@ -1,0 +1,25 @@
+.filters { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.filters button { min-height: 36px; padding: 6px 14px; border: 0; border-radius: 7px; background: transparent; font: inherit; font-size: .84rem; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.filters button[aria-pressed='true'] { background: var(--app-primary); color: #fff; }
+.list { display: grid; gap: 14px; }
+.op { padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); display: grid; gap: 10px; }
+.opHead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.opHead h3 { margin: 0; font-size: 1rem; color: var(--text-primary); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em; }
+.ok { background: #ecfdf3; color: #15803d; }
+.warn { background: #fffbeb; color: #b45309; }
+.bad { background: #fef2f2; color: #b91c1c; }
+.neutral { background: #f3f4f6; color: #4b5563; }
+.meta { margin: 0; color: var(--text-secondary); font-size: .8rem; line-height: 1.6; }
+.reason { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #78350f; font-size: .84rem; line-height: 1.5; }
+.reasonBad { background: #fef2f2; color: #7f1d1d; }
+.items { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: .82rem; color: var(--text-primary); }
+.items li { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.items small { color: var(--text-secondary); }
+.resolve { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.resolve label { display: grid; gap: 6px; font-size: .8rem; font-weight: 700; }
+.resolve textarea { min-height: 64px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: .86rem; resize: vertical; }
+.resolve button { justify-self: start; min-height: 40px; padding: 8px 16px; border: 0; border-radius: 9px; background: var(--app-primary); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.resolve button:disabled { opacity: .55; cursor: not-allowed; }
+.resolved { margin: 0; padding-top: 10px; border-top: 1px solid var(--border); font-size: .82rem; color: #15803d; }

@@ -8,6 +8,8 @@ import type { DashboardRole } from '../../features/dashboard/config'
 import styles from './DashboardLayout.module.css'
 import PlanBanner from '../../features/plan/PlanBanner'
 import { usePlan } from '../../features/plan/usePlan'
+import { useQuery } from '@tanstack/react-query'
+import { syncApi } from '../../api/sync.api'
 
 export default function DashboardLayout({ role }: { role: DashboardRole }) {
  const [open, setOpen] = useState(false)
@@ -15,6 +17,10 @@ export default function DashboardLayout({ role }: { role: DashboardRole }) {
  const navigate = useNavigate()
  const config = dashboardConfig[role]
  const plan = usePlan()
+ // Conflictos de sincronización offline por revisar: el número solo se muestra si hay alguno.
+ const conSync = config.sections.some(s => s.id === 'sincronizacion')
+ const resumenSync = useQuery({ queryKey: ['sync', 'resumen'], queryFn: syncApi.resumen, enabled: conSync, refetchInterval: 60_000, retry: false })
+ const pendientesSync = resumenSync.data?.pendientes ?? 0
  async function signOut() {
    try { await logout() } catch { /* La sesión local ya se eliminó. */ }
    navigate('/', { replace: true })
@@ -24,7 +30,7 @@ export default function DashboardLayout({ role }: { role: DashboardRole }) {
  <aside id="dashboard-menu" className={`${styles.sidebar} ${styles.expanded} ${open ? styles.mobileOpen : ''}`}>
  <div className={styles.brand}><Brand /><button className={styles.mobileClose} onClick={() => setOpen(false)} aria-label="Cerrar menú"><X size={18} /></button></div>
  <div className={styles.sectionLabel}>{role === 'ADMIN' ? 'Sistema' : role === 'ENCARGADO' ? 'Operación nacional' : role === 'ENCARGADO_SUCURSAL' ? 'Sucursal' : 'Mi turno'}</div>
- <nav className={styles.nav} aria-label="Menú del dashboard">{config.sections.map(({ id, label, icon: Icon, pending }) => <NavLink end to={`/dashboard/${config.slug}${id ? `/${id}` : ''}`} key={id} onClick={() => setOpen(false)} className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}><Icon size={19} aria-hidden="true" /><span>{label}</span>{pending && <span className={styles.soonDot} title="Próximamente" />}</NavLink>)}</nav>
+ <nav className={styles.nav} aria-label="Menú del dashboard">{config.sections.map(({ id, label, icon: Icon, pending }) => <NavLink end to={`/dashboard/${config.slug}${id ? `/${id}` : ''}`} key={id} onClick={() => setOpen(false)} className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}><Icon size={19} aria-hidden="true" /><span>{label}</span>{id === 'sincronizacion' && pendientesSync > 0 && <span className={styles.countBadge} title={`${pendientesSync} por revisar`} aria-label={`${pendientesSync} por revisar`}>{pendientesSync > 99 ? '99+' : pendientesSync}</span>}{pending && <span className={styles.soonDot} title="Próximamente" />}</NavLink>)}</nav>
  <div className={styles.sidebarBottom}><Link to="/tienda" className={styles.navItem}><Home size={18} />Ver tienda</Link><button className={styles.navItem} onClick={signOut}><LogOut size={18} />Cerrar sesión</button><div className={styles.userPill}><div className={styles.userAvatar}>{(user?.nombre || user?.email || 'F')[0].toUpperCase()}</div><div className={styles.userMeta}><span className={styles.userName}>{user?.nombre || user?.email}</span><span className={styles.userRole}>{role === 'ADMIN' ? 'Administrador' : role === 'ENCARGADO' ? 'Encargado nacional' : role === 'ENCARGADO_SUCURSAL' ? 'Encargado de sucursal' : 'Cajero'}</span></div></div></div>
  </aside>
  <main className={`${styles.main} ${styles.main_expanded}`}><header className={styles.topbar}><div className={styles.topbarIntro}><button className={styles.mobileToggle} aria-label="Abrir menú" aria-expanded={open} aria-controls="dashboard-menu" onClick={() => setOpen(!open)}><Menu size={21} /></button><span className={styles.topbarEyebrow}>Fashionstore · {config.subtitle}</span><p className={styles.topbarTitle}>{config.title}</p></div><div className={styles.topbarActions}>{plan.data && <span className={styles.roleBadge} title={`Plan ${plan.data.plan?.nombre ?? ''}`}>{plan.data.empresa.nombre} · {plan.data.plan?.nombre}</span>}<span className={styles.roleBadge}>{role}</span></div></header><PlanBanner planPath={config.sections.some(s => s.id === 'mi-plan') ? `/dashboard/${config.slug}/mi-plan` : null} /><Outlet /></main>

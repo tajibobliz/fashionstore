@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { api } from '../../api/axios'
 import { endpoints } from '../../api/endpoints'
 import { authSession } from './session'
@@ -34,8 +35,13 @@ export const authApi = {
           if (currentToken && authSession.getSnapshot().status === 'loading') {
             authSession.set(currentToken, user)
           }
-        } catch {
-          if (authSession.getToken() === token) authSession.clear()
+        } catch (error) {
+          // Sin conexión no se puede validar el token: se sigue con el último usuario conocido
+          // (el servidor lo validará al volver la red). Solo se cierra la sesión si el servidor la rechaza.
+          const cached = authSession.getCachedUser()
+          const sinRed = axios.isAxiosError(error) && !error.response
+          if (sinRed && cached && authSession.getToken() === token) authSession.set(token, cached)
+          else if (authSession.getToken() === token) authSession.clear()
         }
       })()
     }

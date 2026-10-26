@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,12 @@ import type { User } from '../../types/user'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './PosPage.module.css'
+import offlineStyles from '../offline/Offline.module.css'
+import OfflinePos from '../offline/OfflinePos'
+import { useAuth } from '../../hooks/useAuth'
+import { useOnline } from '../../offline/network'
+import { descargarCatalogo, useCatalogoLocal } from '../../offline/catalog'
+import { turnoLocal } from '../../offline/turno'
 
 type Mode = 'MINORISTA' | 'MAYORISTA'
 interface AvailableVariant { inventory: Inventario; variant: Variante; product: Producto }
@@ -48,6 +54,19 @@ export default function PosPage() {
     },
     retry: false,
   })
+  const { user } = useAuth()
+  const online = useOnline()
+  // Preparar el modo sin conexión: guardar el turno abierto y descargar el catálogo de su sucursal.
+  const turnoAbierto = shift.data?.estado === 'ABIERTO' ? shift.data : null
+  const idSucursalTurno = turnoAbierto?.caja.sucursal?.idSucursal
+  const catalogoLocal = useCatalogoLocal(user?.idEmpresa, idSucursalTurno)
+  useEffect(() => {
+    if (!user) return
+    if (shift.isSuccess && !turnoAbierto) { turnoLocal.borrar(user.idUsuario); return }
+    if (!turnoAbierto || !idSucursalTurno || !user.idEmpresa || !online) return
+    turnoLocal.guardar(user.idUsuario, turnoAbierto)
+    descargarCatalogo(user.idEmpresa, idSucursalTurno).catch(() => { /* se reintenta la próxima vez */ })
+  }, [user, turnoAbierto, idSucursalTurno, shift.isSuccess, online])
   const inventory = useQuery({ queryKey: queryKeys.inventory.all, queryFn: inventoryApi.list, enabled: shift.data?.estado === 'ABIERTO' })
   const variants = useQuery({ queryKey: queryKeys.catalog.variants, queryFn: catalogApi.variants.list, enabled: shift.data?.estado === 'ABIERTO' })
   const warehouse = useMemo(() => {
@@ -140,6 +159,7 @@ export default function PosPage() {
     setSearch('')
   }
 
+  if (!online) return <OfflinePos />
   if (shift.isLoading) return <div className={dashboardStyles.chartLoading} role="status">Consultando turno actual…</div>
   if (shift.error) return <p className={dashboardStyles.errorNotice} role="alert">{getApiErrorMessage(shift.error)}</p>
   if (!shift.data || shift.data.estado !== 'ABIERTO') return <section className={dashboardStyles.content}><div className={dashboardStyles.pageHeading}><div><p className={dashboardStyles.kicker}>Punto de venta</p><h1>Turno cerrado</h1></div></div><div className={styles.closed}><p>Necesitas un turno abierto para acceder al punto de venta.</p><Link className={dashboardStyles.textLink} to="/dashboard/cajero/caja">Ir a Mi caja</Link></div></section>
@@ -149,7 +169,7 @@ export default function PosPage() {
   if (receipt) return <ReceiptView receipt={receipt} fallbackShift={shift.data} onNewSale={newSale} />
 
   return <section className={dashboardStyles.content}>
-    <div className={dashboardStyles.pageHeading}><div><p className={dashboardStyles.kicker}>Punto de venta</p><h1>Nueva atención</h1><p>Prepara la lista local antes de continuar al cobro.</p></div></div>
+    <div className={dashboardStyles.pageHeading}><div><p className={dashboardStyles.kicker}>Punto de venta</p><h1>Nueva atención</h1><p>Prepara la lista local antes de continuar al cobro.</p>{catalogoLocal && <span className={offlineStyles.readyNote}>Listo para vender sin conexión · catálogo guardado {new Date(catalogoLocal.guardadoEn).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</span>}</div></div>
     <div className={styles.contextGrid}><Context label="Sucursal" value={shift.data.caja.sucursal?.nombre ?? '—'} /><Context label="Caja" value={shift.data.caja.nombre} /><Context label="Turno" value={`#${shift.data.idTurno}`} /><Context label="Cajero" value={[shift.data.cajero?.nombre, shift.data.cajero?.apellido].filter(Boolean).join(' ') || '—'} /><Context label="Almacén" value={warehouse.nombre} /></div>
     <div className={styles.workspace}>
       <section className={styles.catalogPanel}><div className={styles.toolbar}><label className={styles.search}>Buscar por producto o SKU<input aria-label="Buscar producto o SKU" value={search} onChange={event => setSearch(event.target.value)} placeholder="Ej. vestido o SKU-001" /></label><label className={styles.mode}>Modalidad<select aria-label="Modalidad comercial" value={mode} onChange={event => setMode(event.target.value as Mode)}><option value="MINORISTA">MINORISTA</option><option value="MAYORISTA">MAYORISTA</option></select></label></div><div className={styles.results}>{results.length ? results.map(item => {

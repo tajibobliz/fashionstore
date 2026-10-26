@@ -11,6 +11,8 @@ import type { Venta } from '../../types/sale'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './ShiftPage.module.css'
+import { useAuth } from '../../hooks/useAuth'
+import { turnoLocal } from '../../offline/turno'
 
 function isMissingShift(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 404
@@ -34,6 +36,7 @@ function money(value: number | string | null | undefined) {
 
 export default function ShiftPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [idCaja, setIdCaja] = useState(0)
   const [montoApertura, setMontoApertura] = useState('')
   const [montoCierre, setMontoCierre] = useState('')
@@ -75,6 +78,8 @@ export default function ShiftPage() {
       setConfirmClose(false)
       setMontoCierre('')
       queryClient.setQueryData(queryKeys.shifts.current, null)
+      // El turno guardado para vender sin conexión ya no sirve.
+      if (user) turnoLocal.borrar(user.idUsuario)
       await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.current })
     },
   })
@@ -121,4 +126,4 @@ function ShiftSales({ sales, loading, error }: { sales: Venta[] | undefined; loa
   if (loading) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p>Consultando ventas realizadas en este turno…</p></section>
   if (error) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p className={styles.error} role="alert">{getApiErrorMessage(error)}</p></section>
   return <section className={styles.sales} aria-label="Ventas del turno"><div className={styles.salesHeader}><h2>Ventas de este turno</h2><strong>{sales?.length ?? 0}</strong></div>{sales?.length ? <div className={styles.salesList}>{sales.map(sale => <article key={sale.idVenta}><div><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong><span>{sale.fecha ? new Date(sale.fecha).toLocaleString() : '—'} · {sale.usuario ? `${sale.usuario.nombre} ${sale.usuario.apellido ?? ''} · ${sale.usuario.email ?? ''}` : 'Venta sin cliente'}</span><details><summary>Ver detalle</summary>{sale.detalles?.map(detail => <p key={detail.idDetalleVenta}>{detail.variante?.producto?.nombre ?? 'Producto'} · {detail.variante?.sku ?? '—'} · {detail.cantidad} unidades</p>)}</details></div><div><span>{sale.estado ?? '—'}</span><strong>Bs {money(sale.total)}</strong></div></article>)}</div> : <p>No registraste ventas durante este turno.</p>}</section>
-}
+}

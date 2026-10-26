@@ -202,6 +202,11 @@ describe('Sincronización offline (e2e)', () => {
     });
     expect(r.serverId).toEqual(expect.any(Number));
     expect(await stockActual()).toBe(0);
+    // La venta offline queda pagada con su pago registrado (efectivo = aprobado).
+    const pagos = await c.api('GET', `/payments/venta/${r.serverId}`, { who: 'B' });
+    expect(pagos.status).toBe(200);
+    const lista = Array.isArray(pagos.body) ? pagos.body : [pagos.body];
+    expect(lista[0]).toMatchObject({ metodo: 'EFECTIVO', estado: 'APROBADO' });
   });
 
   it('reenviar la misma operación devuelve el mismo resultado sin duplicar la venta', async () => {

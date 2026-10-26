@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -17,6 +17,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  { id: 'reportes', label: 'Reportes', icon: BarChart3 },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  ] },
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,6 +34,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  ] },
  ENCARGADO_SUCURSAL: { slug: 'encargado-sucursal', title: 'Panel de Sucursal', subtitle: 'Encargado de sucursal · Operación territorial', sections: [
  { id: '', label: 'Inicio', icon: LayoutDashboard },
@@ -42,6 +44,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  ] },
  CAJERO: { slug: 'cajero', title: 'Punto de venta', subtitle: 'Cajero · Atención en tienda', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },

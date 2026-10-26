@@ -564,6 +564,8 @@
 .fashion .brand > a { font-size: 1.2rem; }
 .fashion .navItem { padding-block: 12px; }
 .fashion .navItem > svg { flex-shrink: 0; }
+.countBadge { margin-left: auto; flex-shrink: 0; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 99px; background: #b91c1c; color: #fff; font-size: .72rem; font-weight: 700; line-height: 22px; text-align: center; }
+.active .countBadge { background: #fff; color: #b91c1c; }
 .soonDot { width: 5px; height: 5px; border-radius: 50%; background: #c5b4bd; margin-left: auto; flex-shrink: 0; }
 .roleBadge { background: var(--accent-soft); color: var(--accent); padding: 8px 13px; border-radius: 99px; font-size: .75rem; font-weight: 700; }
 .mobileToggle, .mobileClose, .mobileOverlay { display: none; }

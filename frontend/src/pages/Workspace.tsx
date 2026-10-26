@@ -22,6 +22,9 @@ import { getApiErrorMessage } from '../utils/apiError'
 import { useAuth } from '../hooks/useAuth'
 import { useStore } from '../features/store/storeContext'
 import { storeScope } from '../features/store/currentStore'
+import { useOnline } from '../offline/network'
+import OfflineStore from '../features/offline/OfflineStore'
+import { usePrepararTiendaOffline } from '../features/offline/usePrepararTiendaOffline'
 
 /** La sucursal elegida se recuerda por tienda: una sucursal de otra empresa no aplica aquí. */
 const branchStorageKey = () => `fashionstore.cart_branch_id${storeScope.get() ? `.${storeScope.get()}` : ''}`
@@ -31,7 +34,14 @@ const formatPurchaseDate = (value: string) => new Intl.DateTimeFormat('es-BO', {
 const purchaseStatusClass = (estado?: string) => estado === 'PAGADA' ? 'status-badge--completed' : estado === 'CANCELADA' ? 'status-badge--cancelled' : estado === 'PENDIENTE' ? 'status-badge--pending' : 'status-badge--neutral'
 type View = 'catalog' | 'detail' | 'cart' | 'reservations' | 'checkout' | 'sale' | 'payment' | 'purchases'
 
-export default function Workspace({ mode }: { mode: 'store' | 'admin' | 'pos' }) { void mode; return <><StoreCatalog /><Chatbot /></> }
+export default function Workspace({ mode }: { mode: 'store' | 'admin' | 'pos' }) {
+ void mode
+ const online = useOnline(); const { user } = useAuth()
+ // Fase 2: con internet se guarda el catálogo; sin internet la clienta usa la tienda offline.
+ usePrepararTiendaOffline(user?.idEmpresa, online && user?.rol === 'CLIENTE')
+ if (!online) return <OfflineStore />
+ return <><StoreCatalog /><Chatbot /></>
+}
 
 function StoreCatalog() {
  const { user, logout, isAuthenticated } = useAuth(); const navigate = useNavigate(); const routerLocation = useLocation(); const client = useQueryClient(); const { base } = useStore(); const requireAuth = () => navigate(`${base}/login?redirect=${base}/tienda`)

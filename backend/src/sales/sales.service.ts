@@ -28,6 +28,8 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { toMoney } from '../common/utils/money.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TurnoCaja } from '../pos/entities/turno-caja.entity';
+import { Pago } from '../payments/entities/pago.entity';
+import type { MetodoPago } from '../payments/entities/pago.entity';
 
 export interface VentaOfflineInput {
   operationId: string;
@@ -36,6 +38,8 @@ export interface VentaOfflineInput {
   idTurno?: number;
   idUsuario?: number;
   modalidadComercial?: 'MINORISTA' | 'MAYORISTA';
+  metodoPago?: MetodoPago;
+  referenciaPago?: string;
   detalles: { idVariante: number; cantidad: number; precioUnitario?: number }[];
 }
 
@@ -356,6 +360,19 @@ const detalle = manager.create(DetalleVenta, {
         turno,
         detalles,
       }));
+      // El pago se registra junto con la venta (en línea el POS lo hace en un segundo paso).
+      // Igual que en línea: efectivo queda aprobado; los demás métodos quedan pendientes de verificar.
+      const metodo = input.metodoPago ?? 'EFECTIVO';
+      await manager.save(
+        manager.create(Pago, {
+          metodo,
+          monto: total,
+          estado: metodo === 'EFECTIVO' ? 'APROBADO' : 'PENDIENTE',
+          referenciaPasarela: input.referenciaPago,
+          venta,
+        }),
+      );
+
       return { venta, faltantes, precios, turnoCerrado: turno.estado !== 'ABIERTO', yaExistia: false };
     }));
     if (resultado instanceof Venta) {

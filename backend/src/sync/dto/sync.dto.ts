@@ -71,6 +71,20 @@ export class PayloadOperacionDto {
   modalidadComercial?: 'MINORISTA' | 'MAYORISTA';
 
   @ApiPropertyOptional({
+    enum: ['EFECTIVO', 'TARJETA', 'QR', 'TRANSFERENCIA', 'CONTRAPAGO'],
+    description: 'Cómo pagó la clienta (ventas). Por defecto EFECTIVO',
+  })
+  @IsOptional()
+  @IsIn(['EFECTIVO', 'TARJETA', 'QR', 'TRANSFERENCIA', 'CONTRAPAGO'])
+  metodoPago?: 'EFECTIVO' | 'TARJETA' | 'QR' | 'TRANSFERENCIA' | 'CONTRAPAGO';
+
+  @ApiPropertyOptional({ description: 'Referencia o comprobante del pago' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 150)
+  referenciaPago?: string;
+
+  @ApiPropertyOptional({
     description: 'serverTime del catálogo usado para vender (ISO)',
   })
   @IsOptional()

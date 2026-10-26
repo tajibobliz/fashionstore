@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.4 (2026-10-26)
+> Versión: v1.5 (2026-10-26)
 
 ## Fechas clave
 
@@ -211,12 +211,14 @@ Ambos están en la tabla `usuario` con su `id_empresa`; lo que los diferencia es
 
 **Conceptos:** *Web App Manifest* = archivo que hace la app instalable; *Service Worker* = script que intercepta peticiones y cachea recursos para que la app abra sin internet; *IndexedDB* = base de datos del navegador que persiste al cerrar.
 
-- `vite-plugin-pwa` (Workbox) → manifest + service worker (precache del shell, runtime cache de imágenes).
-- `Dexie` sobre IndexedDB en `src/offline/db.ts`: tablas `productos`, `variantes`, `inventario`, `sucursales`, `clientes_min`, `operaciones`, `meta(lastSync)`.
-- `src/offline/queue.ts`: registra venta/reserva local con `operation_id` (UUID) y estado.
-- `src/offline/sync.ts`: al volver `online` (o manual), envía lote, actualiza estados; **nunca borra** hasta CONFIRMADA (requisito 5.4).
-- UI: indicador online/offline, badge "datos desactualizados (última sync: …)", pantalla "Operaciones pendientes".
-- Operaciones offline: consultar productos/precios/tallas/colores/stock local, registrar reserva, registrar venta de contado, ver pendientes.
+**Implementado (v1.5):**
+- `vite-plugin-pwa` (Workbox) en `vite.config.ts` → manifest (instalable, íconos en `public/pwa-*.png`) + service worker que precachea la app; cualquier ruta abre `index.html` sin conexión. Los datos **no** van en la caché del service worker.
+- `Dexie` sobre IndexedDB (`src/offline/db.ts`), base `fashionstore-offline`: `catalogos` (foto de `/sync/catalog` por empresa y sucursal) y `operaciones` (cola). Todo separado por empresa y usuario.
+- `src/offline/queue.ts`: `encolar()` crea el `operationId` (UUID) una sola vez; estados `PENDIENTE → ENVIANDO → CONFIRMADA | RECHAZADA | CONFLICTO`. Nada se borra solo: el usuario quita de la lista las ya resueltas (requisito 5.4).
+- `src/offline/sync.ts`: envía al volver la red, al iniciar sesión, al encolar y cada minuto; lotes de 100; backoff 5 s → 5 min; si la pestaña se cerró en pleno envío, las operaciones vuelven a la cola al reabrir.
+- `src/offline/turno.ts`: el POS guarda el turno abierto; `features/offline/OfflinePos.tsx` vende sin conexión (minorista, con pago) y `OfflineStore.tsx` deja reservas de la clienta.
+- Sesión: si la página se recarga sin red, se sigue con el último usuario conocido (solo se cierra si el servidor rechaza el token). Límite: la sesión vive en `sessionStorage`, así que hay que iniciar sesión con internet en esa ventana.
+- UI: indicador flotante (abajo a la izquierda) con conexión, cantidad por enviar y la lista con el resultado de cada operación; aviso "Listo para vender sin conexión" en el POS; panel **Sincronización offline** para ADMIN/ENCARGADO/ENCARGADO_SUCURSAL.
 
 ## 6. Móvil offline (Desafío III) y sincronización (Desafío IV)
 
@@ -391,15 +393,16 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 
 ### Fase 2 — Offline + sync (→ Presentación 2)
 - [x] 2.1 `/sync/catalog` y `/sync/operations` + tabla `operacion_sync` (migración `1780000000003-AddOperacionSync`, con RLS)
-- [ ] 2.2 Reglas de conflicto + panel de resolución
+- [x] 2.2 Reglas de conflicto + panel de resolución
   - [x] Backend: reglas de §6.4 y endpoints del panel (`/sync/operaciones`, `/sync/resumen`, `/resolver`)
-  - [ ] Pantalla del panel en la web (con la 2.3)
-- [ ] 2.3 PWA: manifest, service worker, Dexie, cola, UI de estados
+  - [x] Pantalla del panel en la web (`features/sync/SyncPanelPage.tsx`)
+- [x] 2.3 PWA: manifest, service worker, Dexie, cola, UI de estados (ver §5)
 - [ ] 2.4 Móvil: expo-sqlite, cola, netinfo, pantallas offline
 - [ ] 2.5 Cambios de prendas con plazo
 - [ ] 2.6 Pruebas: idempotencia, reintento, conflicto de stock (incluido el caso de dos ventas simultáneas de la última unidad, §6.4.1), persistencia tras reinicio
   - [x] Servidor: `backend/test/tenant-sync.e2e-spec.ts` (11 E2E)
-  - [ ] Dispositivo: persistencia tras reinicio (con la 2.3 y la 2.4)
+  - [x] Web: recarga sin conexión, venta y reserva offline, reconexión y resultado (Playwright, modo offline)
+  - [ ] App móvil (con la 2.4)
 
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
 - [ ] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte
@@ -465,6 +468,13 @@ Usuarios de prueba (contraseña `demo1234`):
 | B — Urban Step | `admin@urbanstep.demo`, `encargado@…`, `encargado.centro@…`, `cajero@…`, `cliente@urbanstep.demo` | web: `/login` con Empresa `urban-step`, o clientas en `/t/urban-step/login` |
 | Plataforma | `superadmin@fashionstore.saas` | `/login` sin empresa → entra a `/plataforma` |
 
+**Probar el modo offline de la web** (el service worker solo funciona con la versión compilada):
+1. `backend/.env`: `CORS_ORIGINS=http://localhost:5173,http://localhost:4173` y reiniciar el backend.
+2. En `frontend`: `npm install` (dependencias nuevas), luego `npm run build` y `npm run preview` → http://localhost:4173
+3. Iniciar sesión con internet (cajero con turno abierto → Punto de venta; o clienta en `/t/urban-step/tienda`). Esperar el aviso "Listo para vender sin conexión".
+4. DevTools (F12) → Network → **Offline** (o Application → Service workers → Offline). Recargar: la app abre igual. Vender o reservar.
+5. Volver a **No throttling**: el indicador de abajo a la izquierda envía las operaciones y muestra el resultado. Los conflictos aparecen en el dashboard del admin → **Sincronización offline**.
+
 Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (Empresa A), `/t/urban-step` y `/t/urban-step/tienda` (Empresa B), `/plataforma` (SUPER_ADMIN). La app móvil todavía no envía `empresa` (solo entra a la Empresa A).
 
 ## 11. Bitácora de avance
@@ -487,3 +497,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-25 | v1.2: tarea 1.8.1. Sección **Mi plan** (ADMIN puede cambiar/renovar; ENCARGADO solo ve), avisos en el dashboard (vencida = solo lectura, vence en ≤7 días, restricción del plan devuelta por el backend vía interceptor de axios), nombre de empresa y plan en la barra superior | Prueba en navegador con Urban Step: Mi plan muestra 2 de 2 sucursales y 4 de 5 empleados; aviso de "vence en 3 días"; vencida → aviso rojo → Renovar → aviso desaparece; crear 3ª sucursal → aviso con el mensaje del plan; sin desbordes a 390 px. Nota: `APP_TIMEZONE=America/La_Paz` debe estar en Render para que las fechas de suscripción usen la hora de Bolivia |
 | 2026-10-25 | v1.3: tareas 1.8.2 y 1.8.3 → **Fase 1 completa** (falta ICONIX 1.1). Panel `/plataforma` del SUPER_ADMIN (empresas con buscador, detalle con cambio de plan, vencimiento simulado, suspender/reactivar e historial; alta de empresa; edición de planes). Tienda por empresa `/t/:slug` (inicio, catálogo, login y registro de clientas; header `X-Tenant`; caché de React Query separada por usuario y tienda; sucursal recordada por tienda). Backend: `GET /saas/tiendas/:slug` | 25/25 E2E; prueba en navegador: suspender → login 403 → reactivar; precio editado se ve en `/saas/planes`; catálogo de Urban Step sin productos de FashionStore; registro en `/t/urban-step/register` → `/t/urban-step/tienda` con empresa 2; slug inexistente → "Tienda no encontrada"; sin desbordes a 390 px |
 | 2026-10-26 | v1.4: Fase 1 probada en la PC del equipo (12 pruebas manuales + 25 E2E). Corrección para Windows (`storeScope.ts` → `currentStore.ts`, choque de mayúsculas). **Fase 2, backend de sincronización**: tabla `operacion_sync` con RLS, `GET /sync/catalog`, `POST /sync/operations` (ventas y reservas offline, idempotencia por `operationId`, "gana la primera que llega" con bloqueo de fila, conflictos STOCK / SIN_STOCK con alternativas / PRECIO / TURNO_CERRADO), panel `/sync/operaciones` + `/resolver`. Corrección del seed: los almacenes de Urban Step ahora se llaman `PRINCIPAL` (antes `US-A1/2`, rompía reservas y compras online de la Empresa B; `npm run seed:demo` repara una BD existente) | 36/36 E2E repetibles (11 nuevas de sincronización: última unidad venta vs. reserva vs. venta, reenvío sin duplicar, precio dentro/fuera de ventana, rechazos sin cortar el lote, panel y aislamiento A↔B). Migración up/down OK y esquema = entidades. Unitarias: 139 en verde (las 6 suites de `main` siguen igual) |
+| 2026-10-26 | v1.5: **tarea 2.3 (PWA)** y pantalla del panel (2.2). Service worker + manifest (`vite-plugin-pwa`), IndexedDB con Dexie (catálogos y cola), motor de sincronización con backoff, POS sin conexión (turno y catálogo guardados, pago incluido), reservas sin conexión en la tienda, indicador flotante con la cola, panel **Sincronización offline**. Backend: la venta offline registra también su **pago** (efectivo aprobado; otros pendientes). Corrección: el campo Empresa del login tenía un `pattern` inválido en Chrome reciente | Playwright con red cortada: recarga sin conexión (service worker + sesión), 2 ventas offline → reconexión → 1 CONFIRMADA y 1 CONFLICTO (stock vaciado en el servidor mientras tanto) → el admin la ve en el panel y la resuelve; clienta reserva offline → reconexión → CONFIRMADA; sin desbordes a 1280 y 390 px; sin errores de consola. 36/36 E2E (se suma la verificación del pago) |

@@ -245,6 +245,8 @@ export class SyncService {
       idTurno: p.idTurno,
       idUsuario: p.idUsuario,
       modalidadComercial: p.modalidadComercial,
+      metodoPago: p.metodoPago,
+      referenciaPago: p.referenciaPago,
       detalles: p.detalles,
     });
 
