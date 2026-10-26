@@ -39,6 +39,10 @@ export class SubscriptionsService {
     private readonly plans: PlanService,
   ) {}
 
+  esReservado(slug: string) {
+    return SLUGS_RESERVADOS.has(slug);
+  }
+
   listarPlanes() {
     return this.dataSource
       .getRepository(Plan)

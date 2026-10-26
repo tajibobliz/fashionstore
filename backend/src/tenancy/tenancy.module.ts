@@ -14,6 +14,7 @@ import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionInterceptor } from './subscription.interceptor';
 import { PlatformController } from './platform.controller';
 import { TenantController } from './tenant.controller';
+import { SaasController } from './saas.controller';
 
 /** Módulo SaaS: empresas (tenants), planes, suscripciones y aislamiento por empresa. */
 @Global()
@@ -28,7 +29,7 @@ import { TenantController } from './tenant.controller';
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
     { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor },
   ],
-  controllers: [PlatformController, TenantController],
+  controllers: [PlatformController, TenantController, SaasController],
   exports: [TypeOrmModule, TenantResolverService, PlanService],
 })
 export class TenancyModule implements OnModuleInit {

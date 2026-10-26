@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.0 (2026-10-25)
+> Versión: v1.1 (2026-10-25)
 
 ## Fechas clave
 
@@ -43,6 +43,7 @@
 | D6 | Jerarquía tienda/sucursal | ✅ **RESUELTA (2026-10-25)**: se sigue el enunciado → **Empresa (suscriptor) → Sucursales**. "Tienda" = tienda física = **sucursal**. No hay tabla `tienda` | Ver §4.0 |
 | D7 | ¿Qué usuarios cuentan para el límite? | ✅ **RESUELTA**: **solo empleados** (cuentas de staff: admin de empresa, encargados, cajeros). Los clientes son ilimitados. Es como lo hacen las plataformas actuales (Shopify limita "staff accounts" por plan, no clientes) | Ver §4.6 |
 | D10 | Planes | ✅ **RESUELTA (2026-10-25)**: **3 planes** (el enunciado pide mínimo Básico y Profesional; se agrega Empresarial) | Ver §4.4 |
+| D12 | ¿Qué se muestra en `/`? | ✅ **RESUELTA (2026-10-25) — Opción A**: `/` = página pública del SaaS (presentación, funcionalidades, planes con precios desde la BD, contratación). La portada de la tienda FashionStore pasa a `/t/fashionstore`; `/tienda` sigue igual | Estilo visual "Software" (azul `#074ce0`, Host Grotesk + Instrument Sans) solo en las páginas del SaaS; las tiendas conservan su marca |
 | D11 | Rubro de cada empresa | El sistema es para empresas de **moda** (el enunciado: "empresas dedicadas a la comercialización de prendas de vestir"). Empresa A = ropa/accesorios femeninos; Empresa B = otro negocio de moda (p. ej. calzado o ropa deportiva) | Tallas, colores, temporadas y el vestidor virtual tienen sentido en moda; un rubro totalmente distinto queda fuera del alcance |
 | D8 | Catálogo | ✅ **RESUELTA (2026-10-25)**: **un catálogo por empresa**, compartido por todas sus sucursales; stock por sucursal/almacén | Rubro único: moda y accesorios femeninos (ropa, carteras, cosméticos…) como **categorías** |
 | D9 | Límite de sucursales | ✅ **RESUELTA**: total de la empresa | — |
@@ -368,7 +369,11 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 1.5 `PlanService` + `SubscriptionInterceptor` + límites de sucursales y usuarios + IA solo en planes que la incluyen
 - [x] 1.6 Endpoints `/platform/*` y `/tenant/*`; seeds Empresa A y B (`npm run seed:demo`)
 - [x] 1.7 Pruebas de aislamiento A↔B (9 E2E) y de planes (11 E2E + 12 unitarias)
-- [ ] 1.8 Frontend: login con empresa, panel SUPER_ADMIN mínimo, ver plan
+- [ ] 1.8 Frontend
+  - [x] 1.8.0 Página pública del SaaS (`/`) + contratación `/contratar` (auto-registro de empresa, sesión iniciada) + campo *Empresa* en el login
+  - [ ] 1.8.1 Dashboard de la empresa: "Mi plan" (plan, vigencia, uso vs. límites, cambiar/renovar) y avisos (por vencer, vencida, límite alcanzado, IA bloqueada)
+  - [ ] 1.8.2 Panel del SUPER_ADMIN (empresas, planes, suscripciones)
+  - [ ] 1.8.3 Tienda online por empresa `/t/:slug` (catálogo con `X-Tenant`, registro y login de clientes por tienda)
 
 ### Fase 2 — Offline + sync (→ Presentación 2)
 - [ ] 2.1 `/sync/catalog` y `/sync/operations` + tabla `operacion_sync`
@@ -460,3 +465,4 @@ La web y la app todavía no envían `empresa` ni `X-Tenant` (eso es la tarea 1.8
 | 2026-10-25 | v0.8: tarea 1.4 completa con RLS. Endpoints públicos identifican al usuario si envía token. Seeds de arranque corren en la empresa por defecto. Script `backend/scripts/crear-rol-app.sql` | Pruebas E2E con rol sin superusuario y 2 empresas: catálogo, sucursales, ventas, inventario, reservas y reportes separados por empresa; leer/editar/cancelar/borrar recursos de la otra empresa → 404; crear inventario en sucursal ajena → 404; SUPER_ADMIN ve todo; con superusuario el log avisa que RLS no aplica. Migración up/down OK. 127 tests en verde (las 6 suites que ya fallaban en `main` siguen igual) |
 | 2026-10-25 | v0.9: `npm run seed:demo` (Empresa B Urban Step + SUPER_ADMIN), pruebas E2E automáticas de aislamiento (`npm run test:e2e:tenant`), sección 13 "Cómo probar". `reportes-compartidos/` a `.gitignore` | 9/9 pruebas E2E en verde; con RLS desactivado en 2 tablas fallan 4 (las pruebas sí detectan fugas); con superusuario se niegan a correr. 127 tests unitarios en verde |
 | 2026-10-25 | v1.0: tareas 1.5–1.7 completas. `PlanService`, `SubscriptionsService`, `SubscriptionInterceptor`, `@RequiresFeature`, `@AllowWithoutSubscription`, controladores `/platform` y `/tenant`. Backend de la Fase 1 terminado; falta el frontend (1.8) e ICONIX (1.1) | 20/20 E2E (aislamiento + planes: registro de empresa, límites de sucursales y empleados, clientes ilimitados, IA bloqueada en Básico, cambio de plan con historial, vencida = solo lectura y renovación, suspendida no entra, límites configurables) — repetible; 139 tests unitarios en verde |
+| 2026-10-25 | v1.1: D12 (Opción A). Backend: `GET /saas/planes`, `GET /saas/slug-disponible`, `POST /saas/registro` (públicos, límite 5 registros/hora por IP), migración de precios referenciales (Bs 150 / 390 / 890). Frontend: `SaasLanding` en `/`, `ContratarPlan` en `/contratar`, campo Empresa en el login, Home de FashionStore en `/t/fashionstore` | 24/24 E2E (se suman 4 del SaaS público); prueba en navegador: landing sin desbordes a 1280 y 390 px, contratación → panel del admin, login de Urban Step con el campo Empresa |

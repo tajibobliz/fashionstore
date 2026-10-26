@@ -1,6 +1,8 @@
 ﻿import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import Home from './pages/home/Home'
+import SaasLanding from './pages/saas/SaasLanding'
+import ContratarPlan from './pages/saas/ContratarPlan'
 import AuthForm from './features/auth/components/AuthForm'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import Workspace from './pages/Workspace'
@@ -21,7 +23,10 @@ function DashboardRedirect() {
 export default function App() {
  const roles: DashboardRole[] = ['ADMIN', 'ENCARGADO', 'ENCARGADO_SUCURSAL', 'CAJERO']
  return <BrowserRouter><Routes>
- <Route path="/" element={<Home />} />
+ {/* Página pública del SaaS (Opción A). La portada de la tienda FashionStore pasa a /t/fashionstore. */}
+ <Route path="/" element={<SaasLanding />} />
+ <Route path="/contratar" element={<ContratarPlan />} />
+ <Route path="/t/fashionstore" element={<Home />} />
  <Route path="/login" element={<AuthForm key="login" mode="login" />} />
  <Route path="/register" element={<AuthForm key="register" mode="register" />} />
  <Route path="/tienda" element={<Workspace key="store" mode="store" />} />
@@ -34,6 +39,6 @@ export default function App() {
  <Route path=":section" element={<Dashboard key={role} role={role} />} />
  </Route></Route>)}
  </Route>
- <Route path="*" element={<main className="session-loading"><h1>Página no encontrada</h1><Link to="/">Volver a Fashionstore</Link></main>} />
+ <Route path="*" element={<main className="session-loading"><h1>Página no encontrada</h1><Link to="/">Volver al inicio</Link></main>} />
  </Routes></BrowserRouter>
 }
