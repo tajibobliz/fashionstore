@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { saasApi } from '../../api/saas.api'
 import { useAuth } from '../../hooks/useAuth'
 import { DEFAULT_STORE, StoreContext } from './storeContext'
-import { storeScope } from './storeScope'
+import { storeScope } from './currentStore'
 
 /**
  * Envuelve las rutas de la tienda online. Con `:slug` en la URL, todo lo de adentro

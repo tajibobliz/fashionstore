@@ -21,7 +21,7 @@ import type { MetodoPago, Pago } from '../types/payment'
 import { getApiErrorMessage } from '../utils/apiError'
 import { useAuth } from '../hooks/useAuth'
 import { useStore } from '../features/store/storeContext'
-import { storeScope } from '../features/store/storeScope'
+import { storeScope } from '../features/store/currentStore'
 
 /** La sucursal elegida se recuerda por tienda: una sucursal de otra empresa no aplica aquí. */
 const branchStorageKey = () => `fashionstore.cart_branch_id${storeScope.get() ? `.${storeScope.get()}` : ''}`

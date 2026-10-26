@@ -4,7 +4,7 @@ import { endpoints } from './endpoints'
 import type { AuthResponse } from '../features/auth/types'
 import type { InternalAxiosRequestConfig } from 'axios'
 import { publicarRestriccion } from '../features/plan/planEvents'
-import { storeScope } from '../features/store/storeScope'
+import { storeScope } from '../features/store/currentStore'
 
 type RetryConfig = InternalAxiosRequestConfig & { authRetried?: boolean }
 let refreshPromise: Promise<void> | null = null

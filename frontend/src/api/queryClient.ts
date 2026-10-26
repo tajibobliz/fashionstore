@@ -1,7 +1,7 @@
 import { QueryClient, hashKey } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { authSession } from '../features/auth/session'
-import { storeScope } from '../features/store/storeScope'
+import { storeScope } from '../features/store/currentStore'
 
 /**
  * La caché se separa por usuario y por tienda: así, al cambiar de cuenta o pasar de
