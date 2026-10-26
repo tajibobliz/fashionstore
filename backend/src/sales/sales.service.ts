@@ -27,6 +27,28 @@ import { PosService } from '../pos/pos.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { toMoney } from '../common/utils/money.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TurnoCaja } from '../pos/entities/turno-caja.entity';
+
+export interface VentaOfflineInput {
+  operationId: string;
+  idSucursal: number;
+  idCaja?: number;
+  idTurno?: number;
+  idUsuario?: number;
+  modalidadComercial?: 'MINORISTA' | 'MAYORISTA';
+  detalles: { idVariante: number; cantidad: number; precioUnitario?: number }[];
+}
+
+export interface VentaOfflineResultado {
+  venta: Venta;
+  /** Unidades vendidas que el sistema no tenía en stock. */
+  faltantes: { idVariante: number; faltante: number }[];
+  /** Precios cobrados en el dispositivo distintos al vigente en el servidor. */
+  precios: { idVariante: number; precioLocal: number; precioServidor: number }[];
+  turnoCerrado: boolean;
+  /** true si la venta ya se había registrado antes (reintento). */
+  yaExistia: boolean;
+}
 
 @Injectable()
 export class SalesService {
@@ -255,6 +277,105 @@ const detalle = manager.create(DetalleVenta, {
       }
       return ventaGuardada;
     }));
+  }
+
+  /**
+   * Venta presencial hecha SIN conexión que llega por /sync/operations (Fase 2, §6.4 del plan).
+   * A diferencia de createPresencial, no se rechaza por falta de stock: la prenda ya se entregó
+   * y se cobró, así que la venta se registra igual y se informa el faltante (CONFLICTO_STOCK).
+   * El stock nunca queda negativo: se descuenta lo que hay y el resto queda como faltante.
+   */
+  async registrarVentaOffline(actor: AuthenticatedUser, input: VentaOfflineInput): Promise<VentaOfflineResultado> {
+    const findExisting = () => this.ventaRepo.findOne({ where: {
+      cajero: { idUsuario: actor.idUsuario }, clientRequestId: input.operationId, tipoVenta: 'PRESENCIAL',
+    } });
+    const existente = await findExisting();
+    if (existente) return { venta: existente, faltantes: [], precios: [], turnoCerrado: false, yaExistia: true };
+
+    const sucursal = await this.sucursalRepo.findOne({ where: { idSucursal: input.idSucursal } });
+    if (!sucursal) throw new NotFoundException('Sucursal no encontrada');
+    const turno = input.idTurno
+      ? await this.turnoDelCajero(actor, input.idTurno, input.idSucursal)
+      : await this.posService.resolverTurno(actor, input.idSucursal, input.idCaja);
+    const almacen = turno.caja.almacenDefault ?? await this.findPrincipal(input.idSucursal);
+    const precioLocal = new Map(input.detalles.map((d) => [d.idVariante, d.precioUnitario]));
+
+    const resultado = await this.ejecutarIdempotente(input.operationId, findExisting, () => this.dataSource.transaction(async (manager) => {
+      const numeroComprobante = this.generarComprobante('OFF');
+      const faltantes: VentaOfflineResultado['faltantes'] = [];
+      const precios: VentaOfflineResultado['precios'] = [];
+      const detalles: DetalleVenta[] = [];
+      let total = 0;
+
+      // Mismo orden de bloqueo que las ventas en línea (por idVariante) para evitar deadlocks.
+      for (const item of this.agruparDetalles(input.detalles)) {
+        const variante = await manager.findOne(VarianteProducto, { where: { idVariante: item.idVariante } });
+        if (!variante) throw new NotFoundException(`Variante ${item.idVariante} no encontrada`);
+        const producto = await manager.findOne(Producto, { where: { idProducto: variante.producto.idProducto } });
+        if (!producto || !producto.estado) {
+          throw new BadRequestException(`El producto de la variante ${item.idVariante} ya no está activo`);
+        }
+
+        // "Gana el primero que llega": el bloqueo de fila ordena las ventas que compiten por el stock.
+        const inventario = await this.bloquearInventario(manager, almacen.idAlmacen, item.idVariante);
+        const descontar = Math.min(inventario?.stockDisponible ?? 0, item.cantidad);
+        if (item.cantidad > descontar) {
+          faltantes.push({ idVariante: item.idVariante, faltante: item.cantidad - descontar });
+        }
+        if (inventario && descontar > 0) {
+          inventario.stockDisponible -= descontar;
+          await manager.save(inventario);
+          await manager.save(manager.create(MovimientoInventario, {
+            inventario, tipo: 'VENTA', cantidad: descontar, referencia: `Venta offline ${numeroComprobante}`,
+          }));
+        }
+
+        // Se registra el precio que realmente se cobró en el dispositivo.
+        const precioServidor = await this.resolverPrecio(producto, item.cantidad, input.modalidadComercial);
+        const local = precioLocal.get(item.idVariante);
+        const precio = local ?? precioServidor;
+        if (local !== undefined && Math.abs(local - precioServidor) >= 0.01) {
+          precios.push({ idVariante: item.idVariante, precioLocal: local, precioServidor });
+        }
+        const subtotal = toMoney(precio * item.cantidad);
+        total = toMoney(total + subtotal);
+        detalles.push(manager.create(DetalleVenta, { variante, cantidad: item.cantidad, precioUnitario: precio, subtotal }));
+      }
+
+      const venta = await manager.save(manager.create(Venta, {
+        tipoVenta: 'PRESENCIAL',
+        modalidadComercial: input.modalidadComercial ?? 'MINORISTA',
+        clientRequestId: input.operationId,
+        estado: 'PAGADA',
+        total,
+        numeroComprobante,
+        usuario: input.idUsuario ? ({ idUsuario: input.idUsuario } as any) : null,
+        sucursal,
+        cajero: { idUsuario: actor.idUsuario } as any,
+        almacen,
+        turno,
+        detalles,
+      }));
+      return { venta, faltantes, precios, turnoCerrado: turno.estado !== 'ABIERTO', yaExistia: false };
+    }));
+    if (resultado instanceof Venta) {
+      return { venta: resultado, faltantes: [], precios: [], turnoCerrado: false, yaExistia: true };
+    }
+    return resultado;
+  }
+
+  /** Precio vigente de un producto para mostrar en el catálogo offline (minorista con promociones). */
+  precioVigente(producto: Producto) {
+    return this.resolverPrecio(producto, 1, 'MINORISTA');
+  }
+
+  /** Turno indicado por el dispositivo: debe ser del mismo cajero y de esa sucursal (puede estar cerrado). */
+  private async turnoDelCajero(actor: AuthenticatedUser, idTurno: number, idSucursal: number) {
+    const turno = await this.dataSource.getRepository(TurnoCaja).findOne({ where: { idTurno } });
+    if (!turno || turno.cajero.idUsuario !== actor.idUsuario || turno.caja.sucursal.idSucursal !== idSucursal) {
+      throw new BadRequestException('El turno indicado no pertenece a este cajero o sucursal');
+    }
+    return turno;
   }
 
   // Confirma una venta digital (se llama cuando el pago se aprueba)

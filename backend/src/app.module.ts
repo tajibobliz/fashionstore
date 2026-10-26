@@ -21,6 +21,7 @@ import { WarehousesModule } from './warehouses/warehouses.module';
 import { PosModule } from './pos/pos.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TenancyModule } from './tenancy/tenancy.module';
+import { SyncModule } from './sync/sync.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -69,6 +70,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     WarehousesModule,
     PosModule,
     NotificationsModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [AppService],

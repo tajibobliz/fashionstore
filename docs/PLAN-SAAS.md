@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.3 (2026-10-25)
+> Versión: v1.4 (2026-10-26)
 
 ## Fechas clave
 
@@ -225,19 +225,31 @@ Ambos están en la tabla `usuario` con su `id_empresa`; lo que los diferencia es
 - `@react-native-community/netinfo` para detectar conexión.
 - Pantallas: descargar catálogo, POS/venta offline, reserva offline, pendientes, resultado de sync.
 
-### 6.2 Contrato de sincronización (compartido PWA y móvil)
+### 6.2 Contrato de sincronización (compartido PWA y móvil) — implementado en `backend/src/sync/`
 ```
-GET  /sync/catalog?sucursal=ID&since=ISO   -> productos, variantes, stock, precios, serverTime
+GET  /sync/catalog?sucursal=ID
+  -> { serverTime, sucursal{idSucursal,nombre},
+       productos: [ { idProducto, nombre, categoria, imagenUrl, precio, precioFinal,
+                      variantes: [ { idVariante, sku, talla, color, stockDisponible } ] } ] }
 POST /sync/operations
-  { deviceId, operations: [ { operationId(uuid), type: VENTA|RESERVA, idSucursal,
-      createdAtLocal, payload{...detalles, precios usados, total, formaPago} } ] }
-  -> [ { operationId, status: CONFIRMADA|RECHAZADA|CONFLICTO, serverId?, reason? } ]
+  { deviceId, operations: [ { operationId(uuid), type: VENTA|RESERVA, idSucursal, createdAtLocal,
+      payload{ detalles[{idVariante, cantidad, precioUnitario?}], idTurno?, idCaja?, idUsuario?,
+               modalidadComercial?, catalogoDescargadoEn? } } ] }      (máx. 100 por lote)
+  -> { serverTime, results: [ { operationId, status: CONFIRMADA|RECHAZADA|CONFLICTO, serverId,
+                                conflictos[], reason, duplicada, alternativas? } ] }
+Panel (ADMIN, ENCARGADO, ENCARGADO_SUCURSAL solo sus sucursales):
+GET   /sync/operaciones?pendientes=true     GET /sync/resumen
+PATCH /sync/operaciones/:id/resolver  { nota }
 ```
+- `catalogoDescargadoEn` = el `serverTime` del catálogo con el que se vendió (para la regla de precios).
+- `since` (descarga incremental) se deja para después: el catálogo de una tienda de moda es chico y la descarga completa es más simple y segura.
 Estados locales: `LOCAL → ENVIADA → CONFIRMADA | RECHAZADA | CONFLICTO` (y vuelve a `LOCAL` si falla la red).
 
 ### 6.3 Reglas en el servidor
 - Idempotencia: `operationId` = `client_request_id` (ya existe en venta/reserva). Reenvío → devuelve el resultado ya registrado (RNF05).
-- Cada operación valida tenant + sucursal + rol + suscripción.
+- Cada operación valida tenant + sucursal + rol. Las operaciones se procesan en el orden en que se crearon en el dispositivo; si una se rechaza, las demás siguen.
+- Suscripción vencida (solo lectura): el lote completo recibe `403 SUSCRIPCION_VENCIDA` y las operaciones **quedan pendientes en el dispositivo** hasta renovar. Así no se pierden ventas que ya ocurrieron (cambio respecto a la versión anterior, que decía `RECHAZADA`).
+- Error inesperado del servidor (BD caída) → el lote corta con 500 y el dispositivo reintenta; las ya procesadas devuelven su resultado guardado.
 - Cada venta en **transacción** con su movimiento de inventario (RNF04).
 - Tabla `operacion_sync` (operation_id, id_empresa, id_sucursal, device_id, tipo, estado, motivo, intentos, timestamps) → observabilidad sin guardar datos sensibles (RNF10).
 - Reintentos con backoff en el cliente (RNF06).
@@ -245,11 +257,13 @@ Estados locales: `LOCAL → ENVIADA → CONFIRMADA | RECHAZADA | CONFLICTO` (y v
 ### 6.4 Conflictos
 | Caso | Resultado |
 |---|---|
-| Venta presencial offline y el stock del servidor ya no alcanza | Se **registra** igual (la prenda ya se entregó y se cobró) y se marca `CONFLICTO_STOCK` → el encargado hace ajuste de inventario |
-| Reserva offline y el stock ya no alcanza | `CONFLICTO` → se avisa al cliente y se ofrece otra talla/sucursal |
-| Precio cambió desde la descarga | se acepta con el precio local si está dentro de una ventana configurable; si no, `CONFLICTO` |
-| Producto/variante inactiva | `RECHAZADA` |
-| Suscripción vencida o sucursal no autorizada | `RECHAZADA` |
+| Venta presencial offline y el stock del servidor ya no alcanza | Se **registra** igual (la prenda ya se entregó y se cobró), el stock baja hasta 0 (nunca negativo) y se marca `CONFLICTO` tipo `STOCK` con el faltante → el encargado hace ajuste de inventario y lo marca como resuelto |
+| Reserva offline y el stock ya no alcanza | No se crea: `CONFLICTO` tipo `SIN_STOCK` + `alternativas` (otras sucursales con stock) para ofrecer al cliente |
+| Precio cambió desde la descarga | la venta se registra con el **precio cobrado**; sin aviso si el catálogo tenía ≤ `SYNC_VENTANA_PRECIO_HORAS` (24 h por defecto) al vender; si no, `CONFLICTO` tipo `PRECIO` |
+| Producto/variante inactiva, inexistente o de otra empresa | `RECHAZADA` (queda en el panel para revisión) |
+| Sucursal no autorizada o rol sin permiso (p. ej. CLIENTE enviando una venta) | `RECHAZADA` |
+| Suscripción vencida | el lote recibe 403 y queda pendiente en el dispositivo (ver §6.3) |
+| Venta en un turno que se cerró antes de sincronizar | se registra + `CONFLICTO` tipo `TURNO_CERRADO` (revisar el arqueo) |
 | Operación ya confirmada | devuelve `CONFIRMADA` con el mismo `serverId` |
 
 ### 6.4.1 Caso: dos clientes compran la última unidad al mismo tiempo, ambos sin internet
@@ -376,12 +390,16 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
   - [x] 1.8.3 Tienda online por empresa `/t/:slug` (catálogo con `X-Tenant`, registro y login de clientes por tienda)
 
 ### Fase 2 — Offline + sync (→ Presentación 2)
-- [ ] 2.1 `/sync/catalog` y `/sync/operations` + tabla `operacion_sync`
+- [x] 2.1 `/sync/catalog` y `/sync/operations` + tabla `operacion_sync` (migración `1780000000003-AddOperacionSync`, con RLS)
 - [ ] 2.2 Reglas de conflicto + panel de resolución
+  - [x] Backend: reglas de §6.4 y endpoints del panel (`/sync/operaciones`, `/sync/resumen`, `/resolver`)
+  - [ ] Pantalla del panel en la web (con la 2.3)
 - [ ] 2.3 PWA: manifest, service worker, Dexie, cola, UI de estados
 - [ ] 2.4 Móvil: expo-sqlite, cola, netinfo, pantallas offline
 - [ ] 2.5 Cambios de prendas con plazo
 - [ ] 2.6 Pruebas: idempotencia, reintento, conflicto de stock (incluido el caso de dos ventas simultáneas de la última unidad, §6.4.1), persistencia tras reinicio
+  - [x] Servidor: `backend/test/tenant-sync.e2e-spec.ts` (11 E2E)
+  - [ ] Dispositivo: persistencia tras reinicio (con la 2.3 y la 2.4)
 
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
 - [ ] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte
@@ -437,7 +455,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 25 pruebas en verde (aislamiento + planes + SaaS público) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 36 pruebas en verde (aislamiento + planes + SaaS público + sincronización) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -468,3 +486,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-25 | v1.1: D12 (Opción A). Backend: `GET /saas/planes`, `GET /saas/slug-disponible`, `POST /saas/registro` (públicos, límite 5 registros/hora por IP), migración de precios referenciales (Bs 150 / 390 / 890). Frontend: `SaasLanding` en `/`, `ContratarPlan` en `/contratar`, campo Empresa en el login, Home de FashionStore en `/t/fashionstore` | 24/24 E2E (se suman 4 del SaaS público); prueba en navegador: landing sin desbordes a 1280 y 390 px, contratación → panel del admin, login de Urban Step con el campo Empresa |
 | 2026-10-25 | v1.2: tarea 1.8.1. Sección **Mi plan** (ADMIN puede cambiar/renovar; ENCARGADO solo ve), avisos en el dashboard (vencida = solo lectura, vence en ≤7 días, restricción del plan devuelta por el backend vía interceptor de axios), nombre de empresa y plan en la barra superior | Prueba en navegador con Urban Step: Mi plan muestra 2 de 2 sucursales y 4 de 5 empleados; aviso de "vence en 3 días"; vencida → aviso rojo → Renovar → aviso desaparece; crear 3ª sucursal → aviso con el mensaje del plan; sin desbordes a 390 px. Nota: `APP_TIMEZONE=America/La_Paz` debe estar en Render para que las fechas de suscripción usen la hora de Bolivia |
 | 2026-10-25 | v1.3: tareas 1.8.2 y 1.8.3 → **Fase 1 completa** (falta ICONIX 1.1). Panel `/plataforma` del SUPER_ADMIN (empresas con buscador, detalle con cambio de plan, vencimiento simulado, suspender/reactivar e historial; alta de empresa; edición de planes). Tienda por empresa `/t/:slug` (inicio, catálogo, login y registro de clientas; header `X-Tenant`; caché de React Query separada por usuario y tienda; sucursal recordada por tienda). Backend: `GET /saas/tiendas/:slug` | 25/25 E2E; prueba en navegador: suspender → login 403 → reactivar; precio editado se ve en `/saas/planes`; catálogo de Urban Step sin productos de FashionStore; registro en `/t/urban-step/register` → `/t/urban-step/tienda` con empresa 2; slug inexistente → "Tienda no encontrada"; sin desbordes a 390 px |
+| 2026-10-26 | v1.4: Fase 1 probada en la PC del equipo (12 pruebas manuales + 25 E2E). Corrección para Windows (`storeScope.ts` → `currentStore.ts`, choque de mayúsculas). **Fase 2, backend de sincronización**: tabla `operacion_sync` con RLS, `GET /sync/catalog`, `POST /sync/operations` (ventas y reservas offline, idempotencia por `operationId`, "gana la primera que llega" con bloqueo de fila, conflictos STOCK / SIN_STOCK con alternativas / PRECIO / TURNO_CERRADO), panel `/sync/operaciones` + `/resolver`. Corrección del seed: los almacenes de Urban Step ahora se llaman `PRINCIPAL` (antes `US-A1/2`, rompía reservas y compras online de la Empresa B; `npm run seed:demo` repara una BD existente) | 36/36 E2E repetibles (11 nuevas de sincronización: última unidad venta vs. reserva vs. venta, reenvío sin duplicar, precio dentro/fuera de ventana, rechazos sin cortar el lote, panel y aislamiento A↔B). Migración up/down OK y esquema = entidades. Unitarias: 139 en verde (las 6 suites de `main` siguen igual) |

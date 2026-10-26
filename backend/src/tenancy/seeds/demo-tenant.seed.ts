@@ -42,12 +42,19 @@ export async function seedDemoTenant(
 ): Promise<DemoSeedResult> {
   return dataSource.transaction(async (m) => {
     const existente = await m.findOne(Empresa, { where: { slug: DEMO_SLUG } });
-    if (existente)
+    if (existente) {
+      // Corrige demos creadas con la versión anterior del seed: el almacén principal de cada
+      // sucursal debe llamarse PRINCIPAL (lo buscan reservas, compras online y la sincronización).
+      await m.query(
+        `UPDATE almacen SET codigo = 'PRINCIPAL' WHERE id_empresa = $1 AND codigo LIKE 'US-A%'`,
+        [existente.idEmpresa],
+      );
       return {
         creada: false,
         idEmpresa: existente.idEmpresa,
         usuarios: demoUsers(),
       };
+    }
 
     const empresa = await m.save(
       Empresa,
@@ -94,7 +101,7 @@ export async function seedDemoTenant(
         Almacen,
         m.create(Almacen, {
           sucursal,
-          codigo: `US-A${i + 1}`,
+          codigo: 'PRINCIPAL',
           nombre: 'Almacén principal',
           estado: true,
           idEmpresa,

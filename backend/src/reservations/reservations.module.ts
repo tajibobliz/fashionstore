@@ -30,5 +30,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
   ],
   controllers: [ReservationsController],
   providers: [ReservationsService],
+  exports: [ReservationsService],
 })
 export class ReservationsModule {}
