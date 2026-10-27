@@ -1,0 +1,27 @@
+.policy { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: .88rem; color: var(--text-secondary); }
+.policy strong { color: var(--text-primary); }
+.policy form { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.policy input { width: 80px; min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.policy button, .secondary { min-height: 38px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; font-weight: 600; cursor: pointer; }
+.matches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; font-size: .78rem; font-weight: 700; }
+.ok { background: #ecfdf3; color: #15803d; }
+.bad { background: #fef2f2; color: #b91c1c; }
+.meta { margin: 6px 0 14px; color: var(--text-secondary); font-size: .85rem; line-height: 1.6; }
+.table select, .table input { min-height: 38px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: .84rem; background: white; }
+.table select { width: 100%; min-width: 220px; }
+.table input { width: 72px; }
+.diff { white-space: nowrap; font-weight: 600; }
+.up { color: #b45309; }
+.down { color: #15803d; }
+.summary { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.summary label { display: grid; gap: 6px; max-width: 420px; font-size: .85rem; font-weight: 600; }
+.summary select, .summary input { min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-weight: 400; background: white; }
+.total { margin: 0; font-size: 1rem; }
+.notice { margin: 0 0 16px; padding: 12px 14px; border-radius: 10px; background: #ecfdf3; color: #15803d; font-size: .88rem; }
+.history { margin-top: 22px; }
+.history h3 { margin: 0 0 10px; font-size: 1rem; }
+.history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.history li { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: .84rem; line-height: 1.55; }
+.history small { color: var(--text-secondary); }
+.summary button:disabled { opacity: .5; cursor: not-allowed; }

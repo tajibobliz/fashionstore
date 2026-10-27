@@ -22,6 +22,7 @@ import { PosModule } from './pos/pos.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { SyncModule } from './sync/sync.module';
+import { ExchangesModule } from './exchanges/exchanges.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -71,6 +72,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     PosModule,
     NotificationsModule,
     SyncModule,
+    ExchangesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -18,6 +18,7 @@ import ReportsPage from '../reports/ReportsPage'
 import MyPlanPage from '../plan/MyPlanPage'
 import { usePlan } from '../plan/usePlan'
 import SyncPanelPage from '../sync/SyncPanelPage'
+import ExchangesPage from '../exchanges/ExchangesPage'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
  catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
@@ -56,6 +57,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (!current) return <section className={styles.panel}><h1>Sección no encontrada</h1><Link to={base}>Volver al dashboard</Link></section>
  if (section === 'mi-plan') return <MyPlanPage />
  if (section === 'sincronizacion' && role !== 'CAJERO') return <SyncPanelPage />
+ if (section === 'cambios') return <ExchangesPage />
  if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />
  if (role === 'CAJERO' && section === 'caja') return <ShiftPage />
  if (section === 'devoluciones' && ['CAJERO', 'ENCARGADO', 'ADMIN'].includes(role)) return <ReturnsPage />

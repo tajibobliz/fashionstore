@@ -11,6 +11,7 @@ import { Producto } from './catalog/entities/producto.entity';
 import { DetalleVenta } from './sales/entities/detalle-venta.entity';
 import { Pago } from './payments/entities/pago.entity';
 import { DetalleDevolucion } from './returns/entities/detalle-devolucion.entity';
+import { DetalleCambio } from './exchanges/entities/detalle-cambio.entity';
 import { Role } from './auth/enums/role.enum';
 
 const repo = (overrides: Record<string, unknown> = {}) => ({
@@ -205,6 +206,8 @@ describe('Estabilización de integridad y seguridad', () => {
       createQueryBuilder: jest.fn(() => queryBuilder()),
       findOne: jest.fn(async (entity: any) => entity === Venta ? venta : detalleVenta),
       getRepository: jest.fn((entity: any) => {
+        // Devoluciones previas: 2 unidades. Cambios previos (Fase 2): ninguno.
+        if (entity === DetalleCambio) return { createQueryBuilder: () => ({ ...aggregateQb, getRawMany: jest.fn(async () => []) }) };
         expect(entity).toBe(DetalleDevolucion);
         return { createQueryBuilder: () => aggregateQb };
       }),

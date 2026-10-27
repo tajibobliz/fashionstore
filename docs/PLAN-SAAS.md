@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.6 (2026-10-26)
+> Versión: v1.7 (2026-10-26)
 
 ## Fechas clave
 
@@ -290,8 +290,16 @@ La hora local (`createdAtLocal`) **se guarda** para auditoría y para mostrar el
 
 **Prevención (extra):** stock de seguridad offline (no vender offline la última unidad si el stock local ≤ N) y aviso "stock bajo, confirma disponibilidad física".
 
-### 6.5 Cambios de prendas (aporte exigido)
-Entidad `cambio` (venta origen, variante devuelta → variante entregada, diferencia de precio) validando `fecha_venta + empresa.plazo_cambio_dias`. Reutiliza movimientos de inventario de `returns`.
+### 6.5 Cambios de prendas (aporte exigido) — implementado (v1.7)
+**Concepto:** un *cambio* no es una devolución: la clienta trae una prenda de una compra y se lleva otra (otra talla, otro color u otro producto). La venta original no cambia de estado; el cambio queda como historial aparte.
+
+- Tablas `cambio` (por empresa, con RLS) y `detalle_cambio` (línea de la venta que vuelve → variante entregada, con `precio_original` y `precio_nuevo`). Migración `1780000000004-AddCambioPrendas`.
+- **Plazo:** `empresa.plazo_cambio_dias` (ya existía; por defecto 7). Se acepta si `ahora ≤ fecha_venta + plazo`; 0 = la tienda no acepta cambios. El ADMIN lo cambia (`PATCH /exchanges/politica`, 0–90 días).
+- **Unidades:** solo las no devueltas ni cambiadas antes. Las devoluciones ahora también descuentan las unidades cambiadas (una prenda cambiada no se puede devolver además).
+- **Inventario:** en una transacción con bloqueo de fila (ordenado por variante para evitar *deadlocks*): la prenda original entra (`CAMBIO_ENTRADA`) y la nueva sale (`CAMBIO_SALIDA`) del almacén de la venta; si no hay stock de la nueva, se rechaza.
+- **Diferencia de precio:** precio vigente de la nueva − precio pagado por la original. Positiva → la clienta paga y se exige el método de pago; negativa → se registra el monto a devolver.
+- Endpoints: `GET /exchanges/politica`, `PATCH /exchanges/politica` (ADMIN), `GET /exchanges/venta/:id` (qué se puede cambiar y si está en plazo), `GET /exchanges`, `POST /exchanges`. Roles: ADMIN, ENCARGADO, ENCARGADO_SUCURSAL (solo sus sucursales), CAJERO.
+- Web: sección **Cambios de prendas** en el dashboard (cajero, encargados, admin).
 
 ---
 
@@ -401,8 +409,8 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
   - [x] Pantalla del panel en la web (`features/sync/SyncPanelPage.tsx`)
 - [x] 2.3 PWA: manifest, service worker, Dexie, cola, UI de estados (ver §5)
 - [x] 2.4 Móvil: expo-sqlite, cola, netinfo, pantallas offline (clienta: catálogo y reservas; ver D13 en §6.1)
-- [ ] 2.5 Cambios de prendas con plazo
-- [ ] 2.6 Pruebas: idempotencia, reintento, conflicto de stock (incluido el caso de dos ventas simultáneas de la última unidad, §6.4.1), persistencia tras reinicio
+- [x] 2.5 Cambios de prendas con plazo (§6.5)
+- [x] 2.6 Pruebas: idempotencia, reintento, conflicto de stock (incluido el caso de dos ventas simultáneas de la última unidad, §6.4.1), persistencia tras reinicio
   - [x] Servidor: `backend/test/tenant-sync.e2e-spec.ts` (11 E2E)
   - [x] Web: recarga sin conexión, venta y reserva offline, reconexión y resultado (Playwright, modo offline)
   - [x] App móvil: lógica SQLite + cola + sync probada contra el backend real (16 comprobaciones) y bundle Android compilado
@@ -461,7 +469,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 36 pruebas en verde (aislamiento + planes + SaaS público + sincronización) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 43 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -504,3 +512,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-26 | v1.4: Fase 1 probada en la PC del equipo (12 pruebas manuales + 25 E2E). Corrección para Windows (`storeScope.ts` → `currentStore.ts`, choque de mayúsculas). **Fase 2, backend de sincronización**: tabla `operacion_sync` con RLS, `GET /sync/catalog`, `POST /sync/operations` (ventas y reservas offline, idempotencia por `operationId`, "gana la primera que llega" con bloqueo de fila, conflictos STOCK / SIN_STOCK con alternativas / PRECIO / TURNO_CERRADO), panel `/sync/operaciones` + `/resolver`. Corrección del seed: los almacenes de Urban Step ahora se llaman `PRINCIPAL` (antes `US-A1/2`, rompía reservas y compras online de la Empresa B; `npm run seed:demo` repara una BD existente) | 36/36 E2E repetibles (11 nuevas de sincronización: última unidad venta vs. reserva vs. venta, reenvío sin duplicar, precio dentro/fuera de ventana, rechazos sin cortar el lote, panel y aislamiento A↔B). Migración up/down OK y esquema = entidades. Unitarias: 139 en verde (las 6 suites de `main` siguen igual) |
 | 2026-10-26 | v1.5: **tarea 2.3 (PWA)** y pantalla del panel (2.2). Service worker + manifest (`vite-plugin-pwa`), IndexedDB con Dexie (catálogos y cola), motor de sincronización con backoff, POS sin conexión (turno y catálogo guardados, pago incluido), reservas sin conexión en la tienda, indicador flotante con la cola, panel **Sincronización offline**. Backend: la venta offline registra también su **pago** (efectivo aprobado; otros pendientes). Corrección: el campo Empresa del login tenía un `pattern` inválido en Chrome reciente | Playwright con red cortada: recarga sin conexión (service worker + sesión), 2 ventas offline → reconexión → 1 CONFIRMADA y 1 CONFLICTO (stock vaciado en el servidor mientras tanto) → el admin la ve en el panel y la resuelve; clienta reserva offline → reconexión → CONFIRMADA; sin desbordes a 1280 y 390 px; sin errores de consola. 36/36 E2E (se suma la verificación del pago) |
 | 2026-10-26 | v1.6: **tarea 2.4 (móvil offline)**. D13: el móvil es la app de la clienta → catálogo y reservas sin conexión (las ventas offline quedan en el POS web). SQLite con migraciones, FKs y CHECK; descarga de catálogo con UPSERT; cola + sincronización con NetInfo, backoff y `sync_log`; pantallas Catálogo sin conexión y Operaciones pendientes; aviso flotante. SaaS en el móvil: login/registro con tienda, `X-Tenant`, sucursal elegible (se elimina `DEFAULT_SUCURSAL_ID`) | Lógica real del móvil ejecutada en Node (SQLite de Node en lugar del teléfono) contra el backend: 16 comprobaciones (FK y CHECK activos, UPSERT, 2 reservas offline, falla de red → siguen PENDIENTES, reconexión → 1 CONFIRMADA y 1 CONFLICTO con sucursal alternativa, reenvío sin duplicar, bitácora). `expo export --platform android` compila. tsc sin errores nuevos; lint limpio en los archivos nuevos. **No probado en un teléfono real** |
+| 2026-10-26 | v1.7: **tarea 2.5 (cambios de prendas)** → **Fase 2 completa**. Tablas `cambio` (RLS) y `detalle_cambio`; plazo por empresa (`plazo_cambio_dias`, editable por el ADMIN); stock de la prenda original y la nueva en una transacción; diferencia de precio con método de pago obligatorio si la clienta paga; las devoluciones descuentan las unidades ya cambiadas. Web: sección Cambios de prendas | 43/43 E2E (7 nuevas: plazo, cambio de talla sin diferencia, prenda más cara exige método, unidades y stock insuficientes, no se devuelve lo cambiado, venta de hace 10 días fuera de plazo y vuelve a estar en plazo con 15 días, solo ADMIN edita el plazo, aislamiento A↔B). Migración up/down y esquema = entidades. Unitarias: 139 en verde (se ajustó el mock de devoluciones). Navegador: cambio sin diferencia, cambio a una prenda más cara con QR, historial, edición del plazo, sin desbordes a 390 px |

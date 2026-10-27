@@ -15,7 +15,10 @@ export type TipoMovimiento =
   | 'LIBERACION_RESERVA'
   | 'VENTA'
   | 'DEVOLUCION'
-  | 'AJUSTE';
+  | 'AJUSTE'
+  /** Cambio de prendas: vuelve la prenda original / sale la prenda nueva. */
+  | 'CAMBIO_ENTRADA'
+  | 'CAMBIO_SALIDA';
 
 @Entity('movimiento_inventario')
 export class MovimientoInventario extends TenantOwned {
@@ -37,4 +40,4 @@ export class MovimientoInventario extends TenantOwned {
   @ManyToOne(() => Inventario, { eager: true })
   @JoinColumn({ name: 'id_inventario' })
   inventario: Inventario;
-}
+}
