@@ -18,7 +18,11 @@ export type TipoMovimiento =
   | 'AJUSTE'
   /** Cambio de prendas: vuelve la prenda original / sale la prenda nueva. */
   | 'CAMBIO_ENTRADA'
-  | 'CAMBIO_SALIDA';
+  | 'CAMBIO_SALIDA'
+  /** Traspaso entre sucursales (CU14): sale del origen / entra al destino / vuelve al origen si se cancela. */
+  | 'TRASPASO_SALIDA'
+  | 'TRASPASO_ENTRADA'
+  | 'TRASPASO_REVERSA';
 
 @Entity('movimiento_inventario')
 export class MovimientoInventario extends TenantOwned {

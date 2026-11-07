@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.14 (2026-11-07)
+> Versión: v1.15 (2026-11-07)
 
 ## Fechas clave
 
@@ -301,6 +301,18 @@ La hora local (`createdAtLocal`) **se guarda** para auditoría y para mostrar el
 - Endpoints: `GET /exchanges/politica`, `PATCH /exchanges/politica` (ADMIN), `GET /exchanges/venta/:id` (qué se puede cambiar y si está en plazo), `GET /exchanges`, `POST /exchanges`. Roles: ADMIN, ENCARGADO, ENCARGADO_SUCURSAL (solo sus sucursales), CAJERO.
 - Web: sección **Cambios de prendas** en el dashboard (cajero, encargados, admin).
 
+### 6.6 Traspasos entre sucursales (CU14, RF-025, RN-013) — implementado (v1.15)
+**Concepto:** mover prendas del almacén de una sucursal al de otra de la misma empresa. Mientras viajan, el stock ya no está en el origen ni todavía en el destino: el traspaso queda **En tránsito**.
+
+- Tablas `traspaso` (por empresa, con RLS) y `detalle_traspaso` (variante, `cantidad_enviada`, `cantidad_recibida`). Migración `1780000000007-AddTraspasos`. CHECK: origen ≠ destino, estado válido y `0 ≤ recibida ≤ enviada`.
+- **Estados:** `EN_TRANSITO` → `RECIBIDO` (llegó todo) · `RECIBIDO_PARCIAL` (la diferencia es **merma**) · `RECHAZADO` (no llegó nada utilizable) · `CANCELADO` (el origen lo anuló antes de llegar; el stock vuelve).
+- **Enviar:** valida todo el pedido antes de descontar; si falta stock responde 400 con cada prenda, lo pedido y lo disponible ("Reduce la cantidad"). Movimiento `TRASPASO_SALIDA` en el almacén PRINCIPAL del origen. Aviso push a quienes operan el destino (si tienen la app registrada).
+- **Recibir:** se indica cuánto llegó bien de cada línea; si es menos de lo enviado, el **motivo de la merma es obligatorio**. Lo recibido entra al destino (`TRASPASO_ENTRADA`; se crea la fila de inventario si la prenda no existía allí).
+- **Concurrencia:** bloqueo de la cabecera del traspaso y de las filas de inventario (ordenadas por variante). Dos recepciones simultáneas → una se aplica y la otra recibe 409.
+- **Permisos:** ADMIN y ENCARGADO, todas las sucursales; ENCARGADO_SUCURSAL envía solo desde la suya y recibe solo en la suya (ve el stock de todas para decidir); CAJERO no gestiona traspasos.
+- Endpoints: `GET /transfers/stock?q=`, `GET /transfers?estado=`, `GET /transfers/pendientes`, `GET /transfers/:id`, `POST /transfers`, `POST /transfers/:id/recibir`, `POST /transfers/:id/cancelar`.
+- Web: sección **Traspasos** con pestañas *En tránsito* (por recibir / enviados, con contador), *Nuevo traspaso* (stock por sucursal) e *Historial* (unidades, merma y quién envió y recibió).
+
 ---
 
 ## 7. Reportes generativos con IA (Desafío V)
@@ -447,15 +459,15 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte (7 herramientas + aclaración; ver §7)
 - [x] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel (sección **Reportes con IA**, ver §7)
 - [x] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas (ver §7.1; falta la pantalla, que va en 3.4)
-- [ ] 3.4 Dashboard analítico (CU12), en tres entregas:
+- [x] 3.4 Dashboard analítico (CU12), en tres entregas:
   - [x] 3.4a ML también en el plan Profesional (CU12) + KPIs (`GET /reports/kpis`) y sección **Dashboard analítico**
   - [x] 3.4b Pestañas de ML "Análisis predictivo" y "Descubrir patrones" (segmentos + anomalías con IsolationForest), reentrenamiento nocturno automático, avisos del CU12 (ver §7.1)
   - [x] 3.4c Reporte con IA de prendas cambiadas y devoluciones; PDF/Excel con empresa, usuario, fecha y gráfico embebido
-- [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
+- [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend) — **se hace al final**, cuando backend y frontend estén terminados (decisión 2026-11-07)
 
 ### Pendientes del documento ICONIX (después de la Fase 3, antes de la defensa)
 > Revisión 2026-11-07 contra el documento del equipo: casos de uso y requisitos que todavía no están en el código.
-- [ ] P1 **CU14 Traspaso entre sucursales**: mover stock de una sucursal a otra con estado "En tránsito" hasta confirmar la recepción en destino
+- [x] P1 **CU14 Traspaso entre sucursales** (§6.6): mover stock de una sucursal a otra con estado "En tránsito" hasta confirmar la recepción en destino
 - [ ] P2 **CU16 / RF-027 Pago diferido con Stripe**: orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
 - [ ] P3 **CU17 / RF-028 Sesión offline con PIN**: PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
 - [ ] P4 **RF-026 / CU15 Carrito offline**: conservar el carrito sin conexión (también tras cerrar la app) y convertirlo en orden con pago diferido (enlaza con P2)
@@ -515,7 +527,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 90 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 101 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -566,3 +578,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-07 | v1.12: revisión contra el documento ICONIX del equipo. **ML pasa también al plan Profesional** (CU12; migración `1780000000006-PlanProfesionalConMl`). **Tarea 3.4a**: KPIs del CU12 (`/reports/kpis`) y sección Dashboard analítico con drill-down, refresco cada 5 min y copia offline. Se anotan los pendientes P1–P4 (CU14, CU16, CU17, RF-026) | E2E 85/85 (6 nuevas de KPIs: vista de empresa, tendencia de 365 días = `/reports`, tasas coherentes, encargado limitado a su sucursal y 403 en otra, Empresa A no puede pedir sucursales de B, roles y validación; ML: Básico 403, Profesional y Empresarial con acceso). Playwright: 8 tarjetas, filtros, drill-down a Inventario, banner sin conexión, encargado a 390 px sin desborde |
 | 2026-11-07 | v1.13: **tarea 3.4b**. Reentrenamiento nocturno (`MlScheduler`, `@nestjs/schedule` 12.0.2), entrenamiento automático la primera vez y botón "Actualizar análisis" solo para ADMIN (bloqueo 409). Anomalías con IsolationForest + anomalías simuladas para medir precisión/recall; limpieza de atípicos antes de entrenar la demanda. Pestañas *Análisis predictivo* y *Descubrir patrones* con avisos del CU12 y "Calidad del modelo" plegable | pytest 13/13 (anomalías simuladas fuera de festivos y de la prueba, recall ≥ 0,66 y precisión ≥ 0,5, filtro por sucursal, atípicos excluidos). Unitarias +5 (cron: listado en modo plataforma, cada empresa en su contexto, sigue si una falla, sin corridas dobles, `ML_CRON=off`; bloqueo 409). E2E ML 11/11 (+2: anomalías y 409). Playwright: Básico bloqueado; primer ingreso entrena solo; avisos de historial y R² bajo con Urban Step; 8 semanas; segmentos y 4 semanas atípicas; "Actualizar análisis" reentrena; encargado sin botón; encargado de sucursal sin pestañas ML; sin desborde a 390 px |
 | 2026-11-07 | v1.14: **tarea 3.4c**. Dos herramientas nuevas del arnés: `devoluciones_y_cambios_por_producto` (vendidas, devueltas, cambiadas y sus tasas por prenda; filtro de categoría y límite) y `motivos_devolucion_y_cambio` (motivos agrupados; tipo devoluciones/cambios/ambos). Gráfico de varias series (barras agrupadas con leyenda). Exportación profesional: **PDF** con encabezado de marca, metadatos (empresa, usuario y rol, fecha y hora, pregunta, filtros), resumen de la IA, gráfico embebido, tabla y pie con número de página; **Excel** con `exceljs` 4.4.0 (hoja *Reporte* con metadatos, formatos numéricos reales Bs/unidades/% , autofiltro y gráfico como imagen; hoja *Datos* con la tabla cruda) | E2E 90/90 (+3: totales iguales a `/reports/kpis`, motivos de cambio = cambios de los KPIs, tipo inválido rechazado, encargado = admin filtrado a su sucursal). Unitarias 166 (+3 reglas del simulado). Playwright: 3 reportes exportados; PDF ~30 KB con gráfico (se corrigió que tomaba el ícono de la leyenda y se activó compresión); Excel con imagen en `xl/media` y formatos revisados |
+| 2026-11-07 | v1.15: orden acordado — el **despliegue (3.5) pasa al final**, cuando backend y frontend estén terminados; antes se completan P1–P4 y los detalles visuales. **P1 traspasos entre sucursales (CU14)**: módulo `backend/src/transfers/`, migración `1780000000007-AddTraspasos` (RLS), estados En tránsito / Recibido / Recibido con merma / Rechazado / Cancelado, movimientos `TRASPASO_*`, aviso push al destino; sección web **Traspasos** (ver §6.6) | E2E 101/101 (11 nuevas en `tenant-transfers`: stock por sucursal y orígenes permitidos, stock insuficiente con detalle, datos inválidos y de otra empresa, permisos de encargado y cajero, envío, recepción parcial con motivo obligatorio, recepción total y rechazo, cancelación, dos recepciones simultáneas → 201 + 409, movimientos de inventario, aislamiento con Empresa A; la prueba restaura el stock y cancela lo que deja en tránsito). Migración up/down/up y esquema = entidades. Unitarias 166. Playwright: encargado de Centro envía, admin recibe con merma (botón bloqueado sin motivo), aviso de resultado, historial con detalle, 390 px sin desborde |

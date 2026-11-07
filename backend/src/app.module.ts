@@ -25,6 +25,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 import { SyncModule } from './sync/sync.module';
 import { ExchangesModule } from './exchanges/exchanges.module';
 import { MlModule } from './ml/ml.module';
+import { TransfersModule } from './transfers/transfers.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -77,6 +78,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     SyncModule,
     ExchangesModule,
     MlModule,
+    TransfersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,0 +1,68 @@
+.stack { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 12px; background: white; justify-self: start; width: fit-content; max-width: 100%; }
+.tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: none; border-radius: 9px; background: none; color: var(--text-secondary); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.tabs button:hover { color: var(--app-primary); }
+.tabActive { background: var(--app-primary) !important; color: white !important; }
+.contador { min-width: 20px; padding: 1px 6px; border-radius: 99px; background: #d97706; color: white; font-size: .72rem; text-align: center; }
+.tabActive .contador { background: white; color: var(--app-primary); }
+
+.alerta { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 14px; padding: 12px 14px; border: 1px solid #fcd34d; border-radius: 10px; background: #fffbeb; color: #92400e; font: inherit; font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; }
+.alerta svg:last-child { margin-left: auto; }
+
+.notice { margin: 0; padding: 12px 14px; border-radius: 10px; background: #ecfdf3; color: #15803d; font-size: .88rem; line-height: 1.5; }
+.linkButton { padding: 0; border: none; background: none; color: var(--app-primary); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+.ruta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.ruta label, .resumen label, .acciones label, .cancelar label, .filtro { display: grid; gap: 6px; font-size: .85rem; font-weight: 600; color: var(--text-primary); }
+.ruta label { flex: 1 1 200px; }
+.ruta select, .resumen input, .acciones input, .cancelar input, .filtro select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; font-weight: 400; }
+.flecha { margin-bottom: 10px; color: var(--app-primary); flex: none; }
+
+.table input { width: 76px; min-height: 36px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; text-align: right; }
+.table input:disabled { background: #f6f6f6; }
+.num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nowrap { white-space: nowrap; }
+.colOrigen { background: rgba(173, 62, 104, .07); font-weight: 600; }
+.colDestino { background: rgba(37, 99, 235, .06); }
+.sku { color: var(--text-secondary); font-size: .75rem; }
+.mermaTexto { color: #b45309; font-weight: 700; }
+
+.resumen { display: grid; gap: 12px; }
+.resumen h2 { margin: 0; font-size: 1.05rem; }
+.resumen button, .acciones button { justify-self: start; display: inline-flex; align-items: center; gap: 8px; }
+.resumen button:disabled, .acciones button:disabled { opacity: .5; cursor: not-allowed; }
+.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lista li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: .86rem; }
+.lista strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.meta { margin: 0; color: var(--text-secondary); font-size: .85rem; line-height: 1.55; }
+.meta svg { vertical-align: -2px; }
+
+.subtitulo { margin: 6px 0 0; font-size: 1rem; }
+.tarjeta { display: grid; gap: 12px; }
+.tarjetaCabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.tarjetaCabecera h3 { margin: 0 0 4px; font-size: 1rem; }
+.acciones { display: grid; gap: 10px; padding-top: 4px; }
+.acciones label { max-width: 480px; }
+.cancelar { display: grid; gap: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.cancelar label { max-width: 480px; }
+.botones { display: flex; flex-wrap: wrap; gap: 8px; }
+.secundario, .peligro { justify-self: start; min-height: 38px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px; background: white; font: inherit; font-weight: 600; cursor: pointer; }
+.peligro { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+.peligro:disabled { opacity: .5; }
+
+.estado { display: inline-flex; padding: 3px 10px; border-radius: 99px; font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.transito { background: #fffbeb; color: #b45309; }
+.recibido { background: #ecfdf3; color: #15803d; }
+.parcial { background: #fff7ed; color: #c2410c; }
+.rechazado { background: #fef2f2; color: #b91c1c; }
+.cancelado { background: #f3f4f6; color: #4b5563; }
+
+.filtro { min-width: 180px; }
+.detalleFila td { background: #fcfafb; }
+.detalleFila .lista { margin-bottom: 8px; }
+
+@media (max-width: 560px) {
+  .flecha { transform: rotate(90deg); margin: 0 auto; }
+  .ruta label { flex-basis: 100%; }
+}
