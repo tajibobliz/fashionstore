@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.11 (2026-11-06)
+> Versión: v1.12 (2026-11-07)
 
 ## Fechas clave
 
@@ -364,6 +364,9 @@ Por empresa, filtrable por sucursal y período; sobre `ReportsService` (`/report
 - Conflictos de sincronización abiertos
 - Uso del plan: sucursales y usuarios usados vs. límite
 
+**Implementado (v1.12, tarea 3.4a):** `backend/src/reports/kpis.service.ts` + `GET /reports/kpis?idSucursal=&dias=` (ADMIN, ENCARGADO, ENCARGADO_SUCURSAL). Calcula en la zona horaria de la empresa: ventas de hoy (vs. ayer), del mes (vs. mismo periodo del mes anterior), ticket promedio, canal, stock crítico y agotados, reservas pendientes, **tasa de devoluciones**, **tasa de cambios**, **top 5 prendas más cambiadas**, más devueltas, **top 3 por sucursal**, conflictos offline abiertos y tendencia diaria. Alcance: RLS + `id_empresa` + sucursales asignadas (otra sucursal → 403). Pantalla `frontend/src/features/analytics/`: tarjetas con **drill-down** a la sección correspondiente, filtros de sucursal y ventana, **refresco cada 5 min**, copia local con banner **"Datos actualizados al [hora]"** sin conexión.
+El uso del plan (sucursales/usuarios vs. límite) se muestra en **Mi plan**.
+
 ## 8. Dónde usar tools, skills o un arnés de IA
 
 | Lugar | ¿Usar IA? | Cómo |
@@ -438,8 +441,18 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte (7 herramientas + aclaración; ver §7)
 - [x] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel (sección **Reportes con IA**, ver §7)
 - [x] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas (ver §7.1; falta la pantalla, que va en 3.4)
-- [ ] 3.4 Dashboard de KPIs + dashboard analítico ML
+- [ ] 3.4 Dashboard analítico (CU12), en tres entregas:
+  - [x] 3.4a ML también en el plan Profesional (CU12) + KPIs (`GET /reports/kpis`) y sección **Dashboard analítico**
+  - [ ] 3.4b Pestañas de ML: entrenar, "Análisis predictivo" (pronóstico + métricas) y "Descubrir patrones" (segmentos + anomalías con IsolationForest); avisos silhouette < 0,3, R² < 0,5 e historial real < 3 meses
+  - [ ] 3.4c Reporte con IA de prendas cambiadas y devoluciones; PDF/Excel con empresa, usuario, fecha y gráfico embebido
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
+
+### Pendientes del documento ICONIX (después de la Fase 3, antes de la defensa)
+> Revisión 2026-11-07 contra el documento del equipo: casos de uso y requisitos que todavía no están en el código.
+- [ ] P1 **CU14 Traspaso entre sucursales**: mover stock de una sucursal a otra con estado "En tránsito" hasta confirmar la recepción en destino
+- [ ] P2 **CU16 / RF-027 Pago diferido con Stripe**: orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
+- [ ] P3 **CU17 / RF-028 Sesión offline con PIN**: PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
+- [ ] P4 **RF-026 / CU15 Carrito offline**: conservar el carrito sin conexión (también tras cerrar la app) y convertirlo en orden con pago diferido (enlaza con P2)
 
 ### Fase 4 — App móvil (se hace al final, después de la Fase 3)
 > Decisión del equipo (2026-11-06): el móvil y sus pruebas se dejan para el final. La app sigue siendo la de la clienta (D13).
@@ -496,7 +509,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 79 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 85 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -544,3 +557,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-06 | v1.9: **tarea 3.1 (reportes con IA, backend)**. Arnés de tool use en `backend/src/ai/reports/`: 7 herramientas de reporte + aclaración, validación de parámetros, alcance de empresa (RLS) y de sucursal, límite de iteraciones y de consultas por minuto, tabla y gráfico calculados por el backend, narrativa del modelo. Proveedores `anthropic` y `simulado`. Bitácora `consulta_ia` con RLS | 70/70 E2E (27 nuevas: plan Básico bloqueado, cajero sin acceso, 7 tipos de reporte con datos reales, cifras iguales a `/reports`, mes = suma de días, categoría, aclaración, 8 consultas inválidas rechazadas, bitácora, encargado limitado a su sucursal, Empresa A no puede pedir sucursales de B). Unitarias: 158 en verde (19 nuevas del bucle, adaptador Anthropic y reglas del simulado). Migración up/down y esquema = entidades. **Falta probar con la API real de Anthropic** (aquí no hay API key) |
 | 2026-11-06 | v1.10: **tarea 3.2 (pantalla de reportes con IA)**: texto y voz (dictado + lectura en voz alta), gráfico, tabla, PDF y Excel, conversación con contexto, historial, bloqueo por plan. Narrativa del modo simulado mejorada (mayor valor y % del total). Corrección de diseño: el panel ya no deja un hueco arriba en secciones con poco contenido (`align-content: start` en `DashboardLayout`) | Playwright: Básico → bloqueado; Profesional → ventas por sucursal, top productos, ventas por mes (línea), ingresos por categoría (torta), stock bajo; descarga de PDF y Excel revisados; aclaración; historial; dictado por voz simulado → envío automático y lectura del resumen; encargado ve solo su sucursal; sin desbordes a 1280 y 390 px; 429 muestra el aviso. tsc, eslint y build en verde; 27/27 E2E de IA |
 | 2026-11-06 | v1.11: **tarea 3.3 (ML)**. Microservicio `ml-service` (FastAPI): datos sintéticos sobre el catálogo real, RandomForest de demanda semanal (validación temporal y línea base), K-Means RFM con silhouette, un modelo por empresa. Backend `/ml/*` (plan Empresarial, ADMIN/ENCARGADO) que envía los datos reales de la empresa | pytest 11/11 (reproducibilidad, estacionalidad, reales sobre sintéticos, clave, validación, el modelo supera a la línea base, banda p10–p90, un modelo por empresa, segmentos). E2E 79/79 (9 nuevas: Básico y Profesional sin ML, roles, servicio caído → 503, validación, 404 antes de entrenar, entrenamiento con datos reales de Urban Step, pronóstico, sucursal de otra empresa → 400, segmentos). Ejemplo con 6 productos × 2 sucursales: R² 0,89 y 16 % menos error que la línea base; 3 segmentos con silhouette 0,47 |
+| 2026-11-07 | v1.12: revisión contra el documento ICONIX del equipo. **ML pasa también al plan Profesional** (CU12; migración `1780000000006-PlanProfesionalConMl`). **Tarea 3.4a**: KPIs del CU12 (`/reports/kpis`) y sección Dashboard analítico con drill-down, refresco cada 5 min y copia offline. Se anotan los pendientes P1–P4 (CU14, CU16, CU17, RF-026) | E2E 85/85 (6 nuevas de KPIs: vista de empresa, tendencia de 365 días = `/reports`, tasas coherentes, encargado limitado a su sucursal y 403 en otra, Empresa A no puede pedir sucursales de B, roles y validación; ML: Básico 403, Profesional y Empresarial con acceso). Playwright: 8 tarjetas, filtros, drill-down a Inventario, banner sin conexión, encargado a 390 px sin desborde |

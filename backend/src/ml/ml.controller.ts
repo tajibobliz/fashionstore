@@ -9,7 +9,7 @@ import { DemandaQueryDto } from './dto/ml.dto';
 import { MlService } from './ml.service';
 
 /**
- * Analítica con ML (Fase 3, tarea 3.3): solo plan Empresarial (`features.ml`) y roles de
+ * Analítica con ML (Fase 3, tarea 3.3): planes con `features.ml` (Profesional y Empresarial) y roles de
  * gestión de toda la empresa. El id de la empresa sale del JWT.
  */
 @ApiTags('Analítica ML')

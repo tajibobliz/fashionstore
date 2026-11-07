@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -6,6 +6,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  ADMIN: { slug: 'admin', title: 'Administración de la empresa', subtitle: 'Administrador · Vista general', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
  { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'usuarios', label: 'Usuarios y roles', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
@@ -24,6 +25,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
  { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'gestion-nacional', label: 'Gestión nacional', icon: Store, pending: true, description: 'Coordina la operación nacional de Fashionstore.' },
  { id: 'personal', label: 'Personal', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },
@@ -42,6 +44,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  ] },
  ENCARGADO_SUCURSAL: { slug: 'encargado-sucursal', title: 'Panel de Sucursal', subtitle: 'Encargado de sucursal · Operación territorial', sections: [
  { id: '', label: 'Inicio', icon: LayoutDashboard },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'inventario', label: 'Inventario', icon: Package, pending: true, description: 'Consulta y gestión de inventario de tus sucursales autorizadas.' },
  { id: 'reservas', label: 'Reservas', icon: Store, pending: true, description: 'Gestión de reservas de las sucursales asignadas.' },
  { id: 'ventas', label: 'Ventas', icon: Monitor, pending: true, description: 'Consulta de ventas del ámbito asignado.' },

@@ -20,6 +20,7 @@ import { usePlan } from '../plan/usePlan'
 import SyncPanelPage from '../sync/SyncPanelPage'
 import ExchangesPage from '../exchanges/ExchangesPage'
 import AiReportsPage from '../ai-reports/AiReportsPage'
+import AnalyticsPage from '../analytics/AnalyticsPage'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
  catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
@@ -59,6 +60,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (section === 'mi-plan') return <MyPlanPage />
  if (section === 'sincronizacion' && role !== 'CAJERO') return <SyncPanelPage />
  if (section === 'cambios') return <ExchangesPage />
+ if (section === 'dashboard-analitico' && role !== 'CAJERO') return <AnalyticsPage base={base} secciones={new Set(config.sections.filter(s => !s.pending).map(s => s.id))} />
  if (section === 'reportes-ia' && role !== 'CAJERO') return <AiReportsPage planPath={config.sections.some(s => s.id === 'mi-plan') ? `/dashboard/${config.slug}/mi-plan` : null} />
  if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />
  if (role === 'CAJERO' && section === 'caja') return <ShiftPage />

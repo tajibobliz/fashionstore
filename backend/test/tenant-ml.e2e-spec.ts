@@ -1,11 +1,11 @@
 /**
  * Pruebas E2E de la analítica con ML (Fase 3, tarea 3.3): backend NestJS + ml-service real.
  *
- * - Solo el plan Empresarial (`features.ml`) y los roles ADMIN/ENCARGADO.
+ * - Solo planes con `features.ml` (Profesional y Empresarial, CU12) y los roles ADMIN/ENCARGADO.
  * - La empresa la pone el backend (JWT): cada empresa entrena y consulta SU modelo.
  * - Si el ml-service no responde → 503 con un mensaje claro.
  *
- * Urban Step pasa temporalmente a Empresarial y al final vuelve a su plan y vencimiento.
+ * Urban Step pasa temporalmente a Profesional y al final vuelve a su plan y vencimiento.
  * Requisitos: los de tenant-isolation + `ml-service/.venv` (ver ml-service/README.md).
  */
 import {
@@ -79,15 +79,15 @@ const plan = (codigoPlan: string) =>
   c.api('POST', `/platform/empresas/${idB}/suscripcion`, { who: 'ROOT', body: { codigoPlan } });
 
 describe('Analítica ML: plan y roles', () => {
-  it('Básico y Profesional no incluyen ML (403); Empresarial sí', async () => {
-    for (const p of ['BASICO', 'PROFESIONAL']) {
+  it('Básico no incluye ML (403); Profesional y Empresarial sí (CU12)', async () => {
+    await plan('BASICO');
+    const r = await c.api('GET', '/ml/metricas', { who: 'B' });
+    expect(r.status).toBe(403);
+    expect(r.body.code).toBe('PLAN_SIN_FUNCIONALIDAD');
+    for (const p of ['EMPRESARIAL', 'PROFESIONAL']) {
       await plan(p);
-      const r = await c.api('GET', '/ml/metricas', { who: 'B' });
-      expect(r.status).toBe(403);
-      expect(r.body.code).toBe('PLAN_SIN_FUNCIONALIDAD');
+      expect([200, 404, 503]).toContain((await c.api('GET', '/ml/metricas', { who: 'B' })).status);
     }
-    await plan('EMPRESARIAL');
-    expect([200, 404, 503]).toContain((await c.api('GET', '/ml/metricas', { who: 'B' })).status);
   });
 
   it('cajero y encargado de sucursal no tienen acceso', async () => {
