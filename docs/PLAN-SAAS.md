@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.10 (2026-11-06)
+> Versión: v1.11 (2026-11-06)
 
 ## Fechas clave
 
@@ -348,6 +348,11 @@ Microservicio **Python + FastAPI** (`ml-service/`), lo que también cubre la exi
 - Endpoints `/predict/demand`, `/segments`, `/metrics`; NestJS los consume con alcance de tenant.
 - Dashboard analítico en el frontend.
 
+**Implementado (v1.11):**
+- `ml-service/` (Python 3.13, FastAPI, scikit-learn 1.6, pandas): `app/sintetico.py` (ventas semanales por producto × sucursal con precio, popularidad, tendencia, estacionalidad boliviana y ruido de Poisson; clientes con 5 perfiles), `app/demanda.py` (RandomForest con lags, promedios, calendario circular y festivos; validación temporal con las últimas 12 semanas; línea base "semana anterior"; pronóstico recursivo con banda p10–p90 entre árboles), `app/segmentos.py` (K-Means RFM, k por silhouette, nombres de negocio y acción sugerida), `app/main.py` (clave `X-ML-Key`, un modelo por empresa con joblib). 11 pruebas pytest. README con instalación en Windows.
+- Backend `backend/src/ml/`: `POST /ml/entrenar`, `GET /ml/metricas`, `GET /ml/demanda`, `GET /ml/segmentos`. Solo plan Empresarial (`features.ml`) y ADMIN/ENCARGADO. Envía al ml-service el catálogo, las sucursales, las ventas semanales netas y el RFM de las clientas REALES de la empresa (SQL con RLS + `id_empresa`); la empresa sale del JWT. Servicio caído → 503; sin modelo → 404 "Entrenar modelos"; sucursal ajena → 400.
+- Endpoints del ml-service: `/tenants/{id}/train`, `/metrics`, `/demand`, `/segments` (en vez de `/predict/demand`).
+
 ---
 
 ### 7.2 Dashboard de KPIs (A2)
@@ -432,7 +437,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
 - [x] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte (7 herramientas + aclaración; ver §7)
 - [x] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel (sección **Reportes con IA**, ver §7)
-- [ ] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas
+- [x] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas (ver §7.1; falta la pantalla, que va en 3.4)
 - [ ] 3.4 Dashboard de KPIs + dashboard analítico ML
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
 
@@ -491,7 +496,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 70 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 79 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -538,3 +543,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-06 | v1.8: se agregan las tareas del móvil como **Fase 4** (prueba en teléfono real, persistencia, voz con `expo-speech-recognition`, ajustes visuales, build para producción); el cierre pasa a **Fase 5**. Orden acordado: Fase 3 → Fase 4 (móvil) → Fase 5 | Solo documentación |
 | 2026-11-06 | v1.9: **tarea 3.1 (reportes con IA, backend)**. Arnés de tool use en `backend/src/ai/reports/`: 7 herramientas de reporte + aclaración, validación de parámetros, alcance de empresa (RLS) y de sucursal, límite de iteraciones y de consultas por minuto, tabla y gráfico calculados por el backend, narrativa del modelo. Proveedores `anthropic` y `simulado`. Bitácora `consulta_ia` con RLS | 70/70 E2E (27 nuevas: plan Básico bloqueado, cajero sin acceso, 7 tipos de reporte con datos reales, cifras iguales a `/reports`, mes = suma de días, categoría, aclaración, 8 consultas inválidas rechazadas, bitácora, encargado limitado a su sucursal, Empresa A no puede pedir sucursales de B). Unitarias: 158 en verde (19 nuevas del bucle, adaptador Anthropic y reglas del simulado). Migración up/down y esquema = entidades. **Falta probar con la API real de Anthropic** (aquí no hay API key) |
 | 2026-11-06 | v1.10: **tarea 3.2 (pantalla de reportes con IA)**: texto y voz (dictado + lectura en voz alta), gráfico, tabla, PDF y Excel, conversación con contexto, historial, bloqueo por plan. Narrativa del modo simulado mejorada (mayor valor y % del total). Corrección de diseño: el panel ya no deja un hueco arriba en secciones con poco contenido (`align-content: start` en `DashboardLayout`) | Playwright: Básico → bloqueado; Profesional → ventas por sucursal, top productos, ventas por mes (línea), ingresos por categoría (torta), stock bajo; descarga de PDF y Excel revisados; aclaración; historial; dictado por voz simulado → envío automático y lectura del resumen; encargado ve solo su sucursal; sin desbordes a 1280 y 390 px; 429 muestra el aviso. tsc, eslint y build en verde; 27/27 E2E de IA |
+| 2026-11-06 | v1.11: **tarea 3.3 (ML)**. Microservicio `ml-service` (FastAPI): datos sintéticos sobre el catálogo real, RandomForest de demanda semanal (validación temporal y línea base), K-Means RFM con silhouette, un modelo por empresa. Backend `/ml/*` (plan Empresarial, ADMIN/ENCARGADO) que envía los datos reales de la empresa | pytest 11/11 (reproducibilidad, estacionalidad, reales sobre sintéticos, clave, validación, el modelo supera a la línea base, banda p10–p90, un modelo por empresa, segmentos). E2E 79/79 (9 nuevas: Básico y Profesional sin ML, roles, servicio caído → 503, validación, 404 antes de entrenar, entrenamiento con datos reales de Urban Step, pronóstico, sucursal de otra empresa → 400, segmentos). Ejemplo con 6 productos × 2 sucursales: R² 0,89 y 16 % menos error que la línea base; 3 segmentos con silhouette 0,47 |
