@@ -2,7 +2,7 @@ import { api } from './axios'
 import type { CodigoPlan } from './saas.api'
 
 export interface TenantResumen {
-  empresa: { idEmpresa: number; nombre: string; slug: string; estado: 'ACTIVA' | 'SUSPENDIDA' }
+  empresa: { idEmpresa: number; nombre: string; slug: string; estado: 'ACTIVA' | 'SUSPENDIDA'; moneda?: string }
   suscripcion: {
     idSuscripcion?: number
     estado: 'ACTIVA' | 'VENCIDA' | 'SIN_SUSCRIPCION'
@@ -10,7 +10,7 @@ export interface TenantResumen {
     fechaVencimiento?: string
     diasRestantes?: number | null
   }
-  plan: { codigo: CodigoPlan; nombre: string; features: { aiReports?: boolean; ml?: boolean } } | null
+  plan: { codigo: CodigoPlan; nombre: string; features: { aiReports?: boolean; ml?: boolean; pagosOnline?: boolean } } | null
   limites: {
     sucursales: { usadas: number; maximo: number | null }
     usuarios: { usados: number; maximo: number | null }
@@ -36,9 +36,9 @@ export const tenantApi = {
     const { data } = await api.get<SuscripcionHistorial[]>('/tenant/suscripciones')
     return data
   },
-  /** Cambiar o renovar el plan (contratación simulada). */
-  async cambiarPlan(codigoPlan: CodigoPlan, meses = 1) {
-    const { data } = await api.post<TenantResumen>('/tenant/suscripcion', { codigoPlan, meses })
+  /** El administrador elige la moneda en la que vende su tienda (no convierte precios). */
+  async cambiarMoneda(moneda: string) {
+    const { data } = await api.patch<{ moneda: string }>('/tenant/moneda', { moneda })
     return data
   },
 }

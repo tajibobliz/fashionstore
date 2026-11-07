@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { ReportExportData } from './reportExportData'
 import { nombreArchivo } from './reportExportData'
+import { formatNumberMoney, simboloMoneda } from '../../../utils/money'
 
 // Color de marca (--app-primary en DashboardLayout.module.css) para los encabezados de tabla.
 const HEADER_COLOR: [number, number, number] = [173, 62, 104]
@@ -48,9 +49,9 @@ export function buildPdfReport(data: ReportExportData) {
   doc.text(`Generado el ${new Date().toLocaleString('es-BO')}`, 14, 30)
 
   let y = seccion(doc, 40, 'Indicadores', ['Indicador', 'Valor'], data.kpis.map(k => [k.label, k.value]))
-  y = seccion(doc, y, 'Ventas por día', ['Fecha', 'Cantidad', 'Monto (Bs)'], data.ventasPorDia.map(v => [v.fecha, v.cantidad, v.monto.toFixed(2)]))
-  y = seccion(doc, y, 'Top productos', ['Producto', 'Categoría', 'Cantidad vendida', 'Total generado (Bs)'], data.topProductos.map(p => [p.nombre, p.categoria ?? '—', p.cantidadVendida, p.totalGenerado.toFixed(2)]))
-  seccion(doc, y, 'Ventas por sucursal', ['Sucursal', 'Cantidad de ventas', 'Unidades vendidas', 'Total vendido (Bs)'], data.ventasPorSucursal.map(s => [s.sucursal, s.cantidadVentas, s.unidadesVendidas, s.totalVendido.toFixed(2)]))
+  y = seccion(doc, y, 'Ventas por día', ['Fecha', 'Cantidad', `Monto (${simboloMoneda()})`], data.ventasPorDia.map(v => [v.fecha, v.cantidad, formatNumberMoney(v.monto)]))
+  y = seccion(doc, y, 'Top productos', ['Producto', 'Categoría', 'Cantidad vendida', `Total generado (${simboloMoneda()})`], data.topProductos.map(p => [p.nombre, p.categoria ?? '—', p.cantidadVendida, formatNumberMoney(p.totalGenerado)]))
+  seccion(doc, y, 'Ventas por sucursal', ['Sucursal', 'Cantidad de ventas', 'Unidades vendidas', `Total vendido (${simboloMoneda()})`], data.ventasPorSucursal.map(s => [s.sucursal, s.cantidadVentas, s.unidadesVendidas, formatNumberMoney(s.totalVendido)]))
 
   doc.save(nombreArchivo('pdf'))
 }

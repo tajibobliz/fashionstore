@@ -13,6 +13,8 @@ export interface ReporteIa {
   grafico: GraficoReporte | null
   filtros: Record<string, string>
   resumen: Record<string, number>
+  /** Moneda de los montos (la de la tienda, ISO 4217). */
+  moneda?: string
 }
 export interface RespuestaReporteIa {
   tipo: 'reporte' | 'aclaracion' | 'sin_reporte'

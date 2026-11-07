@@ -1,3 +1,4 @@
+import { MONEDA_PLANES, MONEDAS } from '../common/monedas';
 import {
   Body,
   Controller,
@@ -21,6 +22,7 @@ import { SubscriptionsService } from './subscriptions.service';
 import { CreateEmpresaDto } from './dto/platform.dto';
 import { AllowWithoutSubscription } from './plan.decorators';
 import { TenantContext } from './tenant-context';
+import { BillingService } from '../billing/billing.service';
 
 /** Máximo de registros de empresa por IP y hora (evita abusos del formulario público). */
 const REGISTROS_POR_HORA = 5;
@@ -40,6 +42,7 @@ export class SaasController {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly subscriptions: SubscriptionsService,
     private readonly auth: AuthService,
+    private readonly billing: BillingService,
   ) {}
 
   /** Planes activos para la página de precios (salen de la BD: configurables). */
@@ -55,7 +58,14 @@ export class SaasController {
       maxUsuarios: p.maxUsuarios,
       features: p.features,
       precioReferencia: Number(p.precioReferencia),
+      moneda: MONEDA_PLANES,
     }));
+  }
+
+  /** Monedas que puede elegir una tienda al registrarse. */
+  @Get('monedas')
+  monedas() {
+    return MONEDAS;
   }
 
   /** ¿Está libre este slug? Lo usa el formulario mientras se escribe. */
@@ -85,21 +95,35 @@ export class SaasController {
       idEmpresa: empresa.idEmpresa,
       nombre: empresa.nombre,
       slug: empresa.slug,
+      moneda: empresa.moneda,
     };
   }
 
-  /** Contratar un plan: crea la empresa, su suscripción y su administrador, y deja la sesión iniciada. */
+  /**
+   * Contratar un plan: crea la empresa y su administrador (sesión iniciada) y el pago pendiente
+   * del plan elegido. El plan se activa cuando la pasarela confirma el pago; mientras tanto la
+   * empresa existe pero sin suscripción (solo lectura) y puede pagar desde "Mi plan".
+   */
   @Post('registro')
   async registro(@Body() dto: CreateEmpresaDto, @Ip() ip: string) {
     this.limitarIntentos(ip);
     return TenantContext.runAsPlatform(async () => {
-      await this.subscriptions.crearEmpresa(dto);
+      const resumen = await this.subscriptions.crearEmpresa(dto, {
+        conSuscripcion: false,
+      });
       const user = await this.auth.validateUser(
         dto.admin.email,
         dto.admin.password,
         dto.slug.toLowerCase(),
       );
-      return this.auth.login(user);
+      const sesion = await this.auth.login(user);
+      const checkout = await this.billing.crearCheckout(
+        resumen.empresa.idEmpresa,
+        dto.codigoPlan,
+        dto.meses ?? 1,
+        { idUsuario: user.idUsuario, idEmpresa: resumen.empresa.idEmpresa, email: dto.admin.email },
+      );
+      return { ...sesion, checkout };
     });
   }
 

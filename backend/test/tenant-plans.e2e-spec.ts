@@ -206,15 +206,30 @@ describe('Planes y suscripciones (e2e)', () => {
       (await c.api('GET', '/catalog/categorias', { who: 'C' })).status,
     ).toBe(200);
 
-    // El administrador renueva (contratación simulada) y vuelve a operar.
+    // El administrador renueva pagando (aunque esté vencida puede iniciar el pago) y vuelve a operar.
+    const checkout = await c.api('POST', '/billing/checkout', {
+      who: 'C',
+      body: { codigoPlan: 'BASICO' },
+    });
+    expect(checkout.status).toBe(201);
+    expect(
+      (
+        await c.api(
+          'POST',
+          `/billing/simulado/${checkout.body.referencia}/pagar`,
+          { who: 'C' },
+        )
+      ).body.estado,
+    ).toBe('PAGADO');
+    // Ya no existe el cambio de plan sin pago.
     expect(
       (
         await c.api('POST', '/tenant/suscripcion', {
           who: 'C',
-          body: { codigoPlan: 'BASICO' },
+          body: { codigoPlan: 'EMPRESARIAL' },
         })
       ).status,
-    ).toBe(201);
+    ).toBe(404);
     const nueva = await c.api('POST', '/catalog/categorias', {
       who: 'C',
       body: { nombre: `Cat ${Date.now()}` },

@@ -26,6 +26,7 @@ import { SyncModule } from './sync/sync.module';
 import { ExchangesModule } from './exchanges/exchanges.module';
 import { MlModule } from './ml/ml.module';
 import { TransfersModule } from './transfers/transfers.module';
+import { BillingModule } from './billing/billing.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -79,6 +80,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     ExchangesModule,
     MlModule,
     TransfersModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

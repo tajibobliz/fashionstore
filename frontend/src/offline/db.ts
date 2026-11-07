@@ -28,7 +28,7 @@ export interface OperacionLocal extends OperacionEnviada {
   idEmpresa: number
   idUsuario: number
   estado: EstadoLocal
-  /** Texto para mostrar en la lista ("Venta · 2 prendas · Bs 340"). */
+  /** Texto para mostrar en la lista ("Venta · 2 prendas · Bs 340", en la moneda de la tienda). */
   resumen: string
   intentos: number
   ultimoError?: string

@@ -2,7 +2,7 @@ import {
   Body,
   Controller,
   Get,
-  Post,
+  Patch,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -12,8 +12,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { SubscriptionsService } from './subscriptions.service';
-import { CambiarPlanDto } from './dto/platform.dto';
-import { AllowWithoutSubscription } from './plan.decorators';
+import { MonedaEmpresaDto } from './dto/platform.dto';
 
 /** Datos de la empresa del usuario logueado: plan, vigencia, límites y uso. */
 @ApiTags('Mi empresa (SaaS)')
@@ -29,16 +28,14 @@ export class TenantController {
     return this.service.resumen(req.user.idEmpresa);
   }
 
-  /** El administrador cambia o renueva su plan (contratación simulada, sin cobro real). */
-  @Post('suscripcion')
+  /**
+   * El administrador elige la moneda en la que vende su tienda. No convierte precios:
+   * solo cambia cómo se muestran y cobran los montos (la tienda ajusta sus precios si hace falta).
+   */
+  @Patch('moneda')
   @Roles(Role.ADMIN)
-  @AllowWithoutSubscription()
-  cambiarPlan(@Request() req: any, @Body() dto: CambiarPlanDto) {
-    return this.service.cambiarPlan(
-      req.user.idEmpresa,
-      dto.codigoPlan,
-      dto.meses,
-    );
+  cambiarMoneda(@Request() req: any, @Body() dto: MonedaEmpresaDto) {
+    return this.service.cambiarMoneda(req.user.idEmpresa, dto.moneda);
   }
 
   @Get('suscripciones')

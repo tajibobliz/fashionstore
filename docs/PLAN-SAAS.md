@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.15 (2026-11-07)
+> Versión: v1.17 (2026-11-07)
 
 ## Fechas clave
 
@@ -168,11 +168,22 @@ Petición ──► JwtAuthGuard (token → idEmpresa del claim `tid`)
 | Clientes | Ilimitados | Ilimitados | Ilimitados |
 | Productos, ventas, reservas, offline, reportes convencionales, KPIs | Sí | Sí | Sí |
 | Reportes por voz / generativos con IA | No | Sí | Sí |
-| Analítica ML (predicción, segmentación) | No | No _(propuesta)_ | Sí |
-| Precio de referencia (simulado) | _por definir_ | _por definir_ | _por definir_ |
+| Analítica ML (predicción, segmentación, anomalías) | No | Sí (v1.10, CU12) | Sí |
+| Medios de pago de la tienda para sus clientas (tarjeta, QR, transferencia, efectivo al retirar, contra entrega) | Sí | Sí | Sí |
+| Pago diferido de pedidos hechos sin conexión (CU16, feature `pagosOnline`) | No | No | **Sí** (lo que hace a Empresarial el plan más completo) |
+| Precio de referencia (simulado) | **US$ 19/mes** | **US$ 49/mes** | **US$ 119/mes** |
 
 Básico y Profesional respetan la tabla del enunciado (§9.4); Empresarial es aporte del equipo. Todo es configurable en la tabla `plan`.
 - Suscripción vencida → **solo lectura** hasta renovar (decisión tomada).
+
+### 4.4.1 Moneda: planes en USD, cada tienda en su moneda — implementado (v1.16)
+**Regla:** los **planes** de la plataforma se cobran en **dólares (USD)**, iguales en todos los países; cada **tienda** vende en **su propia moneda** (`empresa.moneda`). La moneda no depende de dónde esté quien mira la página sino de **quién vende**: una tienda de Santa Cruz cobra en Bs aunque la vea alguien desde Chile.
+- Migración `1780000000008-MonedaEmpresaYPlanesUsd`: `empresa.moneda` (ISO 4217, por defecto `BOB`, CHECK con BOB, USD, ARS, BRL, CLP, COP, EUR, MXN, PEN, PYG), precios de planes en USD y feature `pagosOnline` (solo Empresarial). Las tiendas existentes quedan en BOB.
+- Catálogo de monedas: `backend/src/common/monedas.ts` (símbolo y decimales; CLP, COP y PYG sin decimales) y su copia en `frontend/src/utils/money.ts`.
+- Se elige al **contratar** (`POST /saas/registro` con `moneda`) y el ADMIN la cambia en **Mi plan** (`PATCH /tenant/moneda`). Cambiarla **no convierte precios** (se avisa en pantalla).
+- La exponen: login y `/auth/profile` (`user.empresa.moneda`, también al recargar la página), `/tenant/me`, `/saas/tiendas/:slug` (tienda online) y `GET /saas/monedas`.
+- Web: un solo `formatMoney()`; la moneda la fija `DashboardLayout` (empresa del usuario) o `StoreScope` (tienda visitada). Se reemplazó el "Bs" fijo en POS, caja, cambios, devoluciones, offline, KPIs, ML, reportes, reportes con IA (columnas "Total (Bs)" / "Total (US$)", narrativa, voz y formato numérico del Excel) y tienda online.
+- Pendiente: la app móvil sigue mostrando "Bs" (tarea 4.6).
 
 **Endpoints SUPER_ADMIN** (`/platform`, Swagger: "Plataforma SaaS"):
 
@@ -187,6 +198,18 @@ Básico y Profesional respetan la tabla del enunciado (§9.4); Empresarial es ap
 | `PATCH /platform/empresas/:id/suscripcion/vencimiento` | simular vencimiento (pruebas y defensa) |
 
 **Endpoints de la empresa** (`/tenant`): `GET /tenant/me` (plan, vigencia, días restantes, límites y uso), `POST /tenant/suscripcion` (el ADMIN cambia/renueva su plan, contratación simulada), `GET /tenant/suscripciones` (historial).
+
+
+### 4.4.2 Pago de la suscripción con Stripe Checkout — implementado (v1.17)
+**Dos pagos distintos:** (A) la **tienda** paga su **plan** a la plataforma (esto) y (B) la **clienta** paga las **prendas** a la tienda (P2, pendiente). En (A) los tres planes se pagan igual: con tarjeta en **Stripe Checkout** (página de pago alojada por Stripe), en USD.
+- Flujo: elegir plan → `POST /billing/checkout` (o el registro público) crea el pago **PENDIENTE** y la sesión de Stripe → el navegador va a Stripe → paga → vuelve a `/pago/exito` → esa página consulta `GET /billing/pagos/:ref` hasta que el **webhook** `POST /billing/stripe/webhook` confirma → el plan se activa. **La redirección no activa nada** (cualquiera podría abrir la URL); solo el webhook con **firma verificada** (`STRIPE_WEBHOOK_SECRET`).
+- Idempotencia: la fila del pago se bloquea y si ya está PAGADO el aviso repetido no hace nada; se compara el monto cobrado con el esperado; la creación de la sesión lleva `idempotencyKey`.
+- La cuenta de prueba de Stripe es compartida con otro proyecto: cada sesión lleva `metadata.app = fashionstore` y el webhook **ignora** los eventos sin esa marca.
+- Renovar el mismo plan vigente **suma** los meses al vencimiento actual; cambiar de plan empieza hoy. Una tienda vencida puede pagar (endpoint permitido sin suscripción).
+- Registro público: crea la empresa y su ADMIN **sin suscripción** (solo lectura) y la lleva a pagar; si cancela, puede pagar luego desde **Mi plan**. El SUPER_ADMIN sigue pudiendo asignar un plan a mano (pago por transferencia o QR fuera del sistema). Se eliminó `POST /tenant/suscripcion` (cambiaba el plan sin pagar).
+- **Pasarela simulada:** sin `STRIPE_SECRET_KEY` (o `BILLING_PROVIDER=simulado`, como en las pruebas) se usa una pantalla propia `/pago/simulado` que imita Stripe (tarjeta 4242… aprobada, 4000…0002 rechazada). Sirve para pruebas automáticas y para demostrar sin internet.
+- Tabla `pago_suscripcion` (RLS) — migración `1780000000009-AddPagoSuscripcion`. Web: páginas `/pago/exito`, `/pago/cancelado`, `/pago/simulado`; **Mi plan** con selector de meses (1, 3, 6, 12) y tabla de **Pagos**.
+- Configuración local: `STRIPE_SECRET_KEY` (sk_test), `STRIPE_WEBHOOK_SECRET` (whsec de `stripe listen --forward-to localhost:3000/billing/stripe/webhook`), `APP_URL` (ver `.env.example`).
 
 ### 4.5 Migración de datos existentes
 Migración `1780000000000-AddMultitenancy`: crea `plan/empresa/suscripcion`, crea **Empresa A = "FashionStore"** con todos los datos actuales, agrega `id_empresa` (primero nullable → backfill → NOT NULL), reemplaza UNIQUE globales por compuestos. `npm run seed:demo` crea la **Empresa B "Urban Step"** (`urban-step`, plan Básico, calzado y ropa deportiva) con 2 sucursales, almacenes, cajas, 5 usuarios, catálogo, inventario y 3 ventas; y el SUPER_ADMIN de la plataforma. No corre en producción.
@@ -468,7 +491,10 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 ### Pendientes del documento ICONIX (después de la Fase 3, antes de la defensa)
 > Revisión 2026-11-07 contra el documento del equipo: casos de uso y requisitos que todavía no están en el código.
 - [x] P1 **CU14 Traspaso entre sucursales** (§6.6): mover stock de una sucursal a otra con estado "En tránsito" hasta confirmar la recepción en destino
-- [ ] P2 **CU16 / RF-027 Pago diferido con Stripe**: orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
+- [x] P2a **Moneda** (antes de Stripe): planes en USD, cada tienda en su moneda, feature `pagosOnline` solo en Empresarial (§4.4.1)
+- [x] P2b **Pago de la suscripción con Stripe Checkout** en los tres planes + webhook firmado + pasarela simulada (§4.4.2)
+- [ ] P2c **Medios de pago de la tienda** (todos los planes): tarjeta con Stripe, QR y transferencia con comprobante y confirmación de la tienda, efectivo al retirar en sucursal, contra entrega; el ADMIN activa los que quiere y sube su QR y datos bancarios
+- [ ] P2 **CU16 / RF-027 Pago diferido de pedidos offline** (solo Empresarial, feature `pagosOnline`; en la moneda de la tienda): orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
 - [ ] P3 **CU17 / RF-028 Sesión offline con PIN**: PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
 - [ ] P4 **RF-026 / CU15 Carrito offline**: conservar el carrito sin conexión (también tras cerrar la app) y convertirlo en orden con pago diferido (enlaza con P2)
 
@@ -478,6 +504,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [ ] 4.2 Persistencia tras cerrar la app: reservas pendientes siguen en SQLite y se envían al reabrir
 - [ ] 4.3 Voz en el móvil con `expo-speech-recognition` (Fase 3, versión clienta): búsqueda de productos por voz o asistente de compra; los reportes del administrador quedan en la web
 - [ ] 4.4 Ajustes visuales de la app (detalles de pantallas pendientes)
+- [ ] 4.6 Moneda de la tienda en la app (hoy muestra "Bs" fijo): leerla de `/saas/tiendas/:slug` como la web (§4.4.1)
 - [ ] 4.5 Build nuevo (EAS / APK) apuntando a Render una vez que producción tenga `/sync`; verificar que la app ya instalada (tokens sin `tid`) siga entrando como Empresa A
 
 ### Fase 5 — Pruebas y cierre (antes de la defensa)
@@ -527,7 +554,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 101 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 116 pruebas en verde (aislamiento + planes + SaaS público + moneda + cobro de suscripción + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -579,3 +606,5 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-07 | v1.13: **tarea 3.4b**. Reentrenamiento nocturno (`MlScheduler`, `@nestjs/schedule` 12.0.2), entrenamiento automático la primera vez y botón "Actualizar análisis" solo para ADMIN (bloqueo 409). Anomalías con IsolationForest + anomalías simuladas para medir precisión/recall; limpieza de atípicos antes de entrenar la demanda. Pestañas *Análisis predictivo* y *Descubrir patrones* con avisos del CU12 y "Calidad del modelo" plegable | pytest 13/13 (anomalías simuladas fuera de festivos y de la prueba, recall ≥ 0,66 y precisión ≥ 0,5, filtro por sucursal, atípicos excluidos). Unitarias +5 (cron: listado en modo plataforma, cada empresa en su contexto, sigue si una falla, sin corridas dobles, `ML_CRON=off`; bloqueo 409). E2E ML 11/11 (+2: anomalías y 409). Playwright: Básico bloqueado; primer ingreso entrena solo; avisos de historial y R² bajo con Urban Step; 8 semanas; segmentos y 4 semanas atípicas; "Actualizar análisis" reentrena; encargado sin botón; encargado de sucursal sin pestañas ML; sin desborde a 390 px |
 | 2026-11-07 | v1.14: **tarea 3.4c**. Dos herramientas nuevas del arnés: `devoluciones_y_cambios_por_producto` (vendidas, devueltas, cambiadas y sus tasas por prenda; filtro de categoría y límite) y `motivos_devolucion_y_cambio` (motivos agrupados; tipo devoluciones/cambios/ambos). Gráfico de varias series (barras agrupadas con leyenda). Exportación profesional: **PDF** con encabezado de marca, metadatos (empresa, usuario y rol, fecha y hora, pregunta, filtros), resumen de la IA, gráfico embebido, tabla y pie con número de página; **Excel** con `exceljs` 4.4.0 (hoja *Reporte* con metadatos, formatos numéricos reales Bs/unidades/% , autofiltro y gráfico como imagen; hoja *Datos* con la tabla cruda) | E2E 90/90 (+3: totales iguales a `/reports/kpis`, motivos de cambio = cambios de los KPIs, tipo inválido rechazado, encargado = admin filtrado a su sucursal). Unitarias 166 (+3 reglas del simulado). Playwright: 3 reportes exportados; PDF ~30 KB con gráfico (se corrigió que tomaba el ícono de la leyenda y se activó compresión); Excel con imagen en `xl/media` y formatos revisados |
 | 2026-11-07 | v1.15: orden acordado — el **despliegue (3.5) pasa al final**, cuando backend y frontend estén terminados; antes se completan P1–P4 y los detalles visuales. **P1 traspasos entre sucursales (CU14)**: módulo `backend/src/transfers/`, migración `1780000000007-AddTraspasos` (RLS), estados En tránsito / Recibido / Recibido con merma / Rechazado / Cancelado, movimientos `TRASPASO_*`, aviso push al destino; sección web **Traspasos** (ver §6.6) | E2E 101/101 (11 nuevas en `tenant-transfers`: stock por sucursal y orígenes permitidos, stock insuficiente con detalle, datos inválidos y de otra empresa, permisos de encargado y cajero, envío, recepción parcial con motivo obligatorio, recepción total y rechazo, cancelación, dos recepciones simultáneas → 201 + 409, movimientos de inventario, aislamiento con Empresa A; la prueba restaura el stock y cancela lo que deja en tránsito). Migración up/down/up y esquema = entidades. Unitarias 166. Playwright: encargado de Centro envía, admin recibe con merma (botón bloqueado sin motivo), aviso de resultado, historial con detalle, 390 px sin desborde |
+| 2026-11-07 | v1.16: **moneda**. Decisión: planes del SaaS en **USD** (Básico 19, Profesional 49, Empresarial 119) y cada tienda vende en **su moneda** (`empresa.moneda`, por defecto BOB). Empresarial pasa a ser el plan más completo con la feature `pagosOnline` (Stripe, P2). Migración `1780000000008`; selector de moneda al contratar y en **Mi plan** (solo ADMIN, avisa que no convierte precios); `/auth/profile` devuelve la empresa para que la moneda sobreviva a recargar la página; `formatMoney()` único en la web. Mi plan muestra los últimos 10 del historial con "Ver todo" (ver §4.4.1) | E2E 106/106 (5 nuevas en `tenant-moneda`: planes en USD y `pagosOnline` solo Empresarial, catálogo de monedas, registro en CLP visible en sesión / `/tenant/me` / tienda pública, moneda inválida 400, reportes con IA con columnas en `$` y `US$`, solo el ADMIN cambia la moneda, perfil tras recargar, otras tiendas siguen en BOB). Migración up/down/up y esquema = entidades. Unitarias 166. Playwright: landing en US$, selector al contratar, Urban Step a USD → KPIs y tienda online en US$ → vuelta a Bs |
+| 2026-11-07 | v1.17: **pago de la suscripción con Stripe Checkout** (los 3 planes, USD). Decisiones: los medios de pago de la tienda van en **todos** los planes y lo exclusivo de Empresarial es el **pago diferido offline** (`pagosOnline`); el registro crea la empresa sin plan y la lleva a pagar; el plan se activa solo con el **webhook firmado** (idempotente, filtra `metadata.app=fashionstore` porque la cuenta de prueba es compartida); renovar suma meses al vencimiento; pasarela simulada sin claves. SDK `stripe` 22.6.2 (fijado). Migración `1780000000009` (ver §4.4.2) | E2E 116/116 (10 nuevas en `tenant-billing`: pago pendiente al registrarse y solo lectura, pagar activa y es idempotente, renovar suma meses y cambiar empieza hoy, cancelar, permisos y otra empresa, webhook sin firma/firma falsa → 400, eventos de otro proyecto ignorados, monto alterado no activa, aviso repetido → ya_procesado, sesión expirada → EXPIRADO, tienda vencida paga y vuelve a operar; se adaptaron registro, moneda y planes). Unitarias 169 (+3: parámetros de la sesión de Stripe con cliente simulado). Migración up/down/up y esquema = entidades. Playwright: contratar → pago simulado (tarjeta rechazada bloquea) → éxito con plan activo → Mi plan: Empresarial 3 meses US$ 357 → cancelar → tabla de Pagos |

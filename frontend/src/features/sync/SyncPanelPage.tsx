@@ -9,6 +9,7 @@ import { queryKeys } from '../../api/queryKeys'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './SyncPanel.module.css'
+import { formatMoney } from '../../utils/money'
 
 const CONFLICTO: Record<TipoConflicto, string> = {
   STOCK: 'Faltó stock',
@@ -87,7 +88,7 @@ function Operacion({ op, nombres, onResuelta }: { op: OperacionPanel; nombres: M
     {op.motivo && <p className={`${styles.reason} ${op.estado === 'RECHAZADA' ? styles.reasonBad : ''}`}>{op.motivo}</p>}
     {op.detalle?.items.length ? <ul className={styles.items}>{op.detalle.items.map(i => <li key={i.idVariante}>
       <span>{i.cantidad} × {nombres.get(i.idVariante) ?? `variante #${i.idVariante}`}</span>
-      {i.precioLocal !== undefined && <small>cobrado Bs {Number(i.precioLocal).toFixed(2)}{i.precioServidor !== undefined ? ` · vigente Bs ${Number(i.precioServidor).toFixed(2)}` : ''}</small>}
+      {i.precioLocal !== undefined && <small>cobrado {formatMoney(i.precioLocal)}{i.precioServidor !== undefined ? ` · vigente ${formatMoney(i.precioServidor)}` : ''}</small>}
       {i.faltante ? <small>faltante: {i.faltante}</small> : null}
     </li>)}</ul> : null}
     {op.detalle?.alternativas?.length ? <p className={styles.meta}>Alternativas ofrecidas: {[...new Set(op.detalle.alternativas.map(a => `${a.sucursal} (${a.stock})`))].join(', ')}</p> : null}

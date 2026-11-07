@@ -13,6 +13,7 @@ import type { CreateInventarioRequest } from '../../types/inventory'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './CatalogManagement.module.css'
+import { formatMoney } from '../../utils/money'
 
 export default function CatalogManagement() {
   const { user } = useAuth()
@@ -138,5 +139,5 @@ function tryOnFields(data: FormData, editing: Producto | null) {
 function clearableUrl(data: FormData, key: string, previous?: string | null) { const value = String(data.get(key) ?? '').trim(); return value || (previous ? '' : undefined) }
 function optional(data: FormData, key: string) { const value = String(data.get(key) ?? '').trim(); return value || undefined }
 function optionalNumber(data: FormData, key: string) { const value = String(data.get(key) ?? '').trim(); return value ? Number(value) : undefined }
-function money(value: number | string | null | undefined) { const number = Number(value); return value !== null && value !== undefined && Number.isFinite(number) ? `Bs ${number.toFixed(2)}` : '—' }
+function money(value: number | string | null | undefined) { const number = Number(value); return value !== null && value !== undefined && Number.isFinite(number) ? formatMoney(number) : '—' }
 function uniqueBranches(items: import('../../types/branch').Sucursal[]) { return [...new Map(items.map(item => [item.idSucursal,item])).values()] }

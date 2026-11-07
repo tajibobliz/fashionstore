@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable'
 import type { ReporteIa } from '../../api/aiReports.api'
 import { esNumerica, formatear, nombreArchivo, valorPlano } from './formato'
 import type { ImagenGrafico } from './imagenGrafico'
+import { excelMoneyFormat } from '../../utils/money'
 
 /**
  * Exportación "con formato profesional" (CU11 / RF-017): cada archivo lleva los metadatos
@@ -127,7 +128,7 @@ export async function exportarExcel({ reporte, consulta, narrativa, meta, grafic
   wb.creator = `${meta.usuario} · ${meta.empresa}`
   wb.created = new Date()
 
-  const formatos: Record<string, string> = { moneda: '"Bs" #,##0.00', numero: '#,##0', porcentaje: '0.0" %"' }
+  const formatos: Record<string, string> = { moneda: excelMoneyFormat(reporte.moneda), numero: '#,##0', porcentaje: '0.0" %"' }
   const marca = 'FFAD3E68'
   const columnas = reporte.columnas
   const filas = reporte.filas.map(f => columnas.map(c => valorPlano(f[c.clave], c, reporte)))

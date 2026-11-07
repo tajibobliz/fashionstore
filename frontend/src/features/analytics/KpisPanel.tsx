@@ -9,8 +9,8 @@ import { CHART_PRIMARY } from '../reports/charts/colors'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import { useKpis } from './useKpis'
 import styles from './Analytics.module.css'
+import { formatMoney, simboloMoneda } from '../../utils/money'
 
-const bs = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const entero = new Intl.NumberFormat('es-BO')
 const hora = new Intl.DateTimeFormat('es-BO', { dateStyle: 'short', timeStyle: 'short' })
 const fechaCorta = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`
@@ -76,13 +76,13 @@ function Contenido({ d, ir }: { d: Kpis; ir: (s: string) => string | null }) {
   return (
     <>
       <div className={styles.kpiGrid}>
-        <Tarjeta icon={ShoppingBag} titulo="Ventas de hoy" valor={`Bs ${bs.format(d.ventasHoy.monto)}`}
-          detalle={`${d.ventasHoy.cantidad} ventas · ayer Bs ${bs.format(d.ventasHoy.ayer)}`} to={ir('reportes')} />
-        <Tarjeta icon={Wallet} titulo="Ventas del mes" valor={`Bs ${bs.format(d.ventasMes.monto)}`}
+        <Tarjeta icon={ShoppingBag} titulo="Ventas de hoy" valor={`${formatMoney(d.ventasHoy.monto)}`}
+          detalle={`${d.ventasHoy.cantidad} ventas · ayer ${formatMoney(d.ventasHoy.ayer)}`} to={ir('reportes')} />
+        <Tarjeta icon={Wallet} titulo="Ventas del mes" valor={`${formatMoney(d.ventasMes.monto)}`}
           detalle={`${d.ventasMes.cantidad} ventas · ${entero.format(d.ventasMes.unidades)} unidades`}
           variacion={d.ventasMes.variacion} variacionTexto="vs. mismo periodo del mes anterior" to={ir('reportes')} />
-        <Tarjeta icon={ShoppingBag} titulo="Ticket promedio del mes" valor={`Bs ${bs.format(d.ventasMes.ticketPromedio)}`}
-          detalle={`Presencial Bs ${bs.format(d.ventasMes.presencial)} · Digital Bs ${bs.format(d.ventasMes.digital)}`} />
+        <Tarjeta icon={ShoppingBag} titulo="Ticket promedio del mes" valor={`${formatMoney(d.ventasMes.ticketPromedio)}`}
+          detalle={`Presencial ${formatMoney(d.ventasMes.presencial)} · Digital ${formatMoney(d.ventasMes.digital)}`} />
         <Tarjeta icon={Package} titulo="Stock crítico" valor={entero.format(d.stockCritico.variantes)}
           detalle={`variantes con ≤ ${d.stockCritico.umbral} unidades · ${d.stockCritico.agotadas} agotadas`}
           alerta={d.stockCritico.agotadas > 0} to={ir('inventario')} />
@@ -110,9 +110,9 @@ function Contenido({ d, ir }: { d: Kpis; ir: (s: string) => string | null }) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee5e9" vertical={false} />
             <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{ fontSize: 11 }} minTickGap={18} />
-            <YAxis tickFormatter={(v: number) => `Bs ${entero.format(v)}`} width={86} tick={{ fontSize: 11 }} />
+            <YAxis tickFormatter={(v: number) => `${simboloMoneda()} ${entero.format(v)}`} width={86} tick={{ fontSize: 11 }} />
             <Tooltip labelFormatter={(f: unknown) => `Día ${String(f).split('-').reverse().join('/')}`}
-              formatter={(v: unknown, n: unknown) => (n === 'monto' ? [`Bs ${bs.format(Number(v))}`, 'Vendido'] : [String(v), String(n)])} />
+              formatter={(v: unknown, n: unknown) => (n === 'monto' ? [`${formatMoney(Number(v))}`, 'Vendido'] : [String(v), String(n)])} />
             <Area type="linear" dataKey="monto" stroke={CHART_PRIMARY} strokeWidth={2} fill="url(#kpiArea)" />
           </AreaChart>
         </ResponsiveContainer>
@@ -137,7 +137,7 @@ function Contenido({ d, ir }: { d: Kpis; ir: (s: string) => string | null }) {
                 <h3>{sucursal}</h3>
                 <ol>
                   {filas.map(f => (
-                    <li key={f.producto}><span>{f.producto}</span><strong>{f.unidades} u.</strong><small>Bs {bs.format(f.monto)}</small></li>
+                    <li key={f.producto}><span>{f.producto}</span><strong>{f.unidades} u.</strong><small>{formatMoney(f.monto)}</small></li>
                   ))}
                 </ol>
               </div>

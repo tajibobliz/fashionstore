@@ -1,3 +1,4 @@
+import { formatearMonto } from '../common/monedas';
 import {
   BadRequestException,
   ForbiddenException,
@@ -312,8 +313,11 @@ export class ExchangesService {
         );
       }
       if (diferencia > 0 && !dto.metodoPagoDiferencia) {
+        const empresa = await this.empresas.findOne({
+          where: { idEmpresa: venta.idEmpresa },
+        });
         throw new BadRequestException(
-          `La prenda nueva cuesta Bs ${diferencia.toFixed(2)} más: indica cómo paga la clienta la diferencia`,
+          `La prenda nueva cuesta ${formatearMonto(diferencia, empresa?.moneda)} más: indica cómo paga la clienta la diferencia`,
         );
       }
 

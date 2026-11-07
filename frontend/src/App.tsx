@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import Home from './pages/home/Home'
 import SaasLanding from './pages/saas/SaasLanding'
 import ContratarPlan from './pages/saas/ContratarPlan'
+import { PagoCancelado, PagoExito, PagoSimulado } from './pages/saas/PagoPages'
 import PlatformPanel from './pages/platform/PlatformPanel'
 import StoreScope from './features/store/StoreScope'
 import StoreHome from './pages/store/StoreHome'
@@ -46,6 +47,12 @@ export default function App() {
  </Route>
  <Route path="/vestidor/:productoId" element={<Suspense fallback={<main className="session-loading">Cargando vestidor…</main>}><VestidorVirtual /></Suspense>} />
  {/* Panel del SUPER_ADMIN (administración de la plataforma SaaS). */}
+ {/* Pago de la suscripción: vuelta desde Stripe (o la pasarela simulada). Solo el administrador. */}
+ <Route element={<ProtectedRoute roles={['ADMIN']} />}>
+ <Route path="/pago/exito" element={<PagoExito />} />
+ <Route path="/pago/cancelado" element={<PagoCancelado />} />
+ <Route path="/pago/simulado" element={<PagoSimulado />} />
+ </Route>
  <Route element={<ProtectedRoute roles={['SUPER_ADMIN']} />}>
  <Route path="/plataforma" element={<Navigate to="/plataforma/empresas" replace />} />
  <Route path="/plataforma/:tab" element={<PlatformPanel />} />

@@ -12,6 +12,7 @@ import { TopProductsChart } from './charts/TopProductsChart'
 import { SalesByBranchChart } from './charts/SalesByBranchChart'
 import { buildExcelReport } from './export/buildExcelReport'
 import { buildPdfReport } from './export/buildPdfReport'
+import { formatMoney } from '../../utils/money'
 
 type Rango = 'hoy' | '7d' | '30d' | 'anio'
 const RANGOS: { id: Rango; label: string }[] = [
@@ -34,7 +35,7 @@ function rangoAFechas(rango: Rango): { desde: string; hasta: string } {
 }
 
 function money(value: number | undefined) {
-  return `Bs ${Number(value ?? 0).toFixed(2)}`
+  return formatMoney(value ?? 0)
 }
 
 export default function ReportsPage() {

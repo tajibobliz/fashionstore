@@ -44,6 +44,9 @@ export async function assertRlsApplies() {
   }
 }
 
+/** Secreto con el que las pruebas firman webhooks de Stripe (no es una clave real). */
+export const WEBHOOK_SECRET_E2E = 'whsec_e2e_fashionstore_pruebas';
+
 export async function startBackend(): Promise<Backend> {
   const port = 3100 + Math.floor(Math.random() * 800);
   const base = `http://localhost:${port}`;
@@ -51,7 +54,15 @@ export async function startBackend(): Promise<Backend> {
     process.execPath,
     [join(__dirname, '..', '..', 'dist', 'main.js')],
     {
-      env: { ...process.env, PORT: String(port) },
+      // Las pruebas nunca cobran de verdad: pasarela simulada y un secreto de webhook propio
+      // (aunque el .env tenga claves reales de Stripe).
+      env: {
+        ...process.env,
+        PORT: String(port),
+        BILLING_PROVIDER: 'simulado',
+        STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET_E2E,
+        APP_URL: 'http://localhost:5173',
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );

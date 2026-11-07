@@ -1,3 +1,4 @@
+import { moneda } from '../../common/monedas';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -56,6 +57,8 @@ export interface ReporteGenerado {
   filtros: Record<string, string>;
   /** Totales que la narrativa puede citar (calculados por el backend, no por el modelo). */
   resumen: Record<string, number>;
+  /** Moneda de los montos (la de la empresa, ISO 4217). */
+  moneda: string;
 }
 
 /** Contexto que pone el backend; el modelo no lo puede cambiar. */
@@ -65,6 +68,8 @@ export interface ContextoHerramientas {
   sucursales: { idSucursal: number; nombre: string }[];
   /** Fecha de hoy en la zona horaria de la empresa, YYYY-MM-DD. */
   hoy: string;
+  /** Moneda de la empresa (ISO 4217): las columnas de montos llevan su símbolo. */
+  moneda: string;
 }
 
 export class ErrorHerramienta extends Error {}
@@ -279,7 +284,18 @@ export class ReportToolsService {
     return dto as T;
   }
 
+  /** Ejecuta la herramienta y pone la moneda de la empresa en el reporte y en las columnas de montos. */
   async ejecutar(nombre: string, entrada: unknown, ctx: ContextoHerramientas): Promise<ReporteGenerado> {
+    const r = await this.despachar(nombre, entrada, ctx);
+    const { simbolo } = moneda(ctx.moneda);
+    return {
+      ...r,
+      moneda: ctx.moneda,
+      columnas: r.columnas.map((c) => (c.formato === 'moneda' ? { ...c, etiqueta: `${c.etiqueta} (${simbolo})` } : c)),
+    };
+  }
+
+  private async despachar(nombre: string, entrada: unknown, ctx: ContextoHerramientas): Promise<ReporteGenerado> {
     if (!CLASES[nombre])
       throw new ErrorHerramienta(`La herramienta "${nombre}" no existe. Usa una de: ${NOMBRES_HERRAMIENTAS.join(', ')}.`);
     switch (nombre) {
@@ -308,7 +324,7 @@ export class ReportToolsService {
       { clave: 'periodo', etiqueta: ETIQUETA_AGRUPAR[agrupar], formato: 'fecha' },
       { clave: 'cantidadVentas', etiqueta: 'Ventas', formato: 'numero' },
       { clave: 'unidadesVendidas', etiqueta: 'Unidades', formato: 'numero' },
-      { clave: 'totalVendido', etiqueta: 'Total (Bs)', formato: 'moneda' },
+      { clave: 'totalVendido', etiqueta: 'Total', formato: 'moneda' },
     ], filas, { tipo: 'linea', x: 'periodo', y: ['totalVendido'] }, filtros, this.sumas(filas, ['totalVendido', 'cantidadVentas', 'unidadesVendidas']));
   }
 
@@ -322,7 +338,7 @@ export class ReportToolsService {
       { clave: 'sucursal', etiqueta: 'Sucursal', formato: 'texto' },
       { clave: 'cantidadVentas', etiqueta: 'Ventas', formato: 'numero' },
       { clave: 'unidadesVendidas', etiqueta: 'Unidades', formato: 'numero' },
-      { clave: 'totalVendido', etiqueta: 'Total (Bs)', formato: 'moneda' },
+      { clave: 'totalVendido', etiqueta: 'Total', formato: 'moneda' },
     ], filas, { tipo: 'barras', x: 'sucursal', y: ['totalVendido'] }, filtros, this.sumas(filas, ['totalVendido', 'cantidadVentas', 'unidadesVendidas']));
   }
 
@@ -339,7 +355,7 @@ export class ReportToolsService {
       { clave: 'producto', etiqueta: 'Producto', formato: 'texto' },
       { clave: 'categoria', etiqueta: 'Categoría', formato: 'texto' },
       { clave: 'cantidadVendida', etiqueta: 'Unidades', formato: 'numero' },
-      { clave: 'totalGenerado', etiqueta: 'Ingreso (Bs)', formato: 'moneda' },
+      { clave: 'totalGenerado', etiqueta: 'Ingreso', formato: 'moneda' },
     ], filas, { tipo: 'barras', x: 'producto', y: ['cantidadVendida'] }, filtros, this.sumas(filas, ['cantidadVendida', 'totalGenerado']));
   }
 
@@ -352,7 +368,7 @@ export class ReportToolsService {
       { clave: 'categoria', etiqueta: 'Categoría', formato: 'texto' },
       { clave: 'cantidadVentas', etiqueta: 'Ventas', formato: 'numero' },
       { clave: 'unidadesVendidas', etiqueta: 'Unidades', formato: 'numero' },
-      { clave: 'totalVendido', etiqueta: 'Total (Bs)', formato: 'moneda' },
+      { clave: 'totalVendido', etiqueta: 'Total', formato: 'moneda' },
     ], filas, { tipo: 'torta', x: 'categoria', y: ['totalVendido'] }, filtros, this.sumas(filas, ['totalVendido', 'unidadesVendidas']));
   }
 
@@ -400,7 +416,7 @@ export class ReportToolsService {
     return this.reporte('ventas_por_metodo_pago', 'Cobros por método de pago', [
       { clave: 'metodo', etiqueta: 'Método', formato: 'texto' },
       { clave: 'cantidad', etiqueta: 'Pagos', formato: 'numero' },
-      { clave: 'monto', etiqueta: 'Monto (Bs)', formato: 'moneda' },
+      { clave: 'monto', etiqueta: 'Monto', formato: 'moneda' },
     ], filas, { tipo: 'torta', x: 'metodo', y: ['monto'] }, filtros, this.sumas(filas, ['monto', 'cantidad']));
   }
 
@@ -448,7 +464,7 @@ export class ReportToolsService {
     herramienta: string, titulo: string, columnas: ColumnaReporte[], filas: Record<string, any>[],
     grafico: GraficoReporte | null, filtros: Record<string, string>, resumen: Record<string, number>,
   ): ReporteGenerado {
-    return { herramienta, titulo, columnas, filas, grafico: filas.length ? grafico : null, filtros, resumen };
+    return { herramienta, titulo, columnas, filas, grafico: filas.length ? grafico : null, filtros, resumen, moneda: '' };
   }
 
   private sumas(filas: Record<string, any>[], claves: string[]) {

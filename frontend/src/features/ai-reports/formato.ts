@@ -1,10 +1,10 @@
 import type { Celda, ColumnaReporte, ReporteIa } from '../../api/aiReports.api'
 import { CHART_PRIMARY } from '../reports/charts/colors'
+import { formatMoney } from '../../utils/money'
 
 /** Colores de las series cuando el gráfico compara varias medidas (p. ej. devueltas vs. cambiadas). */
 export const COLORES_SERIES = [CHART_PRIMARY, '#2563eb', '#d97706']
 
-const moneda = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const numero = new Intl.NumberFormat('es-BO')
 const porcentaje = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const mes = new Intl.DateTimeFormat('es-BO', { month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -20,7 +20,7 @@ function fecha(valor: string, porMes: boolean) {
 export function formatear(valor: Celda, col: ColumnaReporte, reporte: ReporteIa): string {
   if (valor === null || valor === undefined || valor === '') return '—'
   switch (col.formato) {
-    case 'moneda': return `Bs ${moneda.format(Number(valor))}`
+    case 'moneda': return formatMoney(Number(valor), reporte.moneda)
     case 'numero': return numero.format(Number(valor))
     case 'porcentaje': return `${porcentaje.format(Number(valor))} %`
     case 'fecha': return fecha(String(valor), reporte.filtros['Agrupado por'] === 'mes')

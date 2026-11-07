@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { montosParaVoz } from '../../utils/money'
 
 /**
  * Voz con las APIs del navegador (sin costo ni servidor):
@@ -90,7 +91,7 @@ export function useLectura() {
   const leer = useCallback((texto: string) => {
     if (!soportado || !texto) return
     window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(texto.replace(/Bs\.?\s?(\d[\d.,]*\d)/g, '$1 bolivianos'))
+    const u = new SpeechSynthesisUtterance(montosParaVoz(texto))
     u.lang = 'es-ES'
     const voz = window.speechSynthesis.getVoices().find(v => v.lang.startsWith('es'))
     if (voz) u.voice = voz

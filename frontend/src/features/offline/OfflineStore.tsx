@@ -7,6 +7,7 @@ import { Brand } from '../../components/common/Brand'
 import { useCatalogosEmpresa, descontarStockLocal } from '../../offline/catalog'
 import { encolar } from '../../offline/queue'
 import styles from './Offline.module.css'
+import { formatMoney } from '../../utils/money'
 
 const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -63,7 +64,7 @@ export default function OfflineStore() {
             {mensaje && <p className={styles.feedback} role="status">{mensaje}</p>}
             <div className={styles.grid}>{catalogo.productos.map(p => <article className={styles.card} key={p.idProducto}>
               <div><p>{p.categoria ?? 'Moda'}</p><h2>{p.nombre}</h2></div>
-              <span className={styles.price}>Bs {p.precioFinal.toFixed(2)}</span>
+              <span className={styles.price}>{formatMoney(p.precioFinal)}</span>
               <div className={styles.variants}>{p.variantes.map(v => {
                 const detalle = [v.talla ?? 'Única', v.color].filter(Boolean).join(' / ')
                 return <div className={styles.variant} key={v.idVariante}>

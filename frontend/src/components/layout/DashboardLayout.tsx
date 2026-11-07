@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut, Home } from 'lucide-react'
 import { Brand } from '../common/Brand'
 import { useAuth } from '../../hooks/useAuth'
+import { monedaActual } from '../../utils/money'
 import { dashboardConfig } from '../../features/dashboard/config'
 import type { DashboardRole } from '../../features/dashboard/config'
 import styles from './DashboardLayout.module.css'
@@ -14,6 +15,8 @@ import { syncApi } from '../../api/sync.api'
 export default function DashboardLayout({ role }: { role: DashboardRole }) {
  const [open, setOpen] = useState(false)
  const { user, logout } = useAuth()
+ // Todos los montos del panel salen en la moneda de la empresa del usuario.
+ monedaActual.set(user?.empresa?.moneda)
  const navigate = useNavigate()
  const config = dashboardConfig[role]
  const plan = usePlan()

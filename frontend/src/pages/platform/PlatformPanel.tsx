@@ -265,7 +265,7 @@ function PlanEditor({ plan }: { plan: PlanAdmin }) {
     <div className={styles.planTop}><h2>{plan.nombre}</h2><span className={styles.code}>{plan.codigo}</span></div>
     <label>Sucursales activas<input type="number" min={0} value={v.maxSucursales} placeholder="Ilimitado" onChange={e => cambiar({ maxSucursales: e.target.value })} /></label>
     <label>Empleados activos<input type="number" min={0} value={v.maxUsuarios} placeholder="Ilimitado" onChange={e => cambiar({ maxUsuarios: e.target.value })} /></label>
-    <label>Precio referencial (Bs/mes)<input type="number" min={0} step="1" value={v.precio} onChange={e => cambiar({ precio: e.target.value })} /></label>
+    <label>Precio referencial (USD/mes)<input type="number" min={0} step="1" value={v.precio} onChange={e => cambiar({ precio: e.target.value })} /></label>
     <label className={styles.check}><input type="checkbox" checked={v.aiReports} onChange={e => cambiar({ aiReports: e.target.checked })} /> Reportes con IA y por voz</label>
     <label className={styles.check}><input type="checkbox" checked={v.ml} onChange={e => cambiar({ ml: e.target.checked })} /> Analítica con Machine Learning</label>
     <label className={styles.check}><input type="checkbox" checked={v.activo} onChange={e => cambiar({ activo: e.target.checked })} /> Disponible para contratar</label>

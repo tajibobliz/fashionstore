@@ -25,11 +25,12 @@ import { storeScope } from '../features/store/currentStore'
 import { useOnline } from '../offline/network'
 import OfflineStore from '../features/offline/OfflineStore'
 import { usePrepararTiendaOffline } from '../features/offline/usePrepararTiendaOffline'
+import { formatMoney } from '../utils/money'
 
 /** La sucursal elegida se recuerda por tienda: una sucursal de otra empresa no aplica aquí. */
 const branchStorageKey = () => `fashionstore.cart_branch_id${storeScope.get() ? `.${storeScope.get()}` : ''}`
 
-const money = (value: number | string) => Number(value).toLocaleString('es-BO', { style: 'currency', currency: 'BOB' })
+const money = (value: number | string) => formatMoney(value)
 const formatPurchaseDate = (value: string) => new Intl.DateTimeFormat('es-BO', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value))
 const purchaseStatusClass = (estado?: string) => estado === 'PAGADA' ? 'status-badge--completed' : estado === 'CANCELADA' ? 'status-badge--cancelled' : estado === 'PENDIENTE' ? 'status-badge--pending' : 'status-badge--neutral'
 type View = 'catalog' | 'detail' | 'cart' | 'reservations' | 'checkout' | 'sale' | 'payment' | 'purchases'

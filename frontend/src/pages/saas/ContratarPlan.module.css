@@ -36,8 +36,8 @@
 .planMeta { font-size: 13px; color: var(--ink-2); }
 .planOptActive .planMeta { color: #dbe5ff; }
 .field { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
-.field input { font: inherit; font-weight: 400; font-size: 15px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--rule); background: #fff; color: var(--ink); min-height: 44px; }
-.field input:disabled { background: var(--muted); }
+.field input, .field select { font: inherit; font-weight: 400; font-size: 15px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--rule); background: #fff; color: var(--ink); min-height: 44px; }
+.field input:disabled, .field select:disabled { background: var(--muted); }
 .field input[aria-invalid='true'] { border-color: #c0392b; }
 .slugBox { display: flex; align-items: stretch; }
 .slugPrefix { display: grid; place-items: center; padding: 0 10px; border: 1px solid var(--rule); border-right: 0; border-radius: 8px 0 0 8px; background: var(--muted); color: var(--ink-2); font-weight: 400; }

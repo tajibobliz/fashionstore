@@ -30,7 +30,7 @@ import { SaasController } from './saas.controller';
     { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor },
   ],
   controllers: [PlatformController, TenantController, SaasController],
-  exports: [TypeOrmModule, TenantResolverService, PlanService],
+  exports: [TypeOrmModule, TenantResolverService, PlanService, SubscriptionsService],
 })
 export class TenancyModule implements OnModuleInit {
   private readonly logger = new Logger('TenancyModule');

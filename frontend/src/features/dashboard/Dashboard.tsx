@@ -22,9 +22,10 @@ import TransfersPage from '../transfers/TransfersPage'
 import ExchangesPage from '../exchanges/ExchangesPage'
 import AiReportsPage from '../ai-reports/AiReportsPage'
 import AnalyticsPage from '../analytics/AnalyticsPage'
+import { simboloMoneda } from '../../utils/money'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
- catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
+ catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio ({moneda})', path: 'precio' }, { title: 'Estado', path: 'estado' }],
  sucursales: [{ title: 'Sucursal', path: 'nombre' }, { title: 'Ciudad', path: 'ciudad.nombre' }, { title: 'Dirección', path: 'direccion' }, { title: 'Teléfono', path: 'telefono' }],
  inventario: [{ title: 'Prenda', path: 'variante.producto.nombre' }, { title: 'SKU', path: 'variante.sku' }, { title: 'Sucursal', path: 'sucursal.nombre' }, { title: 'Talla', path: 'variante.talla.nombre' }, { title: 'Color', path: 'variante.color.nombre' }, { title: 'Disponible', path: 'stockDisponible' }, { title: 'Reservado', path: 'stockReservado' }],
  usuarios: [{ title: 'Nombre', path: 'nombre' }, { title: 'Correo', path: 'email' }, { title: 'Rol', path: 'rol.nombre' }, { title: 'Estado', path: 'estado' }],
@@ -54,7 +55,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  const empresa = usePlan().data?.empresa.nombre ?? 'Fashionstore'
  const resource = section as Resource
  const rows = data[resource] || []
- const tableColumns = columns[resource] || []
+ const tableColumns = (columns[resource] || []).map(c => ({ ...c, title: c.title.replace('{moneda}', simboloMoneda()) }))
  const filtered = rows.filter(row => tableColumns.some(column => read(row, column.path).toLocaleLowerCase().includes(search.toLocaleLowerCase())))
  const base = `/dashboard/${config.slug}`
  if (!current) return <section className={styles.panel}><h1>Sección no encontrada</h1><Link to={base}>Volver al dashboard</Link></section>

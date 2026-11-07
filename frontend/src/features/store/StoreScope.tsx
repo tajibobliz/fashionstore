@@ -5,6 +5,7 @@ import { saasApi } from '../../api/saas.api'
 import { useAuth } from '../../hooks/useAuth'
 import { DEFAULT_STORE, StoreContext } from './storeContext'
 import { storeScope } from './currentStore'
+import { monedaActual } from '../../utils/money'
 
 /**
  * Envuelve las rutas de la tienda online. Con `:slug` en la URL, todo lo de adentro
@@ -30,6 +31,8 @@ export default function StoreScope() {
   storeScope.set(slug ?? null)
   const { user } = useAuth()
   const tienda = useQuery({ queryKey: ['saas', 'tienda', slug], queryFn: () => tiendaConCache(slug!), enabled: !!slug, staleTime: 5 * 60_000, retry: false, networkMode: 'always' })
+  // Los precios se muestran en la moneda de la tienda que se visita (no en la de quien mira).
+  monedaActual.set(slug ? tienda.data?.moneda : user?.empresa?.moneda)
 
   if (!slug) return <StoreContext.Provider value={DEFAULT_STORE}><Outlet /></StoreContext.Provider>
   if (tienda.isLoading) return <main className="session-loading" role="status">Cargando tienda…</main>

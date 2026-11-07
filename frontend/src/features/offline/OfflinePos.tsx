@@ -7,12 +7,12 @@ import { turnoLocal } from '../../offline/turno'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import posStyles from '../pos/PosPage.module.css'
 import styles from './Offline.module.css'
+import { formatMoney, moneda } from '../../utils/money'
 
 type Metodo = 'EFECTIVO' | 'QR' | 'TARJETA' | 'TRANSFERENCIA'
 interface Linea { idVariante: number; nombre: string; sku: string; detalle: string; precio: number; stock: number; cantidad: number }
 interface Guardada { codigo: string; total: number; recibido: number | null; lineas: Linea[]; metodo: Metodo }
 
-const money = (n: number) => n.toFixed(2)
 const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 /**
@@ -58,11 +58,11 @@ export default function OfflinePos() {
       <article className={posStyles.receipt}>
         <div className={posStyles.receiptHeader}><div><span>Venta guardada sin conexión</span><strong>Código {guardada.codigo}</strong></div><span className={posStyles.pending}>POR ENVIAR</span></div>
         <p>Se enviará al servidor al volver la conexión. Allí recibirá su número de comprobante definitivo.</p>
-        <div className={posStyles.receiptLines}>{guardada.lineas.map(l => <div key={l.idVariante}><span>{l.nombre} · {l.sku} · {l.cantidad} unidades</span><strong>Bs {money(l.precio * l.cantidad)}</strong></div>)}</div>
+        <div className={posStyles.receiptLines}>{guardada.lineas.map(l => <div key={l.idVariante}><span>{l.nombre} · {l.sku} · {l.cantidad} unidades</span><strong>{formatMoney(l.precio * l.cantidad)}</strong></div>)}</div>
         <div className={posStyles.receiptTotals}>
-          <p><span>Total</span><strong>Bs {money(guardada.total)}</strong></p>
+          <p><span>Total</span><strong>{formatMoney(guardada.total)}</strong></p>
           <p><span>Método</span><strong>{guardada.metodo}</strong></p>
-          {guardada.recibido !== null && <><p><span>Recibido</span><strong>Bs {money(guardada.recibido)}</strong></p><p><span>Cambio</span><strong>Bs {money(guardada.recibido - guardada.total)}</strong></p></>}
+          {guardada.recibido !== null && <><p><span>Recibido</span><strong>{formatMoney(guardada.recibido)}</strong></p><p><span>Cambio</span><strong>{formatMoney(guardada.recibido - guardada.total)}</strong></p></>}
         </div>
         <button className={posStyles.checkout} type="button" onClick={() => { setGuardada(null); setBuscar('') }}>Nueva venta</button>
       </article>
@@ -82,7 +82,7 @@ export default function OfflinePos() {
 
   async function guardar() {
     if (!user?.idEmpresa || !turno || !catalogo) return
-    if (metodo === 'EFECTIVO' && Number(recibido) < total) { setError(`El monto recibido debe cubrir Bs ${money(total)}.`); return }
+    if (metodo === 'EFECTIVO' && Number(recibido) < total) { setError(`El monto recibido debe cubrir ${formatMoney(total)}.`); return }
     setGuardando(true)
     setError('')
     try {
@@ -90,7 +90,7 @@ export default function OfflinePos() {
       const prendasTotal = carrito.reduce((t, l) => t + l.cantidad, 0)
       const op = await encolar({
         type: 'VENTA', idEmpresa: user.idEmpresa, idUsuario: user.idUsuario, idSucursal: turno.idSucursal,
-        resumen: `Venta · ${prendasTotal} ${prendasTotal === 1 ? 'prenda' : 'prendas'} · Bs ${money(total)}`,
+        resumen: `Venta · ${prendasTotal} ${prendasTotal === 1 ? 'prenda' : 'prendas'} · ${formatMoney(total)}`,
         payload: {
           idTurno: turno.idTurno, idCaja: turno.idCaja, modalidadComercial: 'MINORISTA',
           catalogoDescargadoEn: catalogo.serverTime, metodoPago: metodo,
@@ -126,7 +126,7 @@ export default function OfflinePos() {
               <p>{p.sku} · {p.detalle}</p>
               <p>Stock (última descarga): <strong>{p.stock}</strong></p>
               {p.stock === 1 && <p className={styles.lowStock}>Última unidad: confirma que la prenda está en tienda.</p>}
-              <p>Precio: Bs {money(p.precio)}</p>
+              <p>Precio: {formatMoney(p.precio)}</p>
             </div>
             <button type="button" disabled={p.stock <= enCarrito} onClick={() => agregar(p)}>{p.stock ? 'Agregar' : 'Sin stock'}</button>
           </article>
@@ -135,8 +135,8 @@ export default function OfflinePos() {
       <aside className={posStyles.summary}>
         <h2>Resumen de venta</h2>
         {carrito.length ? <div className={posStyles.cartList}>{carrito.map(l => <article className={posStyles.cartItem} key={l.idVariante}>
-          <div className={posStyles.cartItemHeader}><strong>{l.nombre}</strong><span>Bs {money(l.precio * l.cantidad)}</span></div>
-          <p>{l.sku} · {l.cantidad} × Bs {money(l.precio)}</p>
+          <div className={posStyles.cartItemHeader}><strong>{l.nombre}</strong><span>{formatMoney(l.precio * l.cantidad)}</span></div>
+          <p>{l.sku} · {l.cantidad} × {formatMoney(l.precio)}</p>
           <div className={posStyles.quantity}>
             <button type="button" aria-label={`Disminuir ${l.nombre}`} onClick={() => cambiar(l.idVariante, -1)} disabled={l.cantidad <= 1}>−</button>
             <span>{l.cantidad}</span>
@@ -144,18 +144,18 @@ export default function OfflinePos() {
             <button type="button" className={posStyles.remove} onClick={() => setCarrito(c => c.filter(x => x.idVariante !== l.idVariante))}>Eliminar</button>
           </div>
         </article>)}</div> : <p className={dashboardStyles.emptyState}>Todavía no agregaste productos.</p>}
-        <div className={posStyles.total}><strong>Total</strong><strong>Bs {money(total)}</strong></div>
-        <button className={posStyles.checkout} type="button" disabled={!carrito.length} onClick={() => { setRecibido(money(total)); setMetodo('EFECTIVO'); setReferencia(''); setError(''); setCobro(true) }}>Continuar al cobro</button>
+        <div className={posStyles.total}><strong>Total</strong><strong>{formatMoney(total)}</strong></div>
+        <button className={posStyles.checkout} type="button" disabled={!carrito.length} onClick={() => { setRecibido(total.toFixed(moneda().decimales)); setMetodo('EFECTIVO'); setReferencia(''); setError(''); setCobro(true) }}>Continuar al cobro</button>
         <p className={dashboardStyles.emptyState}>Modo sin conexión: solo venta minorista con los precios de la última descarga.</p>
       </aside>
     </div>
     {cobro && <div className={posStyles.checkoutBackdrop} role="presentation"><section className={posStyles.checkoutDialog} role="dialog" aria-modal="true" aria-labelledby="cobro-offline">
       <h2 id="cobro-offline">Cobro sin conexión</h2>
-      <div className={posStyles.checkoutLines}>{carrito.map(l => <div key={l.idVariante}><span>{l.nombre} · {l.sku} · {l.cantidad} unidades</span><strong>Bs {money(l.precio * l.cantidad)}</strong></div>)}</div>
-      <div className={posStyles.total}><strong>Total</strong><strong>Bs {money(total)}</strong></div>
+      <div className={posStyles.checkoutLines}>{carrito.map(l => <div key={l.idVariante}><span>{l.nombre} · {l.sku} · {l.cantidad} unidades</span><strong>{formatMoney(l.precio * l.cantidad)}</strong></div>)}</div>
+      <div className={posStyles.total}><strong>Total</strong><strong>{formatMoney(total)}</strong></div>
       <label className={posStyles.cashField}>Método de pago<select value={metodo} onChange={e => setMetodo(e.target.value as Metodo)}><option value="EFECTIVO">EFECTIVO</option><option value="QR">QR</option><option value="TARJETA">TARJETA</option><option value="TRANSFERENCIA">TRANSFERENCIA</option></select></label>
       {metodo === 'EFECTIVO'
-        ? <><label className={posStyles.cashField}>Monto recibido<input type="number" min="0" step="0.01" value={recibido} onChange={e => setRecibido(e.target.value)} /></label><p>Cambio: <strong>Bs {money(Math.max(0, Number(recibido || 0) - total))}</strong></p></>
+        ? <><label className={posStyles.cashField}>Monto recibido<input type="number" min="0" step="0.01" value={recibido} onChange={e => setRecibido(e.target.value)} /></label><p>Cambio: <strong>{formatMoney(Math.max(0, Number(recibido || 0) - total))}</strong></p></>
         : <label className={posStyles.cashField}>Referencia o comprobante (opcional)<input maxLength={150} value={referencia} onChange={e => setReferencia(e.target.value)} /></label>}
       {error && <p className={dashboardStyles.errorNotice} role="alert">{error}</p>}
       <div className={posStyles.checkoutActions}>

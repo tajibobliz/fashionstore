@@ -1,3 +1,4 @@
+import { MONEDA_POR_DEFECTO, moneda } from '../../common/monedas';
 import {
   HttpException,
   HttpStatus,
@@ -127,8 +128,8 @@ export class AiReportsService {
     const inicio = Date.now();
     await this.limitarFrecuencia(user.idUsuario);
 
-    const ctx = await this.contexto(user);
     const empresa = user.idEmpresa ? await this.empresas.findOne({ where: { idEmpresa: user.idEmpresa } }) : null;
+    const ctx = await this.contexto(user, empresa?.moneda);
     const sistema = this.instrucciones(empresa?.nombre ?? 'la empresa', ctx);
     const mensajes: MensajeLlm[] = [...this.historial2Mensajes(dto.historial ?? []), { rol: 'usuario', texto: dto.consulta }];
 
@@ -221,16 +222,17 @@ export class AiReportsService {
   // ---------------------------------------------------------------- privados
 
   /** Alcance que pone el backend: empresa (RLS) + sucursales asignadas al usuario. */
-  private async contexto(user: UsuarioReq): Promise<ContextoHerramientas> {
+  private async contexto(user: UsuarioReq, codigoMoneda?: string): Promise<ContextoHerramientas> {
     const branchIds = await this.access.accessibleBranchIds(user as never);
     const todas = await this.sucursales.find({ where: { estado: true }, order: { nombre: 'ASC' } });
     const sucursales = todas
       .filter((s) => branchIds === null || branchIds.includes(s.idSucursal))
       .map((s) => ({ idSucursal: s.idSucursal, nombre: s.nombre }));
-    return { scope: { branchIds }, sucursales, hoy: hoyEn(this.zona) };
+    return { scope: { branchIds }, sucursales, hoy: hoyEn(this.zona), moneda: codigoMoneda ?? MONEDA_POR_DEFECTO };
   }
 
   private instrucciones(empresa: string, ctx: ContextoHerramientas) {
+    const m = moneda(ctx.moneda);
     const lista = ctx.sucursales.map((s) => `- ${s.idSucursal}: ${s.nombre}`).join('\n') || '- (ninguna)';
     return `Eres el analista de reportes de "${empresa}", una tienda de moda que usa el sistema FashionStore.
 Hoy es ${ctx.hoy} (zona horaria ${this.zona}). Las semanas empiezan el lunes.
@@ -244,7 +246,7 @@ Reglas:
 5. Puedes usar hasta ${LLAMADAS_POR_TURNO} herramientas si la pregunta compara cosas distintas.
 6. Si una herramienta responde con error, corrige los parámetros una sola vez.
 7. Si la pregunta no trata de reportes del negocio, responde en una frase que solo generas reportes de ventas, productos, sucursales, stock, reservas, pagos, devoluciones y cambios (sin usar herramientas).
-8. Al terminar escribe un resumen de 2 a 4 oraciones en español, apto para leerse en voz alta: sin tablas, viñetas ni markdown. Cita solo cifras que aparezcan en "resumen" o "filas" de los resultados. Los montos son en bolivianos (Bs).
+8. Al terminar escribe un resumen de 2 a 4 oraciones en español, apto para leerse en voz alta: sin tablas, viñetas ni markdown. Cita solo cifras que aparezcan en "resumen" o "filas" de los resultados. Los montos están en ${m.nombre} (${m.codigo}); escríbelos con el símbolo ${m.simbolo}.
 
 Sucursales que este usuario puede consultar (usa el número en idSucursal):
 ${lista}`;
@@ -302,6 +304,7 @@ function paraModelo(r: ReporteGenerado) {
     titulo: r.titulo,
     filtros: r.filtros,
     resumen: r.resumen,
+    moneda: r.moneda,
     filas: r.filas.slice(0, FILAS_PARA_MODELO),
     filasOmitidas: Math.max(0, r.filas.length - FILAS_PARA_MODELO),
   };

@@ -13,6 +13,7 @@ import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './ShiftPage.module.css'
 import { useAuth } from '../../hooks/useAuth'
 import { turnoLocal } from '../../offline/turno'
+import { formatMoney } from '../../utils/money'
 
 function isMissingShift(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 404
@@ -28,10 +29,6 @@ async function allowedBoxes() {
     }
   }
   return [...unique.values()]
-}
-
-function money(value: number | string | null | undefined) {
-  return Number(value ?? 0).toFixed(2)
 }
 
 export default function ShiftPage() {
@@ -74,7 +71,7 @@ export default function ShiftPage() {
   const close = useMutation({
     mutationFn: () => posApi.shifts.close(activeShift!.idTurno, { montoCierreDeclarado: Number(montoCierre) }),
     onSuccess: async result => {
-      setFeedback(`Turno cerrado. Diferencia: Bs ${money(result.diferencia)}.`)
+      setFeedback(`Turno cerrado. Diferencia: ${formatMoney(result.diferencia)}.`)
       setConfirmClose(false)
       setMontoCierre('')
       queryClient.setQueryData(queryKeys.shifts.current, null)
@@ -100,7 +97,7 @@ export default function ShiftPage() {
         <div><dt>Sucursal</dt><dd>{activeShift!.caja.sucursal?.nombre ?? '—'}</dd></div>
         <div><dt>Cajero</dt><dd>{[activeShift!.cajero?.nombre, activeShift!.cajero?.apellido].filter(Boolean).join(' ') || '—'}</dd></div>
         <div><dt>Apertura</dt><dd>{new Date(activeShift!.fechaApertura).toLocaleString()}</dd></div>
-        <div><dt>Monto de apertura</dt><dd>Bs {money(activeShift!.montoApertura)}</dd></div>
+        <div><dt>Monto de apertura</dt><dd>{formatMoney(activeShift!.montoApertura)}</dd></div>
         <div><dt>Estado</dt><dd>{activeShift!.estado}</dd></div>
       </dl>
       <ShiftSales sales={sales.data} loading={sales.isLoading} error={sales.error} />
@@ -125,5 +122,5 @@ export default function ShiftPage() {
 function ShiftSales({ sales, loading, error }: { sales: Venta[] | undefined; loading: boolean; error: unknown }) {
   if (loading) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p>Consultando ventas realizadas en este turno…</p></section>
   if (error) return <section className={styles.sales} aria-label="Ventas del turno"><h2>Ventas de este turno</h2><p className={styles.error} role="alert">{getApiErrorMessage(error)}</p></section>
-  return <section className={styles.sales} aria-label="Ventas del turno"><div className={styles.salesHeader}><h2>Ventas de este turno</h2><strong>{sales?.length ?? 0}</strong></div>{sales?.length ? <div className={styles.salesList}>{sales.map(sale => <article key={sale.idVenta}><div><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong><span>{sale.fecha ? new Date(sale.fecha).toLocaleString() : '—'} · {sale.usuario ? `${sale.usuario.nombre} ${sale.usuario.apellido ?? ''} · ${sale.usuario.email ?? ''}` : 'Venta sin cliente'}</span><details><summary>Ver detalle</summary>{sale.detalles?.map(detail => <p key={detail.idDetalleVenta}>{detail.variante?.producto?.nombre ?? 'Producto'} · {detail.variante?.sku ?? '—'} · {detail.cantidad} unidades</p>)}</details></div><div><span>{sale.estado ?? '—'}</span><strong>Bs {money(sale.total)}</strong></div></article>)}</div> : <p>No registraste ventas durante este turno.</p>}</section>
-}
+  return <section className={styles.sales} aria-label="Ventas del turno"><div className={styles.salesHeader}><h2>Ventas de este turno</h2><strong>{sales?.length ?? 0}</strong></div>{sales?.length ? <div className={styles.salesList}>{sales.map(sale => <article key={sale.idVenta}><div><strong>{sale.numeroComprobante ?? `Venta #${sale.idVenta}`}</strong><span>{sale.fecha ? new Date(sale.fecha).toLocaleString() : '—'} · {sale.usuario ? `${sale.usuario.nombre} ${sale.usuario.apellido ?? ''} · ${sale.usuario.email ?? ''}` : 'Venta sin cliente'}</span><details><summary>Ver detalle</summary>{sale.detalles?.map(detail => <p key={detail.idDetalleVenta}>{detail.variante?.producto?.nombre ?? 'Producto'} · {detail.variante?.sku ?? '—'} · {detail.cantidad} unidades</p>)}</details></div><div><span>{sale.estado ?? '—'}</span><strong>{formatMoney(sale.total)}</strong></div></article>)}</div> : <p>No registraste ventas durante este turno.</p>}</section>
+}

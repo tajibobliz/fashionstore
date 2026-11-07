@@ -9,9 +9,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './Exchanges.module.css'
+import { formatMoney } from '../../utils/money'
 
 type Seleccion = Record<number, { cantidad: string; idVarianteNueva: string }>
-const money = (n: number) => n.toFixed(2)
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })
 const prenda = (v: LineaCambiable['variante']) => `${v.producto ?? v.sku} (${[v.talla, v.color].filter(Boolean).join(' / ') || v.sku})`
 
@@ -42,7 +42,7 @@ export default function ExchangesPage() {
   // Opciones de prenda nueva: variantes con su precio vigente y stock en la sucursal de la venta.
   const opciones = useMemo(() => (catalogo.data?.productos ?? []).flatMap(p => p.variantes.map(v => ({
     idVariante: v.idVariante, idProducto: p.idProducto, precio: p.precioFinal, stock: v.stockDisponible,
-    etiqueta: `${p.nombre} · ${[v.talla ?? 'Única', v.color].filter(Boolean).join(' / ')} · Bs ${money(p.precioFinal)} · stock ${v.stockDisponible}`,
+    etiqueta: `${p.nombre} · ${[v.talla ?? 'Única', v.color].filter(Boolean).join(' / ')} · ${formatMoney(p.precioFinal)} · stock ${v.stockDisponible}`,
   }))), [catalogo.data])
   const porId = useMemo(() => new Map(opciones.map(o => [o.idVariante, o])), [opciones])
 
@@ -65,7 +65,7 @@ export default function ExchangesPage() {
     }),
     onSuccess: cambio => {
       const dif = cambio.diferencia
-      setAviso(`Cambio registrado. ${dif > 0 ? `La clienta pagó Bs ${money(dif)} (${cambio.metodoPagoDiferencia}).` : dif < 0 ? `Se devuelven Bs ${money(-dif)} a la clienta.` : 'Sin diferencia de precio.'}`)
+      setAviso(`Cambio registrado. ${dif > 0 ? `La clienta pagó ${formatMoney(dif)} (${cambio.metodoPagoDiferencia}).` : dif < 0 ? `Se devuelven ${formatMoney(-dif)} a la clienta.` : 'Sin diferencia de precio.'}`)
       setSeleccion({}); setMetodo(''); setMotivo('')
       void Promise.all([
         client.invalidateQueries({ queryKey: ['exchanges'] }),
@@ -124,7 +124,7 @@ export default function ExchangesPage() {
           {v.dentroDelPlazo ? `Dentro del plazo · hasta el ${fecha(v.venceEl)}` : v.plazoCambioDias ? `Fuera de plazo · venció el ${fecha(v.venceEl)}` : 'La tienda no acepta cambios'}
         </span>
       </div>
-      <p className={styles.meta}>Cliente: <strong>{v.venta.cliente ? `${v.venta.cliente.nombre} · ${v.venta.cliente.email}` : 'sin cuenta'}</strong> · Total Bs {money(Number(v.venta.total))}</p>
+      <p className={styles.meta}>Cliente: <strong>{v.venta.cliente ? `${v.venta.cliente.nombre} · ${v.venta.cliente.email}` : 'sin cuenta'}</strong> · Total {formatMoney(Number(v.venta.total))}</p>
       {!v.admiteCambio && <p className={dashboardStyles.errorNotice}>Esta venta no admite cambios por su estado ({v.venta.estado}).</p>}
       {v.admiteCambio && v.dentroDelPlazo && !quedanUnidades && <p className={styles.meta}>Todas las prendas de esta venta ya se cambiaron o devolvieron.</p>}
 
@@ -140,7 +140,7 @@ export default function ExchangesPage() {
             const otras = opciones.filter(o => o.idProducto !== d.variante.idProducto)
             return <tr key={d.idDetalleVenta}>
               <td>{prenda(d.variante)}<br /><small>{d.cantidad} comprada(s){d.devueltas ? ` · ${d.devueltas} devuelta(s)` : ''}{d.cambiadas ? ` · ${d.cambiadas} cambiada(s)` : ''}</small></td>
-              <td>Bs {money(d.precioUnitario)}</td>
+              <td>{formatMoney(d.precioUnitario)}</td>
               <td>{d.disponibles}</td>
               <td><input aria-label={`Unidades a cambiar de ${prenda(d.variante)}`} type="number" min={0} max={d.disponibles} disabled={!d.disponibles} value={s?.cantidad ?? ''}
                 onChange={e => cambiarLinea(d.idDetalleVenta, { cantidad: String(Math.min(d.disponibles, Math.max(0, Number(e.target.value)))) })} /></td>
@@ -149,13 +149,13 @@ export default function ExchangesPage() {
                 {mismas.length > 0 && <optgroup label="Mismo producto">{mismas.map(o => <option key={o.idVariante} value={o.idVariante} disabled={o.stock < Math.max(1, cantidad)}>{o.etiqueta}</option>)}</optgroup>}
                 {otras.length > 0 && <optgroup label="Otros productos">{otras.map(o => <option key={o.idVariante} value={o.idVariante} disabled={o.stock < Math.max(1, cantidad)}>{o.etiqueta}</option>)}</optgroup>}
               </select></td>
-              <td className={`${styles.diff} ${dif > 0 ? styles.up : dif < 0 ? styles.down : ''}`}>{nueva && cantidad ? `${dif > 0 ? '+' : ''}Bs ${money(dif)}` : '—'}</td>
+              <td className={`${styles.diff} ${dif > 0 ? styles.up : dif < 0 ? styles.down : ''}`}>{nueva && cantidad ? `${dif > 0 ? '+' : ''}${formatMoney(dif)}` : '—'}</td>
             </tr>
           })}</tbody>
         </table></div>
 
         <div className={styles.summary}>
-          <p className={styles.total}>{!lineas.length ? 'Elige cuántas unidades cambiar y la prenda nueva.' : diferencia > 0 ? <>La clienta paga <strong>Bs {money(diferencia)}</strong> de diferencia.</> : diferencia < 0 ? <>Se devuelven <strong>Bs {money(-diferencia)}</strong> a la clienta.</> : <>Sin diferencia de precio.</>}</p>
+          <p className={styles.total}>{!lineas.length ? 'Elige cuántas unidades cambiar y la prenda nueva.' : diferencia > 0 ? <>La clienta paga <strong>{formatMoney(diferencia)}</strong> de diferencia.</> : diferencia < 0 ? <>Se devuelven <strong>{formatMoney(-diferencia)}</strong> a la clienta.</> : <>Sin diferencia de precio.</>}</p>
           {diferencia > 0 && <label>Cómo paga la diferencia<select value={metodo} onChange={e => setMetodo(e.target.value)} required><option value="">Elegir…</option><option value="EFECTIVO">EFECTIVO</option><option value="QR">QR</option><option value="TARJETA">TARJETA</option><option value="TRANSFERENCIA">TRANSFERENCIA</option></select></label>}
           <label>Motivo (opcional)<input maxLength={300} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej. le quedaba chica" /></label>
           {registrar.error && <p className={dashboardStyles.errorNotice} role="alert">{getApiErrorMessage(registrar.error)}</p>}
@@ -169,7 +169,7 @@ export default function ExchangesPage() {
         <h3>Cambios de esta venta</h3>
         <ul>{v.cambios.map(c => <li key={c.idCambio}>
           {c.detalles.map((d, i) => <div key={i}>{d.cantidad} × {d.devuelve} → <strong>{d.entrega}</strong></div>)}
-          <small>{fecha(c.fecha)} · {c.registradoPor ?? '—'} · {c.diferencia > 0 ? `cobró Bs ${money(c.diferencia)} (${c.metodoPagoDiferencia})` : c.diferencia < 0 ? `devolvió Bs ${money(-c.diferencia)}` : 'sin diferencia'}{c.motivo ? ` · ${c.motivo}` : ''}</small>
+          <small>{fecha(c.fecha)} · {c.registradoPor ?? '—'} · {c.diferencia > 0 ? `cobró ${formatMoney(c.diferencia)} (${c.metodoPagoDiferencia})` : c.diferencia < 0 ? `devolvió ${formatMoney(-c.diferencia)}` : 'sin diferencia'}{c.motivo ? ` · ${c.motivo}` : ''}</small>
         </li>)}</ul>
       </div>}
     </article>}

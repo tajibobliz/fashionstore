@@ -1,3 +1,4 @@
+import { MONEDA_POR_DEFECTO } from '../common/monedas';
 import {
   BadRequestException,
   ConflictException,
@@ -80,6 +81,7 @@ export class SubscriptionsService {
         nombre: e.empresa.nombre,
         slug: e.empresa.slug,
         estado: e.empresa.estado,
+        moneda: e.empresa.moneda,
       },
       suscripcion: e.suscripcion
         ? {
@@ -107,6 +109,14 @@ export class SubscriptionsService {
     };
   }
 
+  async cambiarMoneda(idEmpresa: number, moneda: string) {
+    await this.dataSource
+      .getRepository(Empresa)
+      .update({ idEmpresa }, { moneda });
+    this.plans.invalidar(idEmpresa);
+    return { moneda };
+  }
+
   historial(idEmpresa: number) {
     return this.dataSource.getRepository(Suscripcion).find({
       where: { empresa: { idEmpresa } },
@@ -115,7 +125,15 @@ export class SubscriptionsService {
   }
 
   /** Registra una empresa contratante con su plan y su administrador. */
-  async crearEmpresa(dto: CreateEmpresaDto) {
+  /**
+   * Crea la empresa con su administrador. `conSuscripcion: false` (contratación desde la página
+   * pública) la deja SIN suscripción hasta que se confirme el pago; el administrador de la
+   * plataforma la crea con el plan ya activo (pago manual: transferencia o QR).
+   */
+  async crearEmpresa(
+    dto: CreateEmpresaDto,
+    { conSuscripcion = true }: { conSuscripcion?: boolean } = {},
+  ) {
     const slug = dto.slug.toLowerCase();
     if (SLUGS_RESERVADOS.has(slug))
       throw new BadRequestException(`El slug "${slug}" está reservado`);
@@ -127,9 +145,21 @@ export class SubscriptionsService {
         );
       const empresa = await m.save(
         Empresa,
-        m.create(Empresa, { nombre: dto.nombre, slug, nit: dto.nit ?? null }),
+        m.create(Empresa, {
+          nombre: dto.nombre,
+          slug,
+          nit: dto.nit ?? null,
+          moneda: dto.moneda ?? MONEDA_POR_DEFECTO,
+        }),
       );
-      await this.nuevaSuscripcion(m, empresa, dto.codigoPlan, dto.meses ?? 1);
+      if (conSuscripcion)
+        await this.nuevaSuscripcion(m, empresa, dto.codigoPlan, dto.meses ?? 1);
+      else if (
+        !(await m.findOne(Plan, {
+          where: { codigo: dto.codigoPlan as Plan['codigo'], activo: true },
+        }))
+      )
+        throw new NotFoundException(`Plan ${dto.codigoPlan} no disponible`);
 
       const rol = await m.findOneOrFail(Rol, { where: { nombre: 'ADMIN' } });
       await m.save(
@@ -177,6 +207,49 @@ export class SubscriptionsService {
       await this.nuevaSuscripcion(m, empresa, codigoPlan, meses);
     });
     return this.resumen(idEmpresa);
+  }
+
+  /**
+   * Activa el plan pagado dentro de la transacción del pago (lo usa BillingService).
+   * Renovar el MISMO plan aún vigente suma los meses al vencimiento actual (no se pierden días
+   * pagados); cambiar de plan empieza hoy. La suscripción anterior queda CANCELADA en el historial.
+   */
+  async activarPlanEn(
+    m: EntityManager,
+    idEmpresa: number,
+    codigoPlan: string,
+    meses: number,
+  ): Promise<Suscripcion> {
+    const empresa = await m.findOne(Empresa, { where: { idEmpresa } });
+    if (!empresa)
+      throw new NotFoundException(`Empresa ${idEmpresa} no encontrada`);
+    const plan = await m.findOne(Plan, {
+      where: { codigo: codigoPlan as Plan['codigo'] },
+    });
+    if (!plan) throw new NotFoundException(`Plan ${codigoPlan} no encontrado`);
+    const actual = await m.findOne(Suscripcion, {
+      where: { empresa: { idEmpresa }, estado: 'ACTIVA' },
+    });
+    const inicio = hoy();
+    const base =
+      actual &&
+      actual.plan.codigo === codigoPlan &&
+      actual.fechaVencimiento >= inicio
+        ? actual.fechaVencimiento
+        : inicio;
+    if (actual) await m.update(Suscripcion, { idSuscripcion: actual.idSuscripcion }, { estado: 'CANCELADA' });
+    const nueva = await m.save(
+      Suscripcion,
+      m.create(Suscripcion, {
+        empresa,
+        plan,
+        estado: 'ACTIVA',
+        fechaInicio: inicio,
+        fechaVencimiento: sumarMeses(base, meses),
+      }),
+    );
+    this.plans.invalidar(idEmpresa);
+    return nueva;
   }
 
   /** Solo para simular vencimientos (pruebas y defensa). */

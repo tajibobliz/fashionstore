@@ -13,6 +13,11 @@ export interface PlanFeatures {
   aiReports: boolean;
   /** Módulo de analítica con Machine Learning. */
   ml: boolean;
+  /**
+   * Pago diferido de pedidos hechos sin conexión (CU16): exclusivo del plan Empresarial.
+   * (Los medios de pago de la tienda —tarjeta, QR, transferencia, efectivo— están en todos los planes.)
+   */
+  pagosOnline?: boolean;
 }
 
 /**
@@ -41,7 +46,7 @@ export class Plan {
   @Column({ type: 'jsonb', default: () => `'{}'` })
   features: PlanFeatures;
 
-  /** Precio de referencia mensual (simulado, sin cobro real). */
+  /** Precio mensual de referencia en USD (moneda de la plataforma; simulado, sin cobro real). */
   @Column({
     name: 'precio_referencia',
     type: 'numeric',

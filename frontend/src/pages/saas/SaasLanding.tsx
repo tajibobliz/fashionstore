@@ -9,6 +9,7 @@ import type { PlanPublico } from '../../api/saas.api'
 import { useAuth } from '../../hooks/useAuth'
 import { getSessionPath } from '../../routes/auth'
 import styles from './SaasLanding.module.css'
+import { formatPlanPrice } from '../../utils/money'
 
 const features: Array<{ icon: LucideIcon; title: string; desc: string }> = [
   { icon: Shirt, title: 'Catálogo de moda', desc: 'Productos con tallas, colores, temporadas y colecciones. Un solo catálogo para todas tus tiendas.' },
@@ -54,6 +55,7 @@ function planItems(p: PlanPublico) {
     { ok: true, text: 'Reportes convencionales y KPIs' },
     { ok: !!p.features.aiReports, text: 'Reportes con IA y por voz' },
     { ok: !!p.features.ml, text: 'Analítica con Machine Learning' },
+    { ok: !!p.features.pagosOnline, text: 'Pago diferido de pedidos hechos sin conexión' },
   ]
 }
 
@@ -178,7 +180,7 @@ export default function SaasLanding() {
               return <article key={p.codigo} className={`${styles.plan} ${destacado ? styles.planFeatured : ''}`} aria-labelledby={`plan-${p.codigo}`}>
                 {destacado && <span className={styles.badge}>Recomendado</span>}
                 <h3 id={`plan-${p.codigo}`}>{p.nombre}</h3>
-                <p className={styles.price}><strong>Bs {p.precioReferencia.toLocaleString('es-BO')}</strong><span>/ mes</span></p>
+                <p className={styles.price}><strong>{formatPlanPrice(p.precioReferencia)}</strong><span>/ mes</span></p>
                 <ul className={styles.planList}>
                   {planItems(p).map(item => <li key={item.text} className={item.ok ? '' : styles.off}>
                     {item.ok ? <Check size={16} aria-hidden="true" /> : <Minus size={16} aria-hidden="true" />}
@@ -189,7 +191,7 @@ export default function SaasLanding() {
               </article>
             })}
           </div>}
-          <p className={styles.note}>Precios referenciales. La contratación de esta versión es simulada, sin cobro real.</p>
+          <p className={styles.note}>Precios referenciales en dólares (USD), iguales en todos los países; cada tienda vende en su propia moneda. La contratación de esta versión es simulada, sin cobro real.</p>
 
           <div id="preguntas" className={styles.faq}>
             <h2>Preguntas frecuentes</h2>

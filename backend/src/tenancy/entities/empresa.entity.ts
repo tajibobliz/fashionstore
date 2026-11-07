@@ -1,9 +1,12 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+
+import { CODIGOS_MONEDA, MONEDA_POR_DEFECTO } from '../../common/monedas';
 
 export type EstadoEmpresa = 'ACTIVA' | 'SUSPENDIDA';
 
@@ -13,6 +16,10 @@ export type EstadoEmpresa = 'ACTIVA' | 'SUSPENDIDA';
  * mediante la columna `id_empresa`. Una sucursal no es un tenant.
  */
 @Entity('empresa')
+@Check(
+  'CHK_empresa_moneda',
+  `moneda IN (${CODIGOS_MONEDA.map((c) => `'${c}'`).join(',')})`,
+)
 export class Empresa {
   @PrimaryGeneratedColumn({ name: 'id_empresa' })
   idEmpresa: number;
@@ -33,6 +40,13 @@ export class Empresa {
   /** Días que tiene un cliente para cambiar una prenda. */
   @Column({ name: 'plazo_cambio_dias', type: 'integer', default: 7 })
   plazoCambioDias: number;
+
+  /**
+   * Moneda en la que vende la tienda (ISO 4217, ver common/monedas.ts).
+   * Los planes de la plataforma se cobran siempre en USD; esto es para las ventas de la tienda.
+   */
+  @Column({ type: 'varchar', length: 3, default: MONEDA_POR_DEFECTO })
+  moneda: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

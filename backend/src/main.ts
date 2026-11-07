@@ -6,7 +6,8 @@ import helmet from 'helmet';
 
 async function bootstrap() {
   process.env.TZ = process.env.APP_TIMEZONE || 'UTC';
-  const app = await NestFactory.create(AppModule);
+  // rawBody: el webhook de Stripe verifica su firma sobre el cuerpo tal como llegó.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.use(helmet());
 
   const configuredOrigins = process.env.CORS_ORIGINS

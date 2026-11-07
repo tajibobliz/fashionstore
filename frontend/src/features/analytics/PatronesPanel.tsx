@@ -7,8 +7,9 @@ import { getApiErrorMessage } from '../../utils/apiError'
 import { CHART_PRIMARY } from '../reports/charts/colors'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import { Aviso, Calidad } from './mlComunes'
-import { bs, fechaCorta, numero } from './mlFormato'
+import { monto, fechaCorta, numero } from './mlFormato'
 import styles from './Analytics.module.css'
+import { simboloMoneda } from '../../utils/money'
 
 /** Colores distintos por segmento (tonos separados para distinguirlos también sin color fino). */
 const COLOR_SEGMENTO: Record<string, string> = {
@@ -44,7 +45,7 @@ export function PatronesPanel({ metricas, verClientes }: { metricas: MlMetricas;
                   <header><h3>{x.nombre}</h3><strong>{numero(x.porcentaje, 1)} %</strong></header>
                   <p className={styles.segmentStats}>
                     {numero(x.clientes)} clientes{x.clientesReales ? ` (${x.clientesReales} ${x.clientesReales === 1 ? 'real' : 'reales'})` : ''} · última compra hace {numero(x.recenciaMedia)} días ·
-                    {' '}{numero(x.frecuenciaMedia, 1)} compras · {bs(x.montoMedio)}
+                    {' '}{numero(x.frecuenciaMedia, 1)} compras · {monto(x.montoMedio)}
                   </p>
                   <p className={styles.segmentAction}>{x.accion}</p>
                 </article>
@@ -56,9 +57,9 @@ export function PatronesPanel({ metricas, verClientes }: { metricas: MlMetricas;
                 <XAxis type="number" dataKey="recenciaDias" name="Días desde la última compra" tick={{ fontSize: 11 }}
                   label={{ value: 'Días desde la última compra', position: 'insideBottom', offset: -4, fontSize: 11 }} height={42} />
                 <YAxis type="number" dataKey="monto" name="Monto" scale="log" domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70}
-                  tickFormatter={(v: number) => `Bs ${numero(v)}`} />
+                  tickFormatter={(v: number) => `${simboloMoneda()} ${numero(v)}`} />
                 <ZAxis range={[28, 28]} />
-                <Tooltip formatter={(v: unknown, n: unknown) => (n === 'Monto' ? bs(Number(v)) : numero(Number(v)))} />
+                <Tooltip formatter={(v: unknown, n: unknown) => (n === 'Monto' ? monto(Number(v)) : numero(Number(v)))} />
                 <Legend verticalAlign="top" height={30} />
                 {s.segmentos.map(x => (
                   <Scatter key={x.nombre} name={x.nombre} data={s.puntos.filter(p => p.segmento === x.nombre)} fill={color(x.nombre)} fillOpacity={0.7} isAnimationActive={false} />
@@ -78,7 +79,7 @@ export function PatronesPanel({ metricas, verClientes }: { metricas: MlMetricas;
                           <td><span className={styles.dot} style={{ background: color(c.segmento) }} />{c.segmento}</td>
                           <td className={styles.num}>hace {numero(c.recenciaDias)} días</td>
                           <td className={styles.num}>{numero(c.frecuencia)}</td>
-                          <td className={styles.num}>{bs(c.monto)}</td>
+                          <td className={styles.num}>{monto(c.monto)}</td>
                         </tr>
                       ))}
                     </tbody>

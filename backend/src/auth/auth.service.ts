@@ -15,6 +15,7 @@ import { RefreshSession } from './entities/refresh-session.entity';
 import { ConfigService } from '@nestjs/config';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 import { TenantContext } from '../tenancy/tenant-context';
+import { Empresa } from '../tenancy/entities/empresa.entity';
 
 const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
@@ -111,9 +112,39 @@ export class AuthService {
               idEmpresa: user.empresa.idEmpresa,
               nombre: user.empresa.nombre,
               slug: user.empresa.slug,
+              moneda: user.empresa.moneda,
             }
           : null,
       },
+    };
+  }
+
+  /**
+   * Perfil para restaurar la sesión al recargar la página: los mismos datos del login,
+   * incluida la empresa (nombre, slug y moneda en la que vende).
+   */
+  async perfil(user: {
+    idUsuario: number;
+    email: string;
+    rol: string;
+    idEmpresa: number | null;
+  }) {
+    const empresa =
+      user.idEmpresa == null
+        ? null
+        : await this.sessions.manager.findOne(Empresa, {
+            where: { idEmpresa: user.idEmpresa },
+          });
+    return {
+      ...user,
+      empresa: empresa
+        ? {
+            idEmpresa: empresa.idEmpresa,
+            nombre: empresa.nombre,
+            slug: empresa.slug,
+            moneda: empresa.moneda,
+          }
+        : null,
     };
   }
 

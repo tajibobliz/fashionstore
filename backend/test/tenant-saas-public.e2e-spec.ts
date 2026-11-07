@@ -55,7 +55,7 @@ describe('SaaS público (e2e)', () => {
     ).toBe(false);
   });
 
-  it('contratar crea la empresa con su plan y deja la sesión del administrador iniciada', async () => {
+  it('contratar crea la empresa y su administrador; el plan se activa al confirmarse el pago', async () => {
     const slug = `contrata-${Date.now()}`;
     const r = await c.api('POST', '/saas/registro', {
       body: {
@@ -72,6 +72,21 @@ describe('SaaS público (e2e)', () => {
     expect(r.status).toBe(201);
     expect(r.body.user).toMatchObject({ rol: 'ADMIN', empresa: { slug } });
     c.tokens.NUEVA = r.body.access_token;
+    // Antes de pagar: la empresa existe, pero sin suscripción, y hay un pago pendiente.
+    expect(r.body.checkout.url).toContain('/pago/simulado?ref=');
+    expect(
+      (await c.api('GET', '/tenant/me', { who: 'NUEVA' })).body.suscripcion
+        .estado,
+    ).toBe('SIN_SUSCRIPCION');
+    const pago = await c.api(
+      'POST',
+      `/billing/simulado/${r.body.checkout.referencia}/pagar`,
+      { who: 'NUEVA' },
+    );
+    expect(pago.body).toMatchObject({
+      estado: 'PAGADO',
+      codigoPlan: 'EMPRESARIAL',
+    });
     const me = (await c.api('GET', '/tenant/me', { who: 'NUEVA' })).body;
     expect(me).toMatchObject({
       empresa: { slug },

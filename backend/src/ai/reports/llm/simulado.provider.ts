@@ -6,6 +6,7 @@ import type {
   RespuestaLlm,
 } from './llm.types';
 import { normalizar, sumarDias } from '../report-tools';
+import { formatearMonto } from '../../../common/monedas';
 
 /**
  * Proveedor SIMULADO (`LLM_PROVIDER=simulado`): no llama a ninguna API.
@@ -103,10 +104,10 @@ function numero(t: string, re: RegExp, clave: string) {
 
 /** Narrativa con los totales que calculó el backend (nunca inventa cifras). */
 function narrar(m: Extract<MensajeLlm, { rol: 'resultados' }>) {
-  const bs = (n: number) => `Bs ${n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const partes = m.resultados.map((r) => {
     if (r.esError) return `No se pudo generar el reporte: ${r.contenido}`;
-    const d = JSON.parse(r.contenido) as { titulo: string; resumen: Record<string, number>; filas: Record<string, unknown>[] };
+    const d = JSON.parse(r.contenido) as { titulo: string; resumen: Record<string, number>; filas: Record<string, unknown>[]; moneda?: string };
+    const monto = (n: number) => formatearMonto(n, d.moneda);
     if (!d.filas.length) return `${d.titulo}: no hay datos para los filtros elegidos.`;
     if ('tasaDevolucion' in d.resumen) {
       const r = d.resumen;
@@ -121,7 +122,7 @@ function narrar(m: Extract<MensajeLlm, { rol: 'resultados' }>) {
     const total = d.filas.reduce((s, f) => s + Number(f[metrica]), 0);
     const mayor = d.filas.reduce((a, b) => (Number(b[metrica]) > Number(a[metrica]) ? b : a));
     const esMonto = ['totalVendido', 'monto', 'totalGenerado'].includes(metrica);
-    const valor = (n: number) => (esMonto ? bs(n) : `${n}`);
+    const valor = (n: number) => (esMonto ? monto(n) : `${n}`);
     const pct = total ? Math.round((Number(mayor[metrica]) / total) * 100) : 0;
     return `${d.titulo}: ${d.filas.length} ${d.filas.length === 1 ? 'registro' : 'registros'} con un total de ${valor(total)}. El mayor es ${String(mayor[etiqueta])} con ${valor(Number(mayor[metrica]))} (${pct}% del total).`;
   });

@@ -4,10 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, LayoutGrid, Loader2 } from 'lucide-react'
 import { saasApi, slugify } from '../../api/saas.api'
+import { irAPagar } from '../../api/billing.api'
 import type { CodigoPlan } from '../../api/saas.api'
 import { getApiErrorMessage } from '../../utils/apiError'
 import { getSessionPath } from '../../routes/auth'
 import styles from './ContratarPlan.module.css'
+import { formatPlanPrice } from '../../utils/money'
 
 type SlugEstado = 'vacio' | 'revisando' | 'libre' | 'ocupado' | 'invalido'
 
@@ -32,6 +34,8 @@ export default function ContratarPlan() {
   const [empresa, setEmpresa] = useState('')
   const [slugManual, setSlugManual] = useState<string | null>(null)
   const [nit, setNit] = useState('')
+  const [moneda, setMoneda] = useState('BOB')
+  const monedas = useQuery({ queryKey: ['saas', 'monedas'], queryFn: saasApi.monedas, staleTime: Infinity })
   const [nombre, setNombre] = useState('')
   const [apellido, setApellido] = useState('')
   const [email, setEmail] = useState('')
@@ -62,16 +66,17 @@ export default function ContratarPlan() {
     setError('')
     setEnviando(true)
     try {
-      const user = await saasApi.registrar({
-        nombre: empresa.trim(), slug, nit: nit.trim() || undefined, codigoPlan: plan,
+      const { user, checkout } = await saasApi.registrar({
+        nombre: empresa.trim(), slug, nit: nit.trim() || undefined, moneda, codigoPlan: plan,
         admin: { nombre: nombre.trim(), apellido: apellido.trim() || undefined, email: email.trim(), password },
       })
+      // La empresa ya existe: ahora se paga el plan en la página de la pasarela (Stripe).
+      if (irAPagar(checkout)) return
       navigate(getSessionPath(user.rol), { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))
-    } finally {
-      setEnviando(false)
     }
+    setEnviando(false)
   }
 
   const ayudaSlug: Record<SlugEstado, string> = {
@@ -90,7 +95,7 @@ export default function ContratarPlan() {
 
     <main className={styles.main}>
       <h1>Registra tu empresa</h1>
-      <p className={styles.lead}>En un minuto tu empresa queda lista y entras a tu panel como administrador.</p>
+      <p className={styles.lead}>Creas tu empresa y pagas el plan en la página segura de Stripe. Al confirmarse el pago, entras a tu panel como administrador.</p>
 
       {error && <div className={styles.error} role="alert">{error}</div>}
 
@@ -104,7 +109,7 @@ export default function ContratarPlan() {
               return <button key={p.codigo} type="button" role="radio" aria-checked={activo}
                 className={`${styles.planOpt} ${activo ? styles.planOptActive : ''}`} onClick={() => setPlan(p.codigo)}>
                 <span className={styles.planName}>{p.nombre}{activo && <Check size={16} aria-hidden="true" />}</span>
-                <span className={styles.planPrice}>Bs {p.precioReferencia.toLocaleString('es-BO')} / mes</span>
+                <span className={styles.planPrice}>{formatPlanPrice(p.precioReferencia)} / mes</span>
                 <span className={styles.planMeta}>
                   {p.maxSucursales == null ? 'Sucursales ilimitadas' : `${p.maxSucursales} sucursales`} · {p.maxUsuarios == null ? 'empleados ilimitados' : `${p.maxUsuarios} empleados`}
                   {p.features.aiReports ? ' · IA' : ''}
@@ -130,6 +135,12 @@ export default function ContratarPlan() {
           <label className={styles.field}><span>NIT <span className={styles.optional}>(opcional)</span></span>
             <input value={nit} onChange={e => setNit(e.target.value)} maxLength={30} inputMode="numeric" disabled={enviando} />
           </label>
+          <label className={styles.field}>Moneda en la que vendes
+            <select value={moneda} onChange={e => setMoneda(e.target.value)} disabled={enviando}>
+              {(monedas.data ?? [{ codigo: 'BOB', nombre: 'Boliviano', simbolo: 'Bs' }]).map(m => <option key={m.codigo} value={m.codigo}>{m.simbolo} · {m.nombre} ({m.codigo})</option>)}
+            </select>
+            <span className={styles.help}>Tus precios y ventas se muestran en esta moneda. El plan se paga en dólares.</span>
+          </label>
         </fieldset>
 
         <fieldset className={styles.block}>
@@ -151,9 +162,9 @@ export default function ContratarPlan() {
         </fieldset>
 
         <button type="submit" className={styles.submit} disabled={enviando || slugEstado === 'ocupado' || slugEstado === 'invalido'}>
-          {enviando ? <><Loader2 size={18} className={styles.spin} aria-hidden="true" /> Creando tu empresa…</> : 'Contratar y crear mi empresa'}
+          {enviando ? <><Loader2 size={18} className={styles.spin} aria-hidden="true" /> Creando tu empresa…</> : 'Crear mi empresa y pagar'}
         </button>
-        <p className={styles.note}>Contratación simulada: el plan se activa al instante, sin cobro real. Puedes cambiarlo después desde "Mi plan".</p>
+        <p className={styles.note}>El plan se paga en dólares (USD) con tarjeta. En esta versión Stripe funciona en modo de prueba: usa la tarjeta 4242 4242 4242 4242, sin cobro real. Puedes cambiar de plan después desde "Mi plan".</p>
       </form>
     </main>
   </div>
