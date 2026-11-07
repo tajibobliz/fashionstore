@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.8 (2026-11-06)
+> Versión: v1.9 (2026-11-06)
 
 ## Fechas clave
 
@@ -326,6 +326,14 @@ Voz: Web Speech API (web) / expo-speech-recognition (móvil)
 ```
 Mínimo 4 tipos de reporte con filtros variables y datos reales. El modelo nunca ve el tenant como parámetro editable.
 
+**Implementado (v1.9) — `backend/src/ai/reports/`:**
+- `report-tools.ts`: 7 herramientas de reporte (`ventas_por_periodo` día/semana/mes, `ventas_por_sucursal`, `top_productos` con categoría, `ingresos_por_categoria`, `stock_bajo`, `reservas_por_estado`, `ventas_por_metodo_pago`) + `pedir_aclaracion`. Cada una valida con class-validator y rechaza parámetros extra, fechas inexistentes, rangos invertidos o de más de 2 años, y sucursales no permitidas al usuario (aunque existan en otra empresa). Ejecuta las consultas de `ReportsService` (se agregaron `salesByPeriod` y `salesByCategory`).
+- `ai-reports.service.ts`: bucle de tool use con máximo `AI_REPORTS_MAX_ITER` iteraciones y 3 herramientas por turno; el error de validación vuelve al modelo para que corrija; la **tabla y el gráfico los arma el backend** (la IA solo redacta la narrativa); límite de `AI_REPORTS_POR_MINUTO` consultas por usuario (429); si el proveedor falla → 503.
+- Proveedores (`llm/`): `anthropic` (Claude, `AI_REPORTS_MODEL`, por defecto `claude-haiku-4-5`) y `simulado` (reglas por palabras clave, sin internet: pruebas y respaldo en la defensa). Se elige con `LLM_PROVIDER`.
+- Bitácora `consulta_ia` (migración `1780000000005-AddConsultaIa`, con RLS): pregunta, herramientas con parámetros y si se aceptaron, tokens, duración y estado (OK, ACLARACION, SIN_REPORTE, ERROR).
+- Endpoints (plan con `aiReports`; ADMIN, ENCARGADO, ENCARGADO_SUCURSAL): `POST /ai/reports/query` `{consulta, historial?}` → `{tipo, narrativa, aclaracion, reportes:[{titulo, columnas, filas, grafico, filtros, resumen}], meta}`; `GET /ai/reports/herramientas`; `GET /ai/reports/historial` (ADMIN ve toda la empresa, los demás solo lo suyo).
+- El endpoint anterior `POST /ai/reporte-voz` se mantiene por compatibilidad; la UI nueva (3.2) usa `/ai/reports/query`.
+
 ### 7.1 Módulo de analítica con ML (8.4–8.5)
 Microservicio **Python + FastAPI** (`ml-service/`), lo que también cubre la exigencia de Python/FastAPI:
 - Generador de **datos sintéticos** (ventas por producto/semana/sucursal con estacionalidad).
@@ -416,7 +424,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
   - [x] App móvil: lógica SQLite + cola + sync probada contra el backend real (16 comprobaciones) y bundle Android compilado
 
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
-- [ ] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte
+- [x] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte (7 herramientas + aclaración; ver §7)
 - [ ] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel
 - [ ] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas
 - [ ] 3.4 Dashboard de KPIs + dashboard analítico ML
@@ -477,7 +485,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 43 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 70 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -522,3 +530,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-26 | v1.6: **tarea 2.4 (móvil offline)**. D13: el móvil es la app de la clienta → catálogo y reservas sin conexión (las ventas offline quedan en el POS web). SQLite con migraciones, FKs y CHECK; descarga de catálogo con UPSERT; cola + sincronización con NetInfo, backoff y `sync_log`; pantallas Catálogo sin conexión y Operaciones pendientes; aviso flotante. SaaS en el móvil: login/registro con tienda, `X-Tenant`, sucursal elegible (se elimina `DEFAULT_SUCURSAL_ID`) | Lógica real del móvil ejecutada en Node (SQLite de Node en lugar del teléfono) contra el backend: 16 comprobaciones (FK y CHECK activos, UPSERT, 2 reservas offline, falla de red → siguen PENDIENTES, reconexión → 1 CONFIRMADA y 1 CONFLICTO con sucursal alternativa, reenvío sin duplicar, bitácora). `expo export --platform android` compila. tsc sin errores nuevos; lint limpio en los archivos nuevos. **No probado en un teléfono real** |
 | 2026-10-26 | v1.7: **tarea 2.5 (cambios de prendas)** → **Fase 2 completa**. Tablas `cambio` (RLS) y `detalle_cambio`; plazo por empresa (`plazo_cambio_dias`, editable por el ADMIN); stock de la prenda original y la nueva en una transacción; diferencia de precio con método de pago obligatorio si la clienta paga; las devoluciones descuentan las unidades ya cambiadas. Web: sección Cambios de prendas | 43/43 E2E (7 nuevas: plazo, cambio de talla sin diferencia, prenda más cara exige método, unidades y stock insuficientes, no se devuelve lo cambiado, venta de hace 10 días fuera de plazo y vuelve a estar en plazo con 15 días, solo ADMIN edita el plazo, aislamiento A↔B). Migración up/down y esquema = entidades. Unitarias: 139 en verde (se ajustó el mock de devoluciones). Navegador: cambio sin diferencia, cambio a una prenda más cara con QR, historial, edición del plazo, sin desbordes a 390 px |
 | 2026-11-06 | v1.8: se agregan las tareas del móvil como **Fase 4** (prueba en teléfono real, persistencia, voz con `expo-speech-recognition`, ajustes visuales, build para producción); el cierre pasa a **Fase 5**. Orden acordado: Fase 3 → Fase 4 (móvil) → Fase 5 | Solo documentación |
+| 2026-11-06 | v1.9: **tarea 3.1 (reportes con IA, backend)**. Arnés de tool use en `backend/src/ai/reports/`: 7 herramientas de reporte + aclaración, validación de parámetros, alcance de empresa (RLS) y de sucursal, límite de iteraciones y de consultas por minuto, tabla y gráfico calculados por el backend, narrativa del modelo. Proveedores `anthropic` y `simulado`. Bitácora `consulta_ia` con RLS | 70/70 E2E (27 nuevas: plan Básico bloqueado, cajero sin acceso, 7 tipos de reporte con datos reales, cifras iguales a `/reports`, mes = suma de días, categoría, aclaración, 8 consultas inválidas rechazadas, bitácora, encargado limitado a su sucursal, Empresa A no puede pedir sucursales de B). Unitarias: 158 en verde (19 nuevas del bucle, adaptador Anthropic y reglas del simulado). Migración up/down y esquema = entidades. **Falta probar con la API real de Anthropic** (aquí no hay API key) |

@@ -120,13 +120,39 @@ export class ReportsService {
     return rows.map(this.numericSalesRow);
   }
 
-  async topProducts(f: ReportFiltersDto, scope: ReportScope, limit = 20) {
+  async topProducts(f: ReportFiltersDto, scope: ReportScope, limit = 20, idCategoria?: number) {
     const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
       .leftJoin('p.categoria', 'cat').leftJoin('v.turno', 't').select('p.id_producto', 'idProducto').addSelect('p.nombre', 'nombre').addSelect('cat.nombre', 'categoria')
       .addSelect(`SUM(dv.cantidad-${this.returnedQty})`, 'cantidadVendida').addSelect(`SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty}))`, 'totalGenerado');
     this.applySalesFilters(qb, f, scope);
+    if (idCategoria) qb.andWhere('cat.id_categoria=:idCategoria', { idCategoria });
     return (await qb.groupBy('p.id_producto').addGroupBy('cat.id_categoria').having(`SUM(dv.cantidad-${this.returnedQty})>0`).orderBy('"cantidadVendida"', 'DESC').limit(Math.min(limit, 100)).getRawMany())
       .map((x) => ({ ...x, cantidadVendida: Number(x.cantidadVendida), totalGenerado: Number(x.totalGenerado) }));
+  }
+
+  /**
+   * Ventas agrupadas por día, semana o mes (reportes con IA, Fase 3).
+   * La granularidad viene de una lista cerrada, nunca del texto del usuario.
+   */
+  async salesByPeriod(f: ReportFiltersDto, scope: ReportScope, agrupar: 'dia' | 'semana' | 'mes' = 'dia') {
+    const unidad = ({ dia: 'day', semana: 'week', mes: 'month' } as const)[agrupar];
+    const periodo = `DATE_TRUNC('${unidad}', v.fecha)`;
+    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select(`TO_CHAR(${periodo}, 'YYYY-MM-DD')`, 'periodo')
+      .addSelect('COUNT(DISTINCT v.id_venta)', 'cantidadVentas').addSelect(`COALESCE(SUM(dv.cantidad-${this.returnedQty}),0)`, 'unidadesVendidas')
+      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'totalVendido')
+      .groupBy(periodo).orderBy(periodo, 'ASC').limit(400).getRawMany();
+    return rows.map((x) => ({ periodo: x.periodo, ...this.numericSalesRow(x) }));
+  }
+
+  /** Ingresos y unidades por categoría de producto (reportes con IA, Fase 3). */
+  async salesByCategory(f: ReportFiltersDto, scope: ReportScope) {
+    const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
+      .leftJoin('p.categoria', 'cat').leftJoin('v.turno', 't').select(`COALESCE(cat.nombre, 'Sin categoría')`, 'categoria')
+      .addSelect('COUNT(DISTINCT v.id_venta)', 'cantidadVentas').addSelect(`SUM(dv.cantidad-${this.returnedQty})`, 'unidadesVendidas')
+      .addSelect(`SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty}))`, 'totalVendido');
+    this.applySalesFilters(qb, f, scope);
+    const rows = await qb.groupBy('cat.id_categoria').having(`SUM(dv.cantidad-${this.returnedQty})>0`).orderBy('"totalVendido"', 'DESC').getRawMany();
+    return rows.map(this.numericSalesRow);
   }
 
   async topVariants(f: ReportFiltersDto, scope: ReportScope) {
