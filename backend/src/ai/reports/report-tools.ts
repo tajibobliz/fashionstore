@@ -35,7 +35,7 @@ import type { DefinicionHerramienta } from './llm/llm.types';
 
 // ---------------------------------------------------------------- Tipos del resultado
 
-export type FormatoColumna = 'texto' | 'numero' | 'moneda' | 'fecha';
+export type FormatoColumna = 'texto' | 'numero' | 'moneda' | 'fecha' | 'porcentaje';
 export interface ColumnaReporte {
   clave: string;
   etiqueta: string;
@@ -119,6 +119,19 @@ class StockBajo {
   categoria?: string;
 }
 
+class DevolucionesYCambios extends ConSucursal {
+  @IsOptional() @IsInt() @Min(1) @Max(50)
+  limite?: number;
+
+  @IsOptional() @IsString() @Length(1, 100)
+  categoria?: string;
+}
+
+class MotivosDevolucionCambio extends ConSucursal {
+  @IsOptional() @IsIn(['devoluciones', 'cambios', 'ambos'])
+  tipo?: 'devoluciones' | 'cambios' | 'ambos';
+}
+
 class PedirAclaracion {
   @IsString() @Length(3, 300)
   pregunta: string;
@@ -189,6 +202,25 @@ export const HERRAMIENTAS: DefinicionHerramienta[] = [
     parametros: objeto({ ...rango, ...sucursal }),
   },
   {
+    nombre: 'devoluciones_y_cambios_por_producto',
+    descripcion: 'Prendas devueltas y cambiadas por producto: unidades vendidas, devueltas y cambiadas, y tasa de devolución y de cambio. Para "prendas más cambiadas", "más devueltas" o "tasa de devoluciones".',
+    parametros: objeto({
+      ...rango,
+      ...sucursal,
+      limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Cuántos productos. Por defecto 15.' },
+      categoria: { type: 'string', description: 'Nombre de la categoría.' },
+    }),
+  },
+  {
+    nombre: 'motivos_devolucion_y_cambio',
+    descripcion: 'Motivos registrados al devolver o cambiar prendas (talla, falla, color...), con cantidad de operaciones y unidades.',
+    parametros: objeto({
+      ...rango,
+      ...sucursal,
+      tipo: { type: 'string', enum: ['devoluciones', 'cambios', 'ambos'], description: 'Por defecto ambos.' },
+    }),
+  },
+  {
     nombre: 'pedir_aclaracion',
     descripcion: 'Usar SOLO si la pregunta es ambigua o no se puede responder con las otras herramientas. Hace una pregunta corta al usuario.',
     parametros: objeto({ pregunta: { type: 'string', description: 'Pregunta corta en español.' } }, ['pregunta']),
@@ -206,6 +238,8 @@ const CLASES: Record<string, new () => object> = {
   stock_bajo: StockBajo,
   reservas_por_estado: ConSucursal,
   ventas_por_metodo_pago: ConSucursal,
+  devoluciones_y_cambios_por_producto: DevolucionesYCambios,
+  motivos_devolucion_y_cambio: MotivosDevolucionCambio,
   pedir_aclaracion: PedirAclaracion,
 };
 
@@ -256,6 +290,8 @@ export class ReportToolsService {
       case 'stock_bajo': return this.stockBajo(await this.validar(nombre, entrada), ctx);
       case 'reservas_por_estado': return this.reservasPorEstado(await this.validar(nombre, entrada), ctx);
       case 'ventas_por_metodo_pago': return this.ventasPorMetodo(await this.validar(nombre, entrada), ctx);
+      case 'devoluciones_y_cambios_por_producto': return this.devolucionesYCambios(await this.validar(nombre, entrada), ctx);
+      case 'motivos_devolucion_y_cambio': return this.motivos(await this.validar(nombre, entrada), ctx);
       default: throw new ErrorHerramienta(`La herramienta "${nombre}" no genera reportes.`);
     }
   }
@@ -366,6 +402,44 @@ export class ReportToolsService {
       { clave: 'cantidad', etiqueta: 'Pagos', formato: 'numero' },
       { clave: 'monto', etiqueta: 'Monto (Bs)', formato: 'moneda' },
     ], filas, { tipo: 'torta', x: 'metodo', y: ['monto'] }, filtros, this.sumas(filas, ['monto', 'cantidad']));
+  }
+
+  private async devolucionesYCambios(p: DevolucionesYCambios, ctx: ContextoHerramientas) {
+    const { f, filtros } = this.filtrosVentas(p, ctx);
+    const limite = p.limite ?? 15;
+    const cat = p.categoria ? await this.categoria(p.categoria) : undefined;
+    if (cat) filtros['Categoría'] = cat.nombre;
+    filtros['Límite'] = String(limite);
+    const filas = (await this.reports.returnsAndExchangesByProduct(f, ctx.scope, limite, cat?.idCategoria)).map((x) => ({
+      producto: x.producto, categoria: x.categoria, unidadesVendidas: x.unidadesVendidas,
+      unidadesDevueltas: x.unidadesDevueltas, tasaDevolucion: x.tasaDevolucion,
+      unidadesCambiadas: x.unidadesCambiadas, tasaCambio: x.tasaCambio,
+    }));
+    const suma = this.sumas(filas, ['unidadesVendidas', 'unidadesDevueltas', 'unidadesCambiadas']);
+    const tasa = (a: number) => (suma.unidadesVendidas ? Math.round((a / suma.unidadesVendidas) * 1000) / 10 : 0);
+    return this.reporte('devoluciones_y_cambios_por_producto', 'Prendas devueltas y cambiadas', [
+      { clave: 'producto', etiqueta: 'Producto', formato: 'texto' },
+      { clave: 'categoria', etiqueta: 'Categoría', formato: 'texto' },
+      { clave: 'unidadesVendidas', etiqueta: 'Vendidas', formato: 'numero' },
+      { clave: 'unidadesDevueltas', etiqueta: 'Devueltas', formato: 'numero' },
+      { clave: 'tasaDevolucion', etiqueta: '% devolución', formato: 'porcentaje' },
+      { clave: 'unidadesCambiadas', etiqueta: 'Cambiadas', formato: 'numero' },
+      { clave: 'tasaCambio', etiqueta: '% cambio', formato: 'porcentaje' },
+    ], filas, { tipo: 'barras', x: 'producto', y: ['unidadesDevueltas', 'unidadesCambiadas'] }, filtros,
+    { ...suma, tasaDevolucion: tasa(suma.unidadesDevueltas), tasaCambio: tasa(suma.unidadesCambiadas) });
+  }
+
+  private async motivos(p: MotivosDevolucionCambio, ctx: ContextoHerramientas) {
+    const { f, filtros } = this.filtrosVentas(p, ctx);
+    const tipo = p.tipo ?? 'ambos';
+    filtros['Tipo'] = { ambos: 'Devoluciones y cambios', devoluciones: 'Devoluciones', cambios: 'Cambios' }[tipo];
+    const filas = await this.reports.returnAndExchangeReasons(f, ctx.scope, tipo);
+    return this.reporte('motivos_devolucion_y_cambio', 'Motivos de devolución y cambio', [
+      { clave: 'motivo', etiqueta: 'Motivo', formato: 'texto' },
+      { clave: 'tipo', etiqueta: 'Tipo', formato: 'texto' },
+      { clave: 'operaciones', etiqueta: 'Operaciones', formato: 'numero' },
+      { clave: 'unidades', etiqueta: 'Unidades', formato: 'numero' },
+    ], filas, { tipo: 'barras', x: 'motivo', y: ['operaciones'] }, filtros, this.sumas(filas, ['operaciones', 'unidades']));
   }
 
   // ------------------------------------------------------------------ ayudas

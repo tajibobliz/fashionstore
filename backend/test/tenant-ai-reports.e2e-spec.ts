@@ -145,6 +145,43 @@ describe('Reportes con IA: tipos de reporte con datos reales', () => {
     );
   });
 
+  it('devoluciones y cambios por producto: mismas cifras que el dashboard de KPIs', async () => {
+    const r = await herramienta('B', 'devoluciones_y_cambios_por_producto', { ...RANGO, limite: 50 });
+    expect(r.status).toBe(200);
+    const rep = r.body.reportes[0];
+    expect(rep.columnas.map((c: any) => c.clave)).toEqual([
+      'producto', 'categoria', 'unidadesVendidas', 'unidadesDevueltas', 'tasaDevolucion', 'unidadesCambiadas', 'tasaCambio',
+    ]);
+    const kpis = (await c.api('GET', '/reports/kpis?dias=365', { who: 'B' })).body;
+    expect(rep.resumen.unidadesDevueltas ?? 0).toBe(kpis.devoluciones.unidadesDevueltas);
+    expect(rep.resumen.unidadesCambiadas ?? 0).toBe(kpis.cambios.unidadesCambiadas);
+    for (const f of rep.filas) {
+      expect(f.unidadesDevueltas + f.unidadesCambiadas).toBeGreaterThan(0);
+      if (f.unidadesVendidas) expect(f.tasaCambio).toBeCloseTo((100 * f.unidadesCambiadas) / f.unidadesVendidas, 1);
+    }
+    if (rep.filas.length) expect(rep.grafico).toEqual({ tipo: 'barras', x: 'producto', y: ['unidadesDevueltas', 'unidadesCambiadas'] });
+  });
+
+  it('motivos de devolución y cambio: operaciones de cambio = cambios del dashboard', async () => {
+    const r = await herramienta('B', 'motivos_devolucion_y_cambio', { ...RANGO, tipo: 'cambios' });
+    expect(r.status).toBe(200);
+    const rep = r.body.reportes[0];
+    expect(rep.filtros['Tipo']).toBe('Cambios');
+    expect(rep.filas.every((f: any) => f.tipo === 'Cambio')).toBe(true);
+    const kpis = (await c.api('GET', '/reports/kpis?dias=365', { who: 'B' })).body;
+    expect(rep.resumen.operaciones ?? 0).toBe(kpis.cambios.cambios);
+    const malo = await herramienta('B', 'motivos_devolucion_y_cambio', { tipo: 'todos' });
+    expect(malo.body.tipo).toBe('sin_reporte');
+  });
+
+  it('el encargado de sucursal solo ve devoluciones y cambios de su sucursal', async () => {
+    const enc = (await herramienta('ENC', 'devoluciones_y_cambios_por_producto', { ...RANGO, limite: 50 })).body.reportes[0];
+    const adm = (await herramienta('B', 'devoluciones_y_cambios_por_producto', {
+      ...RANGO, limite: 50, idSucursal: sucursalesB.find((s) => s.nombre === 'Urban Step Centro')!.idSucursal,
+    })).body.reportes[0];
+    expect(enc.resumen).toEqual(adm.resumen);
+  });
+
   it('agrupar por mes suma lo mismo que agrupar por día', async () => {
     const dia = await herramienta('B', 'ventas_por_periodo', { ...RANGO, agrupar: 'dia' });
     const mes = await herramienta('B', 'ventas_por_periodo', { ...RANGO, agrupar: 'mes' });

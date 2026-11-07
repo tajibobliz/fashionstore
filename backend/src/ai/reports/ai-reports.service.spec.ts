@@ -230,6 +230,9 @@ describe('SimuladoProveedor (reglas)', () => {
     ['stock bajo menos de 2', 'stock_bajo', { umbral: 2 }],
     ['reservas de los últimos 7 días', 'reservas_por_estado', { desde: '2026-10-31', hasta: '2026-11-06' }],
     ['cobros con QR esta semana', 'ventas_por_metodo_pago', { desde: '2026-11-02', hasta: '2026-11-06' }],
+    ['prendas más devueltas y cambiadas del mes pasado', 'devoluciones_y_cambios_por_producto', { desde: '2026-10-01', hasta: '2026-10-31' }],
+    ['¿por qué cambian las prendas?', 'motivos_devolucion_y_cambio', { tipo: 'cambios' }],
+    ['motivos de devolución este año', 'motivos_devolucion_y_cambio', { tipo: 'devoluciones', desde: '2026-01-01' }],
     ['¿qué tal?', 'pedir_aclaracion', {}],
   ])('"%s" → %s', async (texto, nombre, entrada) => {
     const l = await pedir(texto);

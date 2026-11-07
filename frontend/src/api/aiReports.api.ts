@@ -1,7 +1,7 @@
 import { api } from './axios'
 
 /** Contrato de POST /ai/reports/query (Fase 3, tarea 3.1). */
-export type FormatoColumna = 'texto' | 'numero' | 'moneda' | 'fecha'
+export type FormatoColumna = 'texto' | 'numero' | 'moneda' | 'fecha' | 'porcentaje'
 export interface ColumnaReporte { clave: string; etiqueta: string; formato: FormatoColumna }
 export interface GraficoReporte { tipo: 'linea' | 'barras' | 'torta'; x: string; y: string[] }
 export type Celda = string | number | null

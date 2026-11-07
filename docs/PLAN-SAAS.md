@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.13 (2026-11-07)
+> Versión: v1.14 (2026-11-07)
 
 ## Fechas clave
 
@@ -327,7 +327,7 @@ Voz: Web Speech API (web) / expo-speech-recognition (móvil)
 Mínimo 4 tipos de reporte con filtros variables y datos reales. El modelo nunca ve el tenant como parámetro editable.
 
 **Implementado (v1.9) — `backend/src/ai/reports/`:**
-- `report-tools.ts`: 7 herramientas de reporte (`ventas_por_periodo` día/semana/mes, `ventas_por_sucursal`, `top_productos` con categoría, `ingresos_por_categoria`, `stock_bajo`, `reservas_por_estado`, `ventas_por_metodo_pago`) + `pedir_aclaracion`. Cada una valida con class-validator y rechaza parámetros extra, fechas inexistentes, rangos invertidos o de más de 2 años, y sucursales no permitidas al usuario (aunque existan en otra empresa). Ejecuta las consultas de `ReportsService` (se agregaron `salesByPeriod` y `salesByCategory`).
+- `report-tools.ts`: 9 herramientas de reporte (`ventas_por_periodo` día/semana/mes, `ventas_por_sucursal`, `top_productos` con categoría, `ingresos_por_categoria`, `stock_bajo`, `reservas_por_estado`, `ventas_por_metodo_pago` y, desde v1.14, `devoluciones_y_cambios_por_producto` y `motivos_devolucion_y_cambio`) + `pedir_aclaracion`. Cada una valida con class-validator y rechaza parámetros extra, fechas inexistentes, rangos invertidos o de más de 2 años, y sucursales no permitidas al usuario (aunque existan en otra empresa). Ejecuta las consultas de `ReportsService` (se agregaron `salesByPeriod` y `salesByCategory`).
 - `ai-reports.service.ts`: bucle de tool use con máximo `AI_REPORTS_MAX_ITER` iteraciones y 3 herramientas por turno; el error de validación vuelve al modelo para que corrija; la **tabla y el gráfico los arma el backend** (la IA solo redacta la narrativa); límite de `AI_REPORTS_POR_MINUTO` consultas por usuario (429); si el proveedor falla → 503.
 - Proveedores (`llm/`): `anthropic` (Claude, `AI_REPORTS_MODEL`, por defecto `claude-haiku-4-5`) y `simulado` (reglas por palabras clave, sin internet: pruebas y respaldo en la defensa). Se elige con `LLM_PROVIDER`.
 - Bitácora `consulta_ia` (migración `1780000000005-AddConsultaIa`, con RLS): pregunta, herramientas con parámetros y si se aceptaron, tokens, duración y estado (OK, ACLARACION, SIN_REPORTE, ERROR).
@@ -450,7 +450,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [ ] 3.4 Dashboard analítico (CU12), en tres entregas:
   - [x] 3.4a ML también en el plan Profesional (CU12) + KPIs (`GET /reports/kpis`) y sección **Dashboard analítico**
   - [x] 3.4b Pestañas de ML "Análisis predictivo" y "Descubrir patrones" (segmentos + anomalías con IsolationForest), reentrenamiento nocturno automático, avisos del CU12 (ver §7.1)
-  - [ ] 3.4c Reporte con IA de prendas cambiadas y devoluciones; PDF/Excel con empresa, usuario, fecha y gráfico embebido
+  - [x] 3.4c Reporte con IA de prendas cambiadas y devoluciones; PDF/Excel con empresa, usuario, fecha y gráfico embebido
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
 
 ### Pendientes del documento ICONIX (después de la Fase 3, antes de la defensa)
@@ -515,7 +515,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 87 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 90 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -565,3 +565,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-06 | v1.11: **tarea 3.3 (ML)**. Microservicio `ml-service` (FastAPI): datos sintéticos sobre el catálogo real, RandomForest de demanda semanal (validación temporal y línea base), K-Means RFM con silhouette, un modelo por empresa. Backend `/ml/*` (plan Empresarial, ADMIN/ENCARGADO) que envía los datos reales de la empresa | pytest 11/11 (reproducibilidad, estacionalidad, reales sobre sintéticos, clave, validación, el modelo supera a la línea base, banda p10–p90, un modelo por empresa, segmentos). E2E 79/79 (9 nuevas: Básico y Profesional sin ML, roles, servicio caído → 503, validación, 404 antes de entrenar, entrenamiento con datos reales de Urban Step, pronóstico, sucursal de otra empresa → 400, segmentos). Ejemplo con 6 productos × 2 sucursales: R² 0,89 y 16 % menos error que la línea base; 3 segmentos con silhouette 0,47 |
 | 2026-11-07 | v1.12: revisión contra el documento ICONIX del equipo. **ML pasa también al plan Profesional** (CU12; migración `1780000000006-PlanProfesionalConMl`). **Tarea 3.4a**: KPIs del CU12 (`/reports/kpis`) y sección Dashboard analítico con drill-down, refresco cada 5 min y copia offline. Se anotan los pendientes P1–P4 (CU14, CU16, CU17, RF-026) | E2E 85/85 (6 nuevas de KPIs: vista de empresa, tendencia de 365 días = `/reports`, tasas coherentes, encargado limitado a su sucursal y 403 en otra, Empresa A no puede pedir sucursales de B, roles y validación; ML: Básico 403, Profesional y Empresarial con acceso). Playwright: 8 tarjetas, filtros, drill-down a Inventario, banner sin conexión, encargado a 390 px sin desborde |
 | 2026-11-07 | v1.13: **tarea 3.4b**. Reentrenamiento nocturno (`MlScheduler`, `@nestjs/schedule` 12.0.2), entrenamiento automático la primera vez y botón "Actualizar análisis" solo para ADMIN (bloqueo 409). Anomalías con IsolationForest + anomalías simuladas para medir precisión/recall; limpieza de atípicos antes de entrenar la demanda. Pestañas *Análisis predictivo* y *Descubrir patrones* con avisos del CU12 y "Calidad del modelo" plegable | pytest 13/13 (anomalías simuladas fuera de festivos y de la prueba, recall ≥ 0,66 y precisión ≥ 0,5, filtro por sucursal, atípicos excluidos). Unitarias +5 (cron: listado en modo plataforma, cada empresa en su contexto, sigue si una falla, sin corridas dobles, `ML_CRON=off`; bloqueo 409). E2E ML 11/11 (+2: anomalías y 409). Playwright: Básico bloqueado; primer ingreso entrena solo; avisos de historial y R² bajo con Urban Step; 8 semanas; segmentos y 4 semanas atípicas; "Actualizar análisis" reentrena; encargado sin botón; encargado de sucursal sin pestañas ML; sin desborde a 390 px |
+| 2026-11-07 | v1.14: **tarea 3.4c**. Dos herramientas nuevas del arnés: `devoluciones_y_cambios_por_producto` (vendidas, devueltas, cambiadas y sus tasas por prenda; filtro de categoría y límite) y `motivos_devolucion_y_cambio` (motivos agrupados; tipo devoluciones/cambios/ambos). Gráfico de varias series (barras agrupadas con leyenda). Exportación profesional: **PDF** con encabezado de marca, metadatos (empresa, usuario y rol, fecha y hora, pregunta, filtros), resumen de la IA, gráfico embebido, tabla y pie con número de página; **Excel** con `exceljs` 4.4.0 (hoja *Reporte* con metadatos, formatos numéricos reales Bs/unidades/% , autofiltro y gráfico como imagen; hoja *Datos* con la tabla cruda) | E2E 90/90 (+3: totales iguales a `/reports/kpis`, motivos de cambio = cambios de los KPIs, tipo inválido rechazado, encargado = admin filtrado a su sucursal). Unitarias 166 (+3 reglas del simulado). Playwright: 3 reportes exportados; PDF ~30 KB con gráfico (se corrigió que tomaba el ícono de la leyenda y se activó compresión); Excel con imagen en `xl/media` y formatos revisados |

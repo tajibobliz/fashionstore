@@ -155,6 +155,83 @@ export class ReportsService {
     return rows.map(this.numericSalesRow);
   }
 
+  /**
+   * Prendas devueltas y cambiadas por producto (reportes con IA, Fase 3 tarea 3.4c).
+   * Vendidas = unidades de ventas del periodo; devueltas y cambiadas = unidades de devoluciones
+   * y cambios REGISTRADOS en el periodo. Tasa = devueltas (o cambiadas) / vendidas.
+   */
+  async returnsAndExchangesByProduct(f: ReportFiltersDto, scope: ReportScope, limite = 15, idCategoria?: number) {
+    const { from, to } = this.dateBounds(f.desde, f.hasta);
+    const ids = f.idSucursal ? [f.idSucursal] : scope.branchIds;
+    const rows: Record<string, unknown>[] = await this.detalleVentaRepo.manager.query(
+      `WITH par AS (SELECT $1::timestamptz AS desde, $2::timestamptz AS hasta, $3::int[] AS ids, $4::int AS cat),
+       vendidas AS (
+         SELECT vp.id_producto, SUM(dv.cantidad) AS u FROM par, venta v
+           JOIN detalle_venta dv ON dv.id_venta = v.id_venta JOIN variante_producto vp ON vp.id_variante = dv.id_variante
+          WHERE v.estado IN ('PAGADA','DEVUELTA_PARCIAL','DEVUELTA')
+            AND (par.desde IS NULL OR v.fecha >= par.desde) AND (par.hasta IS NULL OR v.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1),
+       devueltas AS (
+         SELECT vp.id_producto, SUM(dd.cantidad) AS u, COUNT(DISTINCT d.id_devolucion) AS ops FROM par, devolucion d
+           JOIN detalle_devolucion dd ON dd.id_devolucion = d.id_devolucion JOIN detalle_venta dv ON dv.id_detalle_venta = dd.id_detalle_venta
+           JOIN variante_producto vp ON vp.id_variante = dv.id_variante JOIN venta v ON v.id_venta = d.id_venta
+          WHERE (par.desde IS NULL OR d.fecha >= par.desde) AND (par.hasta IS NULL OR d.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1),
+       cambiadas AS (
+         SELECT vp.id_producto, SUM(dc.cantidad) AS u, COUNT(DISTINCT c.id_cambio) AS ops FROM par, cambio c
+           JOIN detalle_cambio dc ON dc.id_cambio = c.id_cambio JOIN detalle_venta dv ON dv.id_detalle_venta = dc.id_detalle_venta
+           JOIN variante_producto vp ON vp.id_variante = dv.id_variante JOIN venta v ON v.id_venta = c.id_venta
+          WHERE (par.desde IS NULL OR c.fecha >= par.desde) AND (par.hasta IS NULL OR c.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1)
+       SELECT p.id_producto AS "idProducto", p.nombre AS producto, COALESCE(cat.nombre, 'Sin categoría') AS categoria,
+              COALESCE(ve.u, 0)::int AS "unidadesVendidas", COALESCE(de.u, 0)::int AS "unidadesDevueltas", COALESCE(ca.u, 0)::int AS "unidadesCambiadas",
+              COALESCE(de.ops, 0)::int AS devoluciones, COALESCE(ca.ops, 0)::int AS cambios
+         FROM par, producto p LEFT JOIN categoria cat ON cat.id_categoria = p.id_categoria
+         LEFT JOIN vendidas ve ON ve.id_producto = p.id_producto LEFT JOIN devueltas de ON de.id_producto = p.id_producto
+         LEFT JOIN cambiadas ca ON ca.id_producto = p.id_producto
+        WHERE (COALESCE(de.u, 0) + COALESCE(ca.u, 0)) > 0 AND (par.cat IS NULL OR p.id_categoria = par.cat)
+        ORDER BY (COALESCE(de.u, 0) + COALESCE(ca.u, 0)) DESC, p.nombre LIMIT $5`,
+      [from ?? null, to ?? null, ids, idCategoria ?? null, limite],
+    );
+    const tasa = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : null);
+    return rows.map((r) => {
+      const vendidas = Number(r.unidadesVendidas), dev = Number(r.unidadesDevueltas), cam = Number(r.unidadesCambiadas);
+      return { ...r, tasaDevolucion: tasa(dev, vendidas), tasaCambio: tasa(cam, vendidas) } as {
+        idProducto: number; producto: string; categoria: string; unidadesVendidas: number; unidadesDevueltas: number; unidadesCambiadas: number;
+        devoluciones: number; cambios: number; tasaDevolucion: number | null; tasaCambio: number | null;
+      };
+    });
+  }
+
+  /** Motivos registrados al devolver o cambiar prendas (texto libre, agrupado sin mayúsculas ni espacios extra). */
+  async returnAndExchangeReasons(f: ReportFiltersDto, scope: ReportScope, tipo: 'devoluciones' | 'cambios' | 'ambos' = 'ambos') {
+    const { from, to } = this.dateBounds(f.desde, f.hasta);
+    const ids = f.idSucursal ? [f.idSucursal] : scope.branchIds;
+    const rows: { motivo: string; tipo: string; operaciones: number; unidades: number }[] = await this.detalleVentaRepo.manager.query(
+      `WITH par AS (SELECT $1::timestamptz AS desde, $2::timestamptz AS hasta, $3::int[] AS ids, $4::text AS tipo),
+       ops AS (
+         SELECT 'Devolución' AS tipo, d.motivo, d.id_devolucion AS id, d.fecha, v.id_sucursal,
+                (SELECT SUM(dd.cantidad) FROM detalle_devolucion dd WHERE dd.id_devolucion = d.id_devolucion) AS unidades
+           FROM devolucion d JOIN venta v ON v.id_venta = d.id_venta
+         UNION ALL
+         SELECT 'Cambio', c.motivo, c.id_cambio, c.fecha, v.id_sucursal,
+                (SELECT SUM(dc.cantidad) FROM detalle_cambio dc WHERE dc.id_cambio = c.id_cambio)
+           FROM cambio c JOIN venta v ON v.id_venta = c.id_venta)
+       SELECT INITCAP(LOWER(TRIM(COALESCE(NULLIF(TRIM(o.motivo), ''), 'sin motivo')))) AS motivo, o.tipo,
+              COUNT(*)::int AS operaciones, COALESCE(SUM(o.unidades), 0)::int AS unidades
+         FROM par, ops o
+        WHERE (par.desde IS NULL OR o.fecha >= par.desde) AND (par.hasta IS NULL OR o.fecha <= par.hasta)
+          AND (par.ids IS NULL OR o.id_sucursal = ANY(par.ids))
+          AND (par.tipo = 'ambos' OR (par.tipo = 'devoluciones' AND o.tipo = 'Devolución') OR (par.tipo = 'cambios' AND o.tipo = 'Cambio'))
+        GROUP BY 1, 2 ORDER BY operaciones DESC, unidades DESC, motivo LIMIT 30`,
+      [from ?? null, to ?? null, ids, tipo],
+    );
+    return rows;
+  }
+
   async topVariants(f: ReportFiltersDto, scope: ReportScope) {
     const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
       .leftJoin('vr.talla', 'ta').leftJoin('vr.color', 'co').leftJoin('v.turno', 't').select('p.nombre', 'producto').addSelect('vr.sku', 'sku')

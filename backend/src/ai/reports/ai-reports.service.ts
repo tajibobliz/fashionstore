@@ -197,7 +197,7 @@ export class AiReportsService {
       narrativa = `Generé ${finales.length === 1 ? 'el reporte' : `${finales.length} reportes`}: ${finales.map((x) => x.titulo.toLowerCase()).join(', ')}.`;
     const estado: EstadoConsultaIa = aclaracion ? 'ACLARACION' : finales.length ? 'OK' : 'SIN_REPORTE';
     if (estado === 'SIN_REPORTE' && !narrativa)
-      narrativa = 'No pude generar un reporte con esa pregunta. Prueba con ventas, productos, sucursales, stock, reservas o métodos de pago.';
+      narrativa = 'No pude generar un reporte con esa pregunta. Prueba con ventas, productos, sucursales, stock, reservas, métodos de pago, devoluciones o cambios.';
 
     const fila = await this.guardar(user, dto.consulta, estado, { modelo, registradas, iteraciones, tokensEntrada, tokensSalida, inicio });
     return {
@@ -243,7 +243,7 @@ Reglas:
 4. Si la pregunta es ambigua (no se sabe qué métrica quiere), usa pedir_aclaracion.
 5. Puedes usar hasta ${LLAMADAS_POR_TURNO} herramientas si la pregunta compara cosas distintas.
 6. Si una herramienta responde con error, corrige los parámetros una sola vez.
-7. Si la pregunta no trata de reportes del negocio, responde en una frase que solo generas reportes de ventas, productos, sucursales, stock, reservas y pagos (sin usar herramientas).
+7. Si la pregunta no trata de reportes del negocio, responde en una frase que solo generas reportes de ventas, productos, sucursales, stock, reservas, pagos, devoluciones y cambios (sin usar herramientas).
 8. Al terminar escribe un resumen de 2 a 4 oraciones en español, apto para leerse en voz alta: sin tablas, viñetas ni markdown. Cita solo cifras que aparezcan en "resumen" o "filas" de los resultados. Los montos son en bolivianos (Bs).
 
 Sucursales que este usuario puede consultar (usa el número en idSucursal):

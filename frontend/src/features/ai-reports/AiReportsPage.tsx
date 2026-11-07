@@ -12,7 +12,10 @@ import { usePlan } from '../plan/usePlan'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import { ReporteIaChart } from './ReporteIaChart'
 import { exportarExcel, exportarPdf } from './exportar'
-import { formatear } from './formato'
+import type { MetaExportacion } from './exportar'
+import { COLORES_SERIES, esNumerica, formatear } from './formato'
+import { graficoComoImagen } from './imagenGrafico'
+import { CHART_PALETTE } from '../reports/charts/colors'
 import { useDictado, useLectura } from './useVoz'
 import styles from './AiReports.module.css'
 
@@ -23,6 +26,8 @@ import styles from './AiReports.module.css'
  * pregunta y redacta el resumen.
  */
 
+const ROL: Record<string, string> = { ADMIN: 'Administrador', ENCARGADO: 'Encargado', ENCARGADO_SUCURSAL: 'Encargado de sucursal' }
+
 const EJEMPLOS = [
   'Ventas por día de este mes',
   'Los 5 productos más vendidos este mes',
@@ -31,6 +36,8 @@ const EJEMPLOS = [
   '¿Qué productos tienen stock bajo?',
   'Reservas por estado de los últimos 30 días',
   'Cobros por método de pago de esta semana',
+  'Prendas más devueltas y cambiadas este mes',
+  '¿Por qué cambian o devuelven las prendas?',
 ]
 
 const ESTADO_HISTORIAL: Record<string, string> = { OK: 'Reporte', ACLARACION: 'Aclaración', SIN_REPORTE: 'Sin reporte', ERROR: 'Error' }
@@ -98,7 +105,11 @@ export default function AiReportsPage({ planPath }: { planPath: string | null })
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void preguntar(texto) }
   }
 
-  const empresa = plan.data?.empresa.nombre ?? 'FashionStore'
+  const meta: MetaExportacion = {
+    empresa: plan.data?.empresa.nombre ?? user?.empresa?.nombre ?? 'FashionStore',
+    usuario: user?.nombre ? `${user.nombre} <${user.email}>` : user?.email ?? '',
+    rol: ROL[user?.rol ?? ''] ?? user?.rol ?? '',
+  }
   const esperandoAclaracion = turnos[0]?.respuesta?.tipo === 'aclaracion'
 
   return (
@@ -177,7 +188,7 @@ export default function AiReportsPage({ planPath }: { planPath: string | null })
           )}
 
           {turnos.map(t => (
-            <TurnoCard key={t.id} turno={t} empresa={empresa} lectura={lectura} />
+            <TurnoCard key={t.id} turno={t} meta={meta} lectura={lectura} />
           ))}
 
           <details className={`${dashboardStyles.panel} ${styles.history}`}>
@@ -205,7 +216,7 @@ export default function AiReportsPage({ planPath }: { planPath: string | null })
   )
 }
 
-function TurnoCard({ turno, empresa, lectura }: { turno: Turno; empresa: string; lectura: ReturnType<typeof useLectura> }) {
+function TurnoCard({ turno, meta, lectura }: { turno: Turno; meta: MetaExportacion; lectura: ReturnType<typeof useLectura> }) {
   const r = turno.respuesta
   return (
     <article className={`${dashboardStyles.panel} ${styles.turn}`} aria-busy={turno.estado === 'cargando'}>
@@ -242,7 +253,7 @@ function TurnoCard({ turno, empresa, lectura }: { turno: Turno; empresa: string;
       )}
 
       {r?.reportes.map((rep, i) => (
-        <ReporteBloque key={`${rep.herramienta}-${i}`} reporte={rep} consulta={turno.consulta} narrativa={r.narrativa} empresa={empresa} />
+        <ReporteBloque key={`${rep.herramienta}-${i}`} reporte={rep} consulta={turno.consulta} narrativa={r.narrativa} meta={meta} />
       ))}
 
       {r && (
@@ -257,17 +268,32 @@ function TurnoCard({ turno, empresa, lectura }: { turno: Turno; empresa: string;
   )
 }
 
-function ReporteBloque({ reporte, consulta, narrativa, empresa }: { reporte: ReporteIa; consulta: string; narrativa: string | null; empresa: string }) {
+function ReporteBloque({ reporte, consulta, narrativa, meta }: { reporte: ReporteIa; consulta: string; narrativa: string | null; meta: MetaExportacion }) {
   const [todas, setTodas] = useState(false)
+  const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null)
+  const grafico = useRef<HTMLDivElement>(null)
   const filas = todas ? reporte.filas : reporte.filas.slice(0, FILAS_VISIBLES)
+
+  const exportar = async (tipo: 'pdf' | 'excel') => {
+    setExportando(tipo)
+    try {
+      const imagen = await graficoComoImagen(grafico.current, leyendaDe(reporte))
+      const contenido = { reporte, consulta, narrativa, meta, grafico: imagen }
+      if (tipo === 'pdf') exportarPdf(contenido)
+      else await exportarExcel(contenido)
+    } finally {
+      setExportando(null)
+    }
+  }
+
   return (
     <div className={styles.report}>
       <div className={styles.reportHeader}>
         <h2>{reporte.titulo}</h2>
         {reporte.filas.length > 0 && (
           <div className={styles.exports}>
-            <button type="button" onClick={() => exportarPdf(reporte, consulta, narrativa, empresa)}><FileText size={15} /> PDF</button>
-            <button type="button" onClick={() => exportarExcel(reporte, consulta, narrativa)}><FileSpreadsheet size={15} /> Excel</button>
+            <button type="button" onClick={() => void exportar('pdf')} disabled={exportando !== null}><FileText size={15} /> {exportando === 'pdf' ? 'Generando…' : 'PDF'}</button>
+            <button type="button" onClick={() => void exportar('excel')} disabled={exportando !== null}><FileSpreadsheet size={15} /> {exportando === 'excel' ? 'Generando…' : 'Excel'}</button>
           </div>
         )}
       </div>
@@ -279,17 +305,17 @@ function ReporteBloque({ reporte, consulta, narrativa, empresa }: { reporte: Rep
         <p className={styles.hint}>No hay datos para estos filtros.</p>
       ) : (
         <>
-          <ReporteIaChart reporte={reporte} />
+          <div ref={grafico}><ReporteIaChart reporte={reporte} /></div>
           <div className={dashboardStyles.tableWrap}>
             <table className={dashboardStyles.table}>
               <thead>
-                <tr>{reporte.columnas.map(c => <th key={c.clave} className={c.formato === 'moneda' || c.formato === 'numero' ? styles.num : undefined}>{c.etiqueta}</th>)}</tr>
+                <tr>{reporte.columnas.map(c => <th key={c.clave} className={esNumerica(c.formato) ? styles.num : undefined}>{c.etiqueta}</th>)}</tr>
               </thead>
               <tbody>
                 {filas.map((f, i) => (
                   <tr key={i}>
                     {reporte.columnas.map(c => (
-                      <td key={c.clave} className={c.formato === 'moneda' || c.formato === 'numero' ? styles.num : undefined}>{formatear(f[c.clave], c, reporte)}</td>
+                      <td key={c.clave} className={esNumerica(c.formato) ? styles.num : undefined}>{formatear(f[c.clave], c, reporte)}</td>
                     ))}
                   </tr>
                 ))}
@@ -305,6 +331,17 @@ function ReporteBloque({ reporte, consulta, narrativa, empresa }: { reporte: Rep
       )}
     </div>
   )
+}
+
+/** Leyenda para la imagen del gráfico (la de recharts es HTML y no viaja en el SVG). */
+function leyendaDe(r: ReporteIa) {
+  const g = r.grafico
+  if (!g) return []
+  if (g.y.length > 1) return g.y.map((clave, i) => ({ nombre: r.columnas.find(c => c.clave === clave)?.etiqueta ?? clave, color: COLORES_SERIES[i % COLORES_SERIES.length] }))
+  const colX = r.columnas.find(c => c.clave === g.x)
+  if (g.tipo === 'torta' && colX && r.filas.length <= 8)
+    return r.filas.map((f, i) => ({ nombre: formatear(f[g.x], colX, r), color: CHART_PALETTE[i % CHART_PALETTE.length] }))
+  return []
 }
 
 function mensajeError(error: unknown) {

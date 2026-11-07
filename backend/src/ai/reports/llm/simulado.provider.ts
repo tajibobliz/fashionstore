@@ -50,6 +50,11 @@ export class SimuladoProveedor implements ProveedorLlm {
       { id: 'sim-1', nombre, entrada },
     ];
 
+    if (/motivo|por que (devuelv|cambi)|razon/.test(t)) {
+      const tipo = /devol|devuel/.test(t) && !/cambi/.test(t) ? 'devoluciones' : /cambi/.test(t) && !/devol|devuel/.test(t) ? 'cambios' : 'ambos';
+      return llamada('motivos_devolucion_y_cambio', { ...fechas, tipo });
+    }
+    if (/devol|devuel|cambiad|cambio de prenda|cambios/.test(t)) return llamada('devoluciones_y_cambios_por_producto', fechas);
     if (/stock|inventario|agotad|reponer/.test(t)) return llamada('stock_bajo', numero(t, /(?:menos de|menor a|umbral|bajo)\s+(\d+)/, 'umbral'));
     if (/reserva/.test(t)) return llamada('reservas_por_estado', fechas);
     if (/metodo|pago|qr|efectivo|tarjeta|transferencia/.test(t)) return llamada('ventas_por_metodo_pago', fechas);
@@ -61,7 +66,7 @@ export class SimuladoProveedor implements ProveedorLlm {
       return llamada('ventas_por_periodo', { ...fechas, agrupar });
     }
     return llamada('pedir_aclaracion', {
-      pregunta: '¿Qué reporte necesitas? Por ejemplo: ventas por día, productos más vendidos, ventas por sucursal, stock bajo, reservas o métodos de pago.',
+      pregunta: '¿Qué reporte necesitas? Por ejemplo: ventas por día, productos más vendidos, ventas por sucursal, stock bajo, reservas, métodos de pago o prendas devueltas y cambiadas.',
     });
   }
 
@@ -103,14 +108,19 @@ function narrar(m: Extract<MensajeLlm, { rol: 'resultados' }>) {
     if (r.esError) return `No se pudo generar el reporte: ${r.contenido}`;
     const d = JSON.parse(r.contenido) as { titulo: string; resumen: Record<string, number>; filas: Record<string, unknown>[] };
     if (!d.filas.length) return `${d.titulo}: no hay datos para los filtros elegidos.`;
+    if ('tasaDevolucion' in d.resumen) {
+      const r = d.resumen;
+      const top = d.filas[0] as { producto: string; unidadesDevueltas: number; unidadesCambiadas: number };
+      return `De ${r.unidadesVendidas} unidades vendidas, se devolvieron ${r.unidadesDevueltas} (${r.tasaDevolucion}%) y se cambiaron ${r.unidadesCambiadas} (${r.tasaCambio}%). La prenda con más devoluciones y cambios es ${top.producto} (${top.unidadesDevueltas} devueltas y ${top.unidadesCambiadas} cambiadas).`;
+    }
     if ('variantes' in d.resumen)
       return `Hay ${d.resumen.variantes} variantes con stock bajo; ${d.resumen.agotadas} están agotadas. La de menor stock es ${String(d.filas[0].producto)} (${String(d.filas[0].stockDisponible)} unidades).`;
-    const metrica = ['totalVendido', 'monto', 'totalGenerado', 'cantidadVendida', 'cantidad'].find((k) => typeof d.filas[0][k] === 'number');
+    const metrica = ['totalVendido', 'monto', 'totalGenerado', 'cantidadVendida', 'unidadesDevueltas', 'operaciones', 'cantidad'].find((k) => typeof d.filas[0][k] === 'number');
     const etiqueta = Object.keys(d.filas[0]).find((k) => typeof d.filas[0][k] === 'string');
     if (!metrica || !etiqueta) return `${d.titulo}: ${d.filas.length} filas.`;
     const total = d.filas.reduce((s, f) => s + Number(f[metrica]), 0);
     const mayor = d.filas.reduce((a, b) => (Number(b[metrica]) > Number(a[metrica]) ? b : a));
-    const esMonto = !metrica.startsWith('cantidad');
+    const esMonto = ['totalVendido', 'monto', 'totalGenerado'].includes(metrica);
     const valor = (n: number) => (esMonto ? bs(n) : `${n}`);
     const pct = total ? Math.round((Number(mayor[metrica]) / total) * 100) : 0;
     return `${d.titulo}: ${d.filas.length} ${d.filas.length === 1 ? 'registro' : 'registros'} con un total de ${valor(total)}. El mayor es ${String(mayor[etiqueta])} con ${valor(Number(mayor[metrica]))} (${pct}% del total).`;
