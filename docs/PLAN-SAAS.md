@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.12 (2026-11-07)
+> Versión: v1.13 (2026-11-07)
 
 ## Fechas clave
 
@@ -353,6 +353,12 @@ Microservicio **Python + FastAPI** (`ml-service/`), lo que también cubre la exi
 - Backend `backend/src/ml/`: `POST /ml/entrenar`, `GET /ml/metricas`, `GET /ml/demanda`, `GET /ml/segmentos`. Solo plan Empresarial (`features.ml`) y ADMIN/ENCARGADO. Envía al ml-service el catálogo, las sucursales, las ventas semanales netas y el RFM de las clientas REALES de la empresa (SQL con RLS + `id_empresa`); la empresa sale del JWT. Servicio caído → 503; sin modelo → 404 "Entrenar modelos"; sucursal ajena → 400.
 - Endpoints del ml-service: `/tenants/{id}/train`, `/metrics`, `/demand`, `/segments` (en vez de `/predict/demand`).
 
+**Implementado (v1.13, tarea 3.4b) — cómo se comporta como un SaaS real:**
+- **Nadie pulsa "Entrenar"**: `MlScheduler` (`@nestjs/schedule`, cron `ML_CRON`, por defecto 03:00 hora de la empresa) reentrena cada noche las empresas activas con suscripción vigente y plan con ML, cada una dentro de `TenantContext.run({ idEmpresa })` (RLS). Si una empresa aún no tiene modelos, la pantalla los prepara sola la primera vez. El ADMIN tiene un botón discreto **"Actualizar análisis"**; dos entrenamientos simultáneos de la misma empresa → 409.
+- **Anomalías (no supervisado)**: `ml-service/app/anomalias.py` con IsolationForest sobre la desviación de cada semana frente a su línea base local (mediana de ±4 semanas); los picos en fechas festivas se marcan como estacionales. El generador sintético inserta semanas atípicas conocidas para medir **precisión y exhaustividad** del detector. Las semanas atípicas se **excluyen del entrenamiento** del modelo de demanda (limpieza de atípicos). `GET /ml/anomalias?idSucursal=`.
+- **Pantalla** (Dashboard analítico → pestañas *Análisis predictivo* y *Descubrir patrones*, ADMIN y ENCARGADO con plan que incluya ML): pronóstico con banda p10–p90 y tabla por producto; segmentos con acción sugerida, gráfico de dispersión y clientas reales (solo ADMIN); semanas atípicas por sucursal. Métricas técnicas (MAE, RMSE, R² vs. línea base, importancia de variables, silhouette por k, precisión/recall de anomalías) en un apartado plegable **"Calidad del modelo"**.
+- **Avisos del CU12**: menos de 12 semanas con ventas reales → "Se requiere mínimo 3 meses de historial…"; R² < 0,5 → precisión baja; silhouette < 0,3 → "No se detectaron patrones claros en los datos actuales".
+
 ---
 
 ### 7.2 Dashboard de KPIs (A2)
@@ -443,7 +449,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas (ver §7.1; falta la pantalla, que va en 3.4)
 - [ ] 3.4 Dashboard analítico (CU12), en tres entregas:
   - [x] 3.4a ML también en el plan Profesional (CU12) + KPIs (`GET /reports/kpis`) y sección **Dashboard analítico**
-  - [ ] 3.4b Pestañas de ML: entrenar, "Análisis predictivo" (pronóstico + métricas) y "Descubrir patrones" (segmentos + anomalías con IsolationForest); avisos silhouette < 0,3, R² < 0,5 e historial real < 3 meses
+  - [x] 3.4b Pestañas de ML "Análisis predictivo" y "Descubrir patrones" (segmentos + anomalías con IsolationForest), reentrenamiento nocturno automático, avisos del CU12 (ver §7.1)
   - [ ] 3.4c Reporte con IA de prendas cambiadas y devoluciones; PDF/Excel con empresa, usuario, fecha y gráfico embebido
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
 
@@ -509,7 +515,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 85 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 87 pruebas en verde (aislamiento + planes + SaaS público + sincronización + cambios + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -558,3 +564,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-06 | v1.10: **tarea 3.2 (pantalla de reportes con IA)**: texto y voz (dictado + lectura en voz alta), gráfico, tabla, PDF y Excel, conversación con contexto, historial, bloqueo por plan. Narrativa del modo simulado mejorada (mayor valor y % del total). Corrección de diseño: el panel ya no deja un hueco arriba en secciones con poco contenido (`align-content: start` en `DashboardLayout`) | Playwright: Básico → bloqueado; Profesional → ventas por sucursal, top productos, ventas por mes (línea), ingresos por categoría (torta), stock bajo; descarga de PDF y Excel revisados; aclaración; historial; dictado por voz simulado → envío automático y lectura del resumen; encargado ve solo su sucursal; sin desbordes a 1280 y 390 px; 429 muestra el aviso. tsc, eslint y build en verde; 27/27 E2E de IA |
 | 2026-11-06 | v1.11: **tarea 3.3 (ML)**. Microservicio `ml-service` (FastAPI): datos sintéticos sobre el catálogo real, RandomForest de demanda semanal (validación temporal y línea base), K-Means RFM con silhouette, un modelo por empresa. Backend `/ml/*` (plan Empresarial, ADMIN/ENCARGADO) que envía los datos reales de la empresa | pytest 11/11 (reproducibilidad, estacionalidad, reales sobre sintéticos, clave, validación, el modelo supera a la línea base, banda p10–p90, un modelo por empresa, segmentos). E2E 79/79 (9 nuevas: Básico y Profesional sin ML, roles, servicio caído → 503, validación, 404 antes de entrenar, entrenamiento con datos reales de Urban Step, pronóstico, sucursal de otra empresa → 400, segmentos). Ejemplo con 6 productos × 2 sucursales: R² 0,89 y 16 % menos error que la línea base; 3 segmentos con silhouette 0,47 |
 | 2026-11-07 | v1.12: revisión contra el documento ICONIX del equipo. **ML pasa también al plan Profesional** (CU12; migración `1780000000006-PlanProfesionalConMl`). **Tarea 3.4a**: KPIs del CU12 (`/reports/kpis`) y sección Dashboard analítico con drill-down, refresco cada 5 min y copia offline. Se anotan los pendientes P1–P4 (CU14, CU16, CU17, RF-026) | E2E 85/85 (6 nuevas de KPIs: vista de empresa, tendencia de 365 días = `/reports`, tasas coherentes, encargado limitado a su sucursal y 403 en otra, Empresa A no puede pedir sucursales de B, roles y validación; ML: Básico 403, Profesional y Empresarial con acceso). Playwright: 8 tarjetas, filtros, drill-down a Inventario, banner sin conexión, encargado a 390 px sin desborde |
+| 2026-11-07 | v1.13: **tarea 3.4b**. Reentrenamiento nocturno (`MlScheduler`, `@nestjs/schedule` 12.0.2), entrenamiento automático la primera vez y botón "Actualizar análisis" solo para ADMIN (bloqueo 409). Anomalías con IsolationForest + anomalías simuladas para medir precisión/recall; limpieza de atípicos antes de entrenar la demanda. Pestañas *Análisis predictivo* y *Descubrir patrones* con avisos del CU12 y "Calidad del modelo" plegable | pytest 13/13 (anomalías simuladas fuera de festivos y de la prueba, recall ≥ 0,66 y precisión ≥ 0,5, filtro por sucursal, atípicos excluidos). Unitarias +5 (cron: listado en modo plataforma, cada empresa en su contexto, sigue si una falla, sin corridas dobles, `ML_CRON=off`; bloqueo 409). E2E ML 11/11 (+2: anomalías y 409). Playwright: Básico bloqueado; primer ingreso entrena solo; avisos de historial y R² bajo con Urban Step; 8 semanas; segmentos y 4 semanas atípicas; "Actualizar análisis" reentrena; encargado sin botón; encargado de sucursal sin pestañas ML; sin desborde a 390 px |

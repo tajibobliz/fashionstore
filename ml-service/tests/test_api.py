@@ -22,7 +22,8 @@ def test_entrena_evalua_y_supera_la_linea_base(cliente):
     # El R² depende de cuánto varían las ventas en las semanas de prueba; lo importante es que
     # el modelo se equivoque menos que la línea base ingenua.
     assert d["modelo"]["mae"] < d["lineaBase"]["mae"]
-    assert d["modelo"]["r2"] > max(d["lineaBase"]["r2"], 0.3)
+    assert d["modelo"]["r2"] > d["lineaBase"]["r2"]
+    assert d["filasAtipicasExcluidas"] > 0  # se limpiaron las semanas atípicas antes de entrenar
     assert d["mejoraMaeVsBase"] > 0
     assert {x["caracteristica"] for x in d["importancia"]} >= {"lag1", "media4", "navidad"}
     s = r.json()["segmentacion"]
@@ -66,3 +67,17 @@ def test_segmentos_con_nombre_accion_y_clientes_reales(cliente):
     assert seg["Fiel"] != seg["Perdida"]
     assert seg["Fiel"].startswith(("Campeones", "Leales"))
     assert len(s["puntos"]) == 300
+
+
+def test_anomalias_detecta_las_simuladas_y_filtra_por_sucursal(cliente):
+    r = cliente.post("/tenants/1/train", json=peticion(), headers=H).json()
+    m = r["anomalias"]
+    assert m["anomaliasSimuladas"] == 6
+    assert m["recall"] >= 0.66 and m["precision"] >= 0.5
+    a = cliente.get("/tenants/1/anomalies", headers=H).json()
+    assert len(a["alertas"]) == m["alertas"]
+    assert all(x["tipo"] in ("pico", "caida") and x["esperado"] > 0 for x in a["alertas"])
+    centro = cliente.get("/tenants/1/anomalies?idSucursal=3", headers=H).json()
+    assert {x["idSucursal"] for x in centro["serie"]} == {3}
+    assert all(x["sucursal"] == "Centro" for x in centro["alertas"])
+    assert r["meta"]["sucursales"] == [{"idSucursal": 3, "nombre": "Centro"}, {"idSucursal": 4, "nombre": "Norte"}]

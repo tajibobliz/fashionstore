@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { RequiresFeature } from '../tenancy/plan.decorators';
-import { DemandaQueryDto } from './dto/ml.dto';
+import { AnomaliasQueryDto, DemandaQueryDto } from './dto/ml.dto';
 import { MlService } from './ml.service';
 
 /**
@@ -21,7 +21,11 @@ import { MlService } from './ml.service';
 export class MlController {
   constructor(private readonly service: MlService) {}
 
-  /** Genera los datos sintéticos (con el catálogo y ventas reales) y entrena los dos modelos. */
+  /**
+   * Genera los datos sintéticos (con el catálogo y ventas reales) y entrena los modelos.
+   * Normalmente lo hace solo la tarea nocturna (MlScheduler); la pantalla lo llama si la empresa
+   * aún no tiene modelos y el ADMIN puede forzarlo con "Actualizar análisis".
+   */
   @Post('entrenar')
   @HttpCode(200)
   entrenar(@Request() req: any) {
@@ -37,6 +41,12 @@ export class MlController {
   @Get('demanda')
   demanda(@Request() req: any, @Query() q: DemandaQueryDto) {
     return this.service.demanda(req.user.idEmpresa, q);
+  }
+
+  /** Semanas atípicas por sucursal (IsolationForest). */
+  @Get('anomalias')
+  anomalias(@Request() req: any, @Query() q: AnomaliasQueryDto) {
+    return this.service.anomalias(req.user.idEmpresa, q.idSucursal);
   }
 
   /** Segmentos de clientes (K-Means sobre RFM). */

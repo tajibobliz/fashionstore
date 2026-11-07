@@ -75,8 +75,8 @@ def estacionalidad(categoria: str, nombre: str, semana: date) -> float:
     return float(f)
 
 
-def generar_ventas(p: PeticionEntrenamiento) -> tuple[pd.DataFrame, dict]:
-    """DataFrame semanal: semana, idProducto, idSucursal, unidades, real (bool)."""
+def generar_ventas(p: PeticionEntrenamiento) -> tuple[pd.DataFrame, dict, list[dict]]:
+    """DataFrame semanal (semana, idProducto, idSucursal, unidades, real), resumen y anomalías simuladas."""
     rng = np.random.default_rng(p.semilla)
     semanas = semanas_hasta(p.hoy, p.semanasHistoria)
     tam_sucursal = {s.idSucursal: rng.uniform(0.6, 1.4) for s in p.sucursales}
@@ -91,6 +91,7 @@ def generar_ventas(p: PeticionEntrenamiento) -> tuple[pd.DataFrame, dict]:
                 filas.append((sem, prod.idProducto, suc.idSucursal, float(rng.poisson(max(lam, 0.05)))))
     df = pd.DataFrame(filas, columns=["semana", "idProducto", "idSucursal", "unidades"])
     df["real"] = False
+    df, inyectadas = inyectar_anomalias(df, semanas, [s.idSucursal for s in p.sucursales], rng)
 
     reales = 0
     if p.ventasSemanales:
@@ -106,6 +107,9 @@ def generar_ventas(p: PeticionEntrenamiento) -> tuple[pd.DataFrame, dict]:
             df.loc[mask, "real"] = True
             df = df.drop(columns="unidades_real")
             reales = int(mask.sum())
+            # Una anomalía simulada deja de contar si esa semana tiene datos reales.
+            con_reales = set(zip(df.loc[mask, "semana"], df.loc[mask, "idSucursal"]))
+            inyectadas = [a for a in inyectadas if (a["semana"], a["idSucursal"]) not in con_reales]
     resumen = {
         "semanas": len(semanas),
         "desde": semanas[0].isoformat(),
@@ -115,8 +119,30 @@ def generar_ventas(p: PeticionEntrenamiento) -> tuple[pd.DataFrame, dict]:
         "filasReales": reales,
         "filasSinteticas": int(len(df) - reales),
         "unidadesTotales": int(df["unidades"].sum()),
+        "semanasConDatosReales": int(df.loc[df["real"], "semana"].nunique()),
+        "anomaliasInyectadas": len(inyectadas),
     }
-    return df, resumen
+    return df, resumen, inyectadas
+
+
+def inyectar_anomalias(df: pd.DataFrame, semanas: list[date], sucursales: list[int], rng: np.random.Generator, por_sucursal: int = 3):
+    """
+    Simula semanas atípicas (para poder EVALUAR el detector de anomalías): en algunas
+    semanas una sucursal vende 2,2–3 veces lo normal (pico) o solo el 15–35 % (caída: cierre,
+    corte de luz, error de carga...). Se evitan las fechas festivas, donde un pico es esperado,
+    y las últimas 12 semanas (son las de prueba del modelo de demanda).
+    """
+    candidatas = [s for s in semanas[8:-12] if not any(factores_calendario(s).values())]
+    inyectadas = []
+    for ids in sucursales:
+        for sem in rng.choice(len(candidatas), size=min(por_sucursal, len(candidatas)), replace=False):
+            semana = candidatas[int(sem)]
+            pico = bool(rng.random() < 0.5)
+            factor = rng.uniform(2.2, 3.0) if pico else rng.uniform(0.15, 0.35)
+            m = (df["semana"] == semana) & (df["idSucursal"] == ids)
+            df.loc[m, "unidades"] = np.round(df.loc[m, "unidades"] * factor)
+            inyectadas.append({"semana": semana, "idSucursal": ids, "tipo": "pico" if pico else "caida"})
+    return df, inyectadas
 
 
 # ----------------------------------------------------------------------------- clientes

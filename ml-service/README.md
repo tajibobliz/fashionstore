@@ -6,6 +6,7 @@ Microservicio en **Python + FastAPI** con dos modelos por empresa:
 |---|---|---|---|
 | `RandomForestRegressor` | **Supervisado** | Predice las unidades vendidas por semana, producto y sucursal | MAE, RMSE, R² sobre las últimas 12 semanas (no vistas) y comparación con una línea base ingenua |
 | `K-Means` sobre RFM | **No supervisado** | Agrupa clientes por recencia, frecuencia y monto | Silhouette (se prueba k = 2…6 y se elige el mejor) |
+| `IsolationForest` | **No supervisado** | Detecta semanas atípicas (picos o caídas) por sucursal | Precisión y exhaustividad contra anomalías simuladas conocidas |
 
 Como una tienda nueva tiene poca historia, `app/sintetico.py` genera **datos sintéticos** a partir del
 catálogo real (precios, categorías, sucursales) con estacionalidad de Bolivia (invierno, verano,
@@ -46,4 +47,11 @@ En `backend/.env`: `ML_SERVICE_URL=http://localhost:8001` y la misma `ML_API_KEY
 | GET | `/tenants/{id}/metrics` | Métricas, importancia de variables y resumen de datos |
 | GET | `/tenants/{id}/demand?semanas=4&idSucursal=&idProducto=&top=10` | Pronóstico recursivo con banda p10–p90 |
 | GET | `/tenants/{id}/segments` | Segmentos con nombre, tamaño, centro RFM, acción sugerida y clientas reales |
+| GET | `/tenants/{id}/anomalies?idSucursal=` | Semanas atípicas y serie semanal con línea base |
 | DELETE | `/tenants/{id}` | Borra los modelos de la empresa |
+
+## Reentrenamiento
+
+Los modelos se reentrenan solos cada noche desde el backend (`MlScheduler`, variable `ML_CRON`,
+por defecto `0 3 * * *`; `ML_CRON=off` lo desactiva). Las semanas que el detector marca como
+atípicas no se usan para entrenar el modelo de demanda.

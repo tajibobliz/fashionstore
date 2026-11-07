@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { DemandaQueryDto } from './dto/ml.dto';
@@ -26,7 +26,25 @@ export class MlService {
     this.zona = config.get<string>('APP_TIMEZONE') || 'America/La_Paz';
   }
 
+  /** Empresas que están entrenando ahora (evita dos entrenamientos simultáneos de la misma empresa). */
+  private readonly entrenando = new Set<number>();
+
+  estaEntrenando(idEmpresa: number) {
+    return this.entrenando.has(idEmpresa);
+  }
+
   async entrenar(idEmpresa: number) {
+    if (this.entrenando.has(idEmpresa))
+      throw new ConflictException('Ya se está actualizando el análisis de tu empresa. Espera unos segundos.');
+    this.entrenando.add(idEmpresa);
+    try {
+      return await this.entrenarAhora(idEmpresa);
+    } finally {
+      this.entrenando.delete(idEmpresa);
+    }
+  }
+
+  private async entrenarAhora(idEmpresa: number) {
     const [productos, sucursales, ventasSemanales, clientes] = await Promise.all([
       this.productos(idEmpresa),
       this.sucursales(idEmpresa),
@@ -61,6 +79,10 @@ export class MlService {
 
   segmentos(idEmpresa: number) {
     return this.ml.get(`/tenants/${idEmpresa}/segments`);
+  }
+
+  anomalias(idEmpresa: number, idSucursal?: number) {
+    return this.ml.get(`/tenants/${idEmpresa}/anomalies${idSucursal ? `?idSucursal=${idSucursal}` : ''}`);
   }
 
   // ------------------------------------------------------------ datos reales

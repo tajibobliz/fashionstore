@@ -14,7 +14,7 @@ import logging
 import os
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -22,7 +22,7 @@ import joblib
 import pandas as pd
 from fastapi import Depends, FastAPI, Header, HTTPException, Path as PathParam, Query
 
-from . import demanda, segmentos
+from . import anomalias, demanda, segmentos
 from .schemas import PeticionEntrenamiento
 from .sintetico import generar_clientes, generar_ventas
 
@@ -66,7 +66,7 @@ def health():
 @app.post("/tenants/{tid}/train", dependencies=[Depends(verificar_clave)])
 def entrenar(tid: Empresa, p: PeticionEntrenamiento):
     inicio = time.perf_counter()
-    ventas, resumen = generar_ventas(p)
+    ventas, resumen, inyectadas = generar_ventas(p)
 
     categorias = sorted({(x.categoria or "Sin categoría") for x in p.productos})
     cod_categoria = {c: i for i, c in enumerate(categorias)}
@@ -76,7 +76,11 @@ def entrenar(tid: Empresa, p: PeticionEntrenamiento):
         for x in p.productos
     ])
     cod_sucursal = {s.idSucursal: i for i, s in enumerate(p.sucursales)}
-    modelo, m_demanda = demanda.entrenar(ventas, productos, cod_sucursal, p.semilla)
+    nombres_sucursal = {s.idSucursal: s.nombre for s in p.sucursales}
+    # 1) Anomalías primero: las semanas atípicas no se usan para entrenar la demanda.
+    anom = anomalias.detectar(ventas, nombres_sucursal, inyectadas, p.semilla)
+    atipicas = {(date.fromisoformat(a["semana"]), a["idSucursal"]) for a in anom["alertas"]}
+    modelo, m_demanda = demanda.entrenar(ventas, productos, cod_sucursal, p.semilla, atipicas)
 
     clientes = generar_clientes(p.clientesSinteticos, p.semilla, p.clientes)
     seg = segmentos.segmentar(clientes, p.semilla)
@@ -87,21 +91,23 @@ def entrenar(tid: Empresa, p: PeticionEntrenamiento):
         "hoy": p.hoy.isoformat(),
         "semilla": p.semilla,
         "datos": resumen,
+        "sucursales": [{"idSucursal": s.idSucursal, "nombre": s.nombre} for s in p.sucursales],
         "duracionSegundos": round(time.perf_counter() - inicio, 2),
     }
     DIRECTORIO.mkdir(parents=True, exist_ok=True)
     joblib.dump({
-        "meta": meta, "modeloDemanda": modelo, "metricasDemanda": m_demanda, "segmentacion": seg,
+        "meta": meta, "modeloDemanda": modelo, "metricasDemanda": m_demanda, "segmentacion": seg, "anomalias": anom,
         "ventas": ventas, "productos": productos, "codSucursal": cod_sucursal,
-        "sucursales": {s.idSucursal: s.nombre for s in p.sucursales},
+        "sucursales": nombres_sucursal,
     }, _archivo(tid), compress=3)
-    return {"meta": meta, "demanda": m_demanda, "segmentacion": seg["metricas"]}
+    return {"meta": meta, "demanda": m_demanda, "segmentacion": seg["metricas"], "anomalias": anom["metricas"]}
 
 
 @app.get("/tenants/{tid}/metrics", dependencies=[Depends(verificar_clave)])
 def metricas(tid: Empresa):
     m = _cargar(tid)
-    return {"meta": m["meta"], "demanda": m["metricasDemanda"], "segmentacion": m["segmentacion"]["metricas"]}
+    return {"meta": m["meta"], "demanda": m["metricasDemanda"], "segmentacion": m["segmentacion"]["metricas"],
+            "anomalias": m["anomalias"]["metricas"]}
 
 
 @app.get("/tenants/{tid}/demand", dependencies=[Depends(verificar_clave)])
@@ -155,6 +161,15 @@ def pronostico(
 @app.get("/tenants/{tid}/segments", dependencies=[Depends(verificar_clave)])
 def segmentos_clientes(tid: Empresa):
     return _cargar(tid)["segmentacion"]
+
+
+@app.get("/tenants/{tid}/anomalies", dependencies=[Depends(verificar_clave)])
+def anomalias_ventas(tid: Empresa, idSucursal: Annotated[int | None, Query(gt=0)] = None):
+    a = _cargar(tid)["anomalias"]
+    if idSucursal is None:
+        return a
+    return {**a, "alertas": [x for x in a["alertas"] if x["idSucursal"] == idSucursal],
+            "serie": [x for x in a["serie"] if x["idSucursal"] == idSucursal]}
 
 
 @app.delete("/tenants/{tid}", dependencies=[Depends(verificar_clave)], status_code=204)

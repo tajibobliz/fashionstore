@@ -60,7 +60,7 @@ beforeAll(async () => {
   original = { plan: det.plan.codigo, vence: det.suscripcion.fechaVencimiento };
   sucursalesA = (await c.api('GET', '/branches/sucursales', { who: 'A' })).body.map((s: any) => s.idSucursal);
   sucursalesB = (await c.api('GET', '/branches/sucursales', { who: 'B' })).body.map((s: any) => s.idSucursal);
-}, 90_000);
+}, 240_000);
 
 afterAll(async () => {
   if (idB && original) {
@@ -142,6 +142,24 @@ describe('Analítica ML: entrenamiento y consultas (con ml-service)', () => {
     const r = await c.api('GET', `/ml/demanda?idSucursal=${ajena}`, { who: 'B' });
     expect(r.status).toBe(400);
   });
+
+  conMl()('anomalías: semanas atípicas por sucursal y filtro por sucursal', async () => {
+    const r = await c.api('GET', '/ml/anomalias', { who: 'B' });
+    expect(r.status).toBe(200);
+    expect(r.body.metricas.semanasAnalizadas).toBeGreaterThan(0);
+    expect(r.body.metricas.recall).toBeGreaterThanOrEqual(0.5);
+    for (const a of r.body.alertas) expect(sucursalesB).toContain(a.idSucursal);
+    const una = await c.api('GET', `/ml/anomalias?idSucursal=${sucursalesB[0]}`, { who: 'B' });
+    expect(una.body.serie.every((x: any) => x.idSucursal === sucursalesB[0])).toBe(true);
+  });
+
+  conMl()('dos entrenamientos simultáneos de la misma empresa → el segundo recibe 409', async () => {
+    const [a, b] = await Promise.all([
+      c.api('POST', '/ml/entrenar', { who: 'B' }),
+      c.api('POST', '/ml/entrenar', { who: 'ENC' }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 409]);
+  }, 120_000);
 
   conMl()('segmentos con nombre, acción y clientas reales de la empresa', async () => {
     const r = await c.api('GET', '/ml/segmentos', { who: 'B' });

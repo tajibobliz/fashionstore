@@ -17,3 +17,8 @@ export class DemandaQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50)
   top = 10;
 }
+
+export class AnomaliasQueryDto {
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  idSucursal?: number;
+}

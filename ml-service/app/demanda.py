@@ -69,11 +69,20 @@ def _metricas(real: np.ndarray, pred: np.ndarray) -> dict[str, float]:
     }
 
 
-def entrenar(ventas: pd.DataFrame, productos: pd.DataFrame, cod_sucursal: dict[int, int], semilla: int):
-    """Evalúa con las últimas 12 semanas y luego reentrena con todo. Devuelve (modelo, métricas)."""
+def entrenar(ventas: pd.DataFrame, productos: pd.DataFrame, cod_sucursal: dict[int, int], semilla: int,
+             atipicas: set[tuple] | None = None):
+    """
+    Evalúa con las últimas 12 semanas y luego reentrena con todo. Devuelve (modelo, métricas).
+    `atipicas` = (semana, idSucursal) marcadas por el detector de anomalías: esas filas no se usan
+    para ENTRENAR (limpieza de atípicos), pero la prueba se mide sobre todos los datos reales del periodo.
+    """
     data = construir_dataset(ventas, productos, cod_sucursal)
     corte = sorted(data["semana"].unique())[-SEMANAS_PRUEBA]
-    train, test = data[data["semana"] < corte], data[data["semana"] >= corte]
+    limpia = data
+    if atipicas:
+        clave = list(zip(data["semana"], data["idSucursal"]))
+        limpia = data[[k not in atipicas for k in clave]]
+    train, test = limpia[limpia["semana"] < corte], data[data["semana"] >= corte]
 
     def nuevo():
         return RandomForestRegressor(n_estimators=150, max_depth=14, min_samples_leaf=3, n_jobs=-1, random_state=semilla)
@@ -84,7 +93,7 @@ def entrenar(ventas: pd.DataFrame, productos: pd.DataFrame, cod_sucursal: dict[i
     m_base = _metricas(test["unidades"].to_numpy(), test["lag1"].to_numpy())
     mejora = round(100 * (1 - m_modelo["mae"] / m_base["mae"]), 1) if m_base["mae"] else 0.0
 
-    final = nuevo().fit(data[CARACTERISTICAS], data["unidades"])
+    final = nuevo().fit(limpia[CARACTERISTICAS], limpia["unidades"])
     importancia = sorted(
         ({"caracteristica": c, "importancia": round(float(v), 4)} for c, v in zip(CARACTERISTICAS, final.feature_importances_)),
         key=lambda x: -x["importancia"],
@@ -93,6 +102,7 @@ def entrenar(ventas: pd.DataFrame, productos: pd.DataFrame, cod_sucursal: dict[i
         "algoritmo": "RandomForestRegressor (150 árboles)",
         "objetivo": "unidades vendidas por semana, producto y sucursal",
         "filasEntrenamiento": int(len(train)),
+        "filasAtipicasExcluidas": int(len(data) - len(limpia)),
         "filasPrueba": int(len(test)),
         "semanasPrueba": SEMANAS_PRUEBA,
         "pruebaDesde": pd.Timestamp(corte).date().isoformat(),

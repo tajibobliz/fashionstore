@@ -29,14 +29,18 @@ export async function startMlService(clave: string): Promise<MlService | null> {
     ['-m', 'uvicorn', 'app.main:app', '--port', String(port), '--log-level', 'warning'],
     {
       cwd: dir,
-      env: { ...process.env, ML_API_KEY: clave, ML_MODELOS_DIR: mkdtempSync(join(tmpdir(), 'ml-e2e-')) },
+      // PYTHONUNBUFFERED: que los errores de Python lleguen al mensaje aunque el proceso se cierre.
+      env: { ...process.env, ML_API_KEY: clave, ML_MODELOS_DIR: mkdtempSync(join(tmpdir(), 'ml-e2e-')), PYTHONUNBUFFERED: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
   let log = '';
   proc.stdout?.on('data', (d) => (log += d));
   proc.stderr?.on('data', (d) => (log += d));
-  for (let i = 0; i < 60; i++) {
+  // La primera carga de scikit-learn/pandas en Windows (con antivirus) puede tardar bastante.
+  const limiteMs = Number(process.env.ML_TEST_TIMEOUT ?? 120_000);
+  const inicio = Date.now();
+  while (Date.now() - inicio < limiteMs) {
     try {
       if ((await fetch(`${url}/health`)).ok) return { url, stop: () => proc.kill() };
     } catch {
@@ -45,6 +49,8 @@ export async function startMlService(clave: string): Promise<MlService | null> {
     if (proc.exitCode !== null) break;
     await new Promise((r) => setTimeout(r, 500));
   }
+  const segundos = Math.round((Date.now() - inicio) / 1000);
+  const motivo = proc.exitCode !== null ? `Python se cerró con código ${proc.exitCode}` : `no respondió en ${segundos} s`;
   proc.kill();
-  throw new Error(`ml-service no arrancó:\n${log}`);
+  throw new Error(`ml-service no arrancó (${motivo}). Python: ${python}\nSalida:\n${log || '(sin salida)'}`);
 }
