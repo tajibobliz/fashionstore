@@ -382,6 +382,8 @@
 .main {
   flex: 1;
   min-height: 100vh;
+  /* Si el contenido es corto, no repartir el alto sobrante entre las filas (dejaba huecos arriba). */
+  align-content: start;
   padding: 1rem 1.5rem 1.5rem;
   transition: margin-left .32s cubic-bezier(.4,0,.2,1);
 }

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -17,6 +17,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  { id: 'reportes', label: 'Reportes', icon: BarChart3 },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
  { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
@@ -35,6 +36,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
  { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
@@ -46,6 +48,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
  { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
  { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },

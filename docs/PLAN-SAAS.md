@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.9 (2026-11-06)
+> Versión: v1.10 (2026-11-06)
 
 ## Fechas clave
 
@@ -334,6 +334,12 @@ Mínimo 4 tipos de reporte con filtros variables y datos reales. El modelo nunca
 - Endpoints (plan con `aiReports`; ADMIN, ENCARGADO, ENCARGADO_SUCURSAL): `POST /ai/reports/query` `{consulta, historial?}` → `{tipo, narrativa, aclaracion, reportes:[{titulo, columnas, filas, grafico, filtros, resumen}], meta}`; `GET /ai/reports/herramientas`; `GET /ai/reports/historial` (ADMIN ve toda la empresa, los demás solo lo suyo).
 - El endpoint anterior `POST /ai/reporte-voz` se mantiene por compatibilidad; la UI nueva (3.2) usa `/ai/reports/query`.
 
+**Pantalla (v1.10) — `frontend/src/features/ai-reports/`:** sección **Reportes con IA** (ADMIN, ENCARGADO, ENCARGADO_SUCURSAL).
+- Pregunta escrita o **dictada** (Web Speech API del navegador, `es-BO`; Chrome/Edge): al terminar de hablar se envía sola y el resumen se **lee en voz alta** (`speechSynthesis`). El audio lo procesa el navegador; al backend solo llega el texto.
+- Ejemplos de un clic, conversación con contexto (preguntas de seguimiento y respuesta a aclaraciones, hasta 6 turnos), "Nueva conversación".
+- Por cada reporte: filtros aplicados, gráfico según el tipo que indica el backend (línea, barras o torta con recharts), tabla y exportación a **PDF** (jspdf + autotable: pregunta, resumen, filtros y tabla) y **Excel** (xlsx: hoja Datos con números reales + hoja Consulta).
+- Plan sin `aiReports` → pantalla bloqueada con enlace a Mi plan; 429 y 503 con mensajes claros; historial de consultas recientes (clic = volver a preguntar).
+
 ### 7.1 Módulo de analítica con ML (8.4–8.5)
 Microservicio **Python + FastAPI** (`ml-service/`), lo que también cubre la exigencia de Python/FastAPI:
 - Generador de **datos sintéticos** (ventas por producto/semana/sucursal con estacionalidad).
@@ -425,7 +431,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 
 ### Fase 3 — Voz + KPIs + IA + ML (→ Presentación 3)
 - [x] 3.1 `/ai/reports/query` con tools y validación; ≥4 tipos de reporte (7 herramientas + aclaración; ver §7)
-- [ ] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel
+- [x] 3.2 UI de reportes: texto/voz, tabla, gráfico, PDF/Excel (sección **Reportes con IA**, ver §7)
 - [ ] 3.3 `ml-service` FastAPI: datos sintéticos, supervisado, no supervisado, métricas
 - [ ] 3.4 Dashboard de KPIs + dashboard analítico ML
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
@@ -531,3 +537,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-26 | v1.7: **tarea 2.5 (cambios de prendas)** → **Fase 2 completa**. Tablas `cambio` (RLS) y `detalle_cambio`; plazo por empresa (`plazo_cambio_dias`, editable por el ADMIN); stock de la prenda original y la nueva en una transacción; diferencia de precio con método de pago obligatorio si la clienta paga; las devoluciones descuentan las unidades ya cambiadas. Web: sección Cambios de prendas | 43/43 E2E (7 nuevas: plazo, cambio de talla sin diferencia, prenda más cara exige método, unidades y stock insuficientes, no se devuelve lo cambiado, venta de hace 10 días fuera de plazo y vuelve a estar en plazo con 15 días, solo ADMIN edita el plazo, aislamiento A↔B). Migración up/down y esquema = entidades. Unitarias: 139 en verde (se ajustó el mock de devoluciones). Navegador: cambio sin diferencia, cambio a una prenda más cara con QR, historial, edición del plazo, sin desbordes a 390 px |
 | 2026-11-06 | v1.8: se agregan las tareas del móvil como **Fase 4** (prueba en teléfono real, persistencia, voz con `expo-speech-recognition`, ajustes visuales, build para producción); el cierre pasa a **Fase 5**. Orden acordado: Fase 3 → Fase 4 (móvil) → Fase 5 | Solo documentación |
 | 2026-11-06 | v1.9: **tarea 3.1 (reportes con IA, backend)**. Arnés de tool use en `backend/src/ai/reports/`: 7 herramientas de reporte + aclaración, validación de parámetros, alcance de empresa (RLS) y de sucursal, límite de iteraciones y de consultas por minuto, tabla y gráfico calculados por el backend, narrativa del modelo. Proveedores `anthropic` y `simulado`. Bitácora `consulta_ia` con RLS | 70/70 E2E (27 nuevas: plan Básico bloqueado, cajero sin acceso, 7 tipos de reporte con datos reales, cifras iguales a `/reports`, mes = suma de días, categoría, aclaración, 8 consultas inválidas rechazadas, bitácora, encargado limitado a su sucursal, Empresa A no puede pedir sucursales de B). Unitarias: 158 en verde (19 nuevas del bucle, adaptador Anthropic y reglas del simulado). Migración up/down y esquema = entidades. **Falta probar con la API real de Anthropic** (aquí no hay API key) |
+| 2026-11-06 | v1.10: **tarea 3.2 (pantalla de reportes con IA)**: texto y voz (dictado + lectura en voz alta), gráfico, tabla, PDF y Excel, conversación con contexto, historial, bloqueo por plan. Narrativa del modo simulado mejorada (mayor valor y % del total). Corrección de diseño: el panel ya no deja un hueco arriba en secciones con poco contenido (`align-content: start` en `DashboardLayout`) | Playwright: Básico → bloqueado; Profesional → ventas por sucursal, top productos, ventas por mes (línea), ingresos por categoría (torta), stock bajo; descarga de PDF y Excel revisados; aclaración; historial; dictado por voz simulado → envío automático y lectura del resumen; encargado ve solo su sucursal; sin desbordes a 1280 y 390 px; 429 muestra el aviso. tsc, eslint y build en verde; 27/27 E2E de IA |

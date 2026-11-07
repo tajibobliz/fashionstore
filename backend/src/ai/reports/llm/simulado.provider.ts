@@ -98,14 +98,22 @@ function numero(t: string, re: RegExp, clave: string) {
 
 /** Narrativa con los totales que calculó el backend (nunca inventa cifras). */
 function narrar(m: Extract<MensajeLlm, { rol: 'resultados' }>) {
+  const bs = (n: number) => `Bs ${n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const partes = m.resultados.map((r) => {
     if (r.esError) return `No se pudo generar el reporte: ${r.contenido}`;
     const d = JSON.parse(r.contenido) as { titulo: string; resumen: Record<string, number>; filas: Record<string, unknown>[] };
     if (!d.filas.length) return `${d.titulo}: no hay datos para los filtros elegidos.`;
-    const total = d.resumen.totalVendido ?? d.resumen.monto ?? d.resumen.totalGenerado;
-    const primero = Object.values(d.filas[0])[0];
-    const extra = total !== undefined ? ` con un total de Bs ${total.toFixed(2)}` : '';
-    return `${d.titulo}: ${d.resumen.filas ?? d.filas.length} filas${extra}. El primer registro es ${String(primero)}.`;
+    if ('variantes' in d.resumen)
+      return `Hay ${d.resumen.variantes} variantes con stock bajo; ${d.resumen.agotadas} están agotadas. La de menor stock es ${String(d.filas[0].producto)} (${String(d.filas[0].stockDisponible)} unidades).`;
+    const metrica = ['totalVendido', 'monto', 'totalGenerado', 'cantidadVendida', 'cantidad'].find((k) => typeof d.filas[0][k] === 'number');
+    const etiqueta = Object.keys(d.filas[0]).find((k) => typeof d.filas[0][k] === 'string');
+    if (!metrica || !etiqueta) return `${d.titulo}: ${d.filas.length} filas.`;
+    const total = d.filas.reduce((s, f) => s + Number(f[metrica]), 0);
+    const mayor = d.filas.reduce((a, b) => (Number(b[metrica]) > Number(a[metrica]) ? b : a));
+    const esMonto = !metrica.startsWith('cantidad');
+    const valor = (n: number) => (esMonto ? bs(n) : `${n}`);
+    const pct = total ? Math.round((Number(mayor[metrica]) / total) * 100) : 0;
+    return `${d.titulo}: ${d.filas.length} ${d.filas.length === 1 ? 'registro' : 'registros'} con un total de ${valor(total)}. El mayor es ${String(mayor[etiqueta])} con ${valor(Number(mayor[metrica]))} (${pct}% del total).`;
   });
   return partes.join(' ');
 }
