@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.7 (2026-10-26)
+> Versión: v1.8 (2026-11-06)
 
 ## Fechas clave
 
@@ -422,10 +422,18 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [ ] 3.4 Dashboard de KPIs + dashboard analítico ML
 - [ ] 3.5 Despliegue en la nube (backend + ml-service + frontend)
 
-### Fase 4 — Cierre (antes de la defensa)
-- [ ] 4.1 UML coherente con el código final (robustez, secuencia, clases, BD)
-- [ ] 4.2 Plan y casos de prueba documentados
-- [ ] 4.3 Ensayo de la defensa con Empresa A y B
+### Fase 4 — App móvil (se hace al final, después de la Fase 3)
+> Decisión del equipo (2026-11-06): el móvil y sus pruebas se dejan para el final. La app sigue siendo la de la clienta (D13).
+- [ ] 4.1 Prueba en un teléfono real (pendiente de la 2.4): `API_URL` a la IP de la PC, Expo Go, login `cliente@urbanstep.demo` / tienda `urban-step`, modo avión → reservar → reconectar → Operaciones pendientes muestra CONFIRMADA o CONFLICTO (§13)
+- [ ] 4.2 Persistencia tras cerrar la app: reservas pendientes siguen en SQLite y se envían al reabrir
+- [ ] 4.3 Voz en el móvil con `expo-speech-recognition` (Fase 3, versión clienta): búsqueda de productos por voz o asistente de compra; los reportes del administrador quedan en la web
+- [ ] 4.4 Ajustes visuales de la app (detalles de pantallas pendientes)
+- [ ] 4.5 Build nuevo (EAS / APK) apuntando a Render una vez que producción tenga `/sync`; verificar que la app ya instalada (tokens sin `tid`) siga entrando como Empresa A
+
+### Fase 5 — Pruebas y cierre (antes de la defensa)
+- [ ] 5.1 UML coherente con el código final (robustez, secuencia, clases, BD)
+- [ ] 5.2 Plan y casos de prueba documentados (web, backend y móvil)
+- [ ] 5.3 Ensayo de la defensa con Empresa A y B
 
 ---
 
@@ -513,3 +521,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-10-26 | v1.5: **tarea 2.3 (PWA)** y pantalla del panel (2.2). Service worker + manifest (`vite-plugin-pwa`), IndexedDB con Dexie (catálogos y cola), motor de sincronización con backoff, POS sin conexión (turno y catálogo guardados, pago incluido), reservas sin conexión en la tienda, indicador flotante con la cola, panel **Sincronización offline**. Backend: la venta offline registra también su **pago** (efectivo aprobado; otros pendientes). Corrección: el campo Empresa del login tenía un `pattern` inválido en Chrome reciente | Playwright con red cortada: recarga sin conexión (service worker + sesión), 2 ventas offline → reconexión → 1 CONFIRMADA y 1 CONFLICTO (stock vaciado en el servidor mientras tanto) → el admin la ve en el panel y la resuelve; clienta reserva offline → reconexión → CONFIRMADA; sin desbordes a 1280 y 390 px; sin errores de consola. 36/36 E2E (se suma la verificación del pago) |
 | 2026-10-26 | v1.6: **tarea 2.4 (móvil offline)**. D13: el móvil es la app de la clienta → catálogo y reservas sin conexión (las ventas offline quedan en el POS web). SQLite con migraciones, FKs y CHECK; descarga de catálogo con UPSERT; cola + sincronización con NetInfo, backoff y `sync_log`; pantallas Catálogo sin conexión y Operaciones pendientes; aviso flotante. SaaS en el móvil: login/registro con tienda, `X-Tenant`, sucursal elegible (se elimina `DEFAULT_SUCURSAL_ID`) | Lógica real del móvil ejecutada en Node (SQLite de Node en lugar del teléfono) contra el backend: 16 comprobaciones (FK y CHECK activos, UPSERT, 2 reservas offline, falla de red → siguen PENDIENTES, reconexión → 1 CONFIRMADA y 1 CONFLICTO con sucursal alternativa, reenvío sin duplicar, bitácora). `expo export --platform android` compila. tsc sin errores nuevos; lint limpio en los archivos nuevos. **No probado en un teléfono real** |
 | 2026-10-26 | v1.7: **tarea 2.5 (cambios de prendas)** → **Fase 2 completa**. Tablas `cambio` (RLS) y `detalle_cambio`; plazo por empresa (`plazo_cambio_dias`, editable por el ADMIN); stock de la prenda original y la nueva en una transacción; diferencia de precio con método de pago obligatorio si la clienta paga; las devoluciones descuentan las unidades ya cambiadas. Web: sección Cambios de prendas | 43/43 E2E (7 nuevas: plazo, cambio de talla sin diferencia, prenda más cara exige método, unidades y stock insuficientes, no se devuelve lo cambiado, venta de hace 10 días fuera de plazo y vuelve a estar en plazo con 15 días, solo ADMIN edita el plazo, aislamiento A↔B). Migración up/down y esquema = entidades. Unitarias: 139 en verde (se ajustó el mock de devoluciones). Navegador: cambio sin diferencia, cambio a una prenda más cara con QR, historial, edición del plazo, sin desbordes a 390 px |
+| 2026-11-06 | v1.8: se agregan las tareas del móvil como **Fase 4** (prueba en teléfono real, persistencia, voz con `expo-speech-recognition`, ajustes visuales, build para producción); el cierre pasa a **Fase 5**. Orden acordado: Fase 3 → Fase 4 (móvil) → Fase 5 | Solo documentación |
