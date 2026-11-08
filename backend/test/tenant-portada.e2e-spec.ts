@@ -85,7 +85,8 @@ describe('Catálogo de la tienda demo (e2e)', () => {
     const porNombre = new Map(productos.map((p: any) => [p.nombre, p]));
     for (const prenda of CATALOGO_DEMO)
       expect(porNombre.get(prenda.nombre)).toMatchObject({
-        imagenUrl: expect.stringMatching(/^https:\/\//),
+        // Foto externa (https) o incluida en el frontend (/tryon/…).
+        imagenUrl: expect.stringMatching(/^(https:\/\/|\/tryon\/)/),
       });
     for (const viejo of [
       'Zapatilla Runner Pro',
@@ -93,5 +94,18 @@ describe('Catálogo de la tienda demo (e2e)', () => {
       'Mochila Urbana',
     ])
       expect(porNombre.has(viejo)).toBe(false);
+  });
+
+  it('las prendas con probador traen el tipo y su PNG, en las dos empresas', async () => {
+    const b = (await c.api('GET', '/catalog/productos', { who: 'CLI' })).body;
+    for (const prenda of CATALOGO_DEMO.filter((x) => x.vestidor))
+      expect(b.find((p: any) => p.nombre === prenda.nombre)).toMatchObject({
+        tipoTryOn: prenda.vestidor!.tipo,
+        imagenTryOn: expect.stringMatching(/\.png$/),
+      });
+    // Empresa original: la polera básica (si existe en esta base) tiene el probador de polera.
+    const a = (await c.api('GET', '/catalog/productos', { who: 'A' })).body;
+    const polera = a.find((p: any) => p.nombre === 'Polera básica blanca');
+    if (polera) expect(polera.tipoTryOn).toBe('polera');
   });
 });

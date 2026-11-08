@@ -9,7 +9,9 @@
  *   - renombra los 6 productos de la primera versión del demo (zapatillas, buzo, mochila…) a
  *     prendas de mujer; no se borran porque tienen ventas de ejemplo;
  *   - crea las prendas que falten (con variantes e inventario en el almacén PRINCIPAL);
- *   - pone la foto solo si la prenda no tiene una (no pisa la que eligió el administrador).
+ *   - pone la foto solo si la prenda no tiene una (no pisa la que eligió el administrador);
+ *   - activa el vestidor virtual (probador con cámara) en lentes, gorra y polera, con PNG sin
+ *     fondo incluidos en el frontend (frontend/public/tryon), si la prenda aún no lo tiene.
  * Las fotos son enlaces (URL): se guardan en la base y no se pierden al desplegar.
  */
 interface Consultable {
@@ -36,12 +38,14 @@ const CATEGORIAS: Record<string, string> = {
 
 export interface PrendaDemo {
   nombre: string;
-  categoria: 'Vestidos' | 'Zapatos' | 'Carteras' | 'Accesorios';
+  categoria: 'Vestidos' | 'Poleras' | 'Zapatos' | 'Carteras' | 'Accesorios';
   precio: number;
   descripcion: string;
   imagen: string;
   tallas: string[];
   colores: string[];
+  /** Vestidor virtual (probador con cámara): tipo y PNG sin fondo de frontend/public/tryon. */
+  vestidor?: { tipo: 'lentes' | 'gorra' | 'polera'; imagen: string };
 }
 
 export const CATALOGO_DEMO: PrendaDemo[] = [
@@ -170,6 +174,7 @@ export const CATALOGO_DEMO: PrendaDemo[] = [
     imagen: `${IMG}/sunglasses/classic-sun-glasses/1.webp`,
     tallas: [],
     colores: ['Negro'],
+    vestidor: { tipo: 'lentes', imagen: '/tryon/lentes-sol.png' },
   },
   {
     nombre: 'Aretes de cristal verde',
@@ -188,6 +193,28 @@ export const CATALOGO_DEMO: PrendaDemo[] = [
     imagen: `${IMG}/womens-watches/watch-gold-for-women/1.webp`,
     tallas: [],
     colores: ['Dorado'],
+  },
+  // Prendas con probador (vestidor virtual): la foto del catálogo es el mismo PNG del probador.
+  {
+    nombre: 'Polera básica blanca',
+    categoria: 'Poleras',
+    precio: 120,
+    descripcion:
+      'Polera de algodón de corte recto. Pruébatela con el vestidor virtual.',
+    imagen: '/tryon/polera-blanca.png',
+    tallas: ['S', 'M', 'L'],
+    colores: ['Blanco'],
+    vestidor: { tipo: 'polera', imagen: '/tryon/polera-blanca.png' },
+  },
+  {
+    nombre: 'Gorra urbana negra',
+    categoria: 'Accesorios',
+    precio: 110,
+    descripcion: 'Gorra negra ajustable. Pruébatela con el vestidor virtual.',
+    imagen: '/tryon/gorra-negra.png',
+    tallas: [],
+    colores: ['Negro'],
+    vestidor: { tipo: 'gorra', imagen: '/tryon/gorra-negra.png' },
   },
 ];
 
@@ -209,6 +236,23 @@ export const PORTADA_DEMO = {
     'Moda urbana para mujer: vestidos, zapatos, carteras y accesorios para cada momento.',
 };
 
+/**
+ * Activa el vestidor virtual de una prenda (tipo + PNG sin fondo) solo si todavía no lo tiene:
+ * no pisa lo que el administrador haya configurado.
+ */
+async function ponerVestidor(
+  q: Consultable,
+  idProducto: number,
+  p: PrendaDemo,
+) {
+  if (!p.vestidor) return;
+  await q.query(
+    `UPDATE producto SET tipo_try_on = $2, imagen_try_on = $3
+      WHERE id_producto = $1 AND tipo_try_on IS NULL AND (imagen_try_on IS NULL OR imagen_try_on = '')`,
+    [idProducto, p.vestidor.tipo, p.vestidor.imagen],
+  );
+}
+
 export async function actualizarCatalogoDemo(
   q: Consultable,
   idEmpresa: number,
@@ -219,7 +263,7 @@ export async function actualizarCatalogoDemo(
   // 1. Categorías: renombrar las de la primera versión y crear las que falten.
   for (const [viejo, nuevo] of Object.entries(CATEGORIAS))
     await q.query(
-      `UPDATE categoria SET nombre = $3, descripcion = $3 || ' de mujer'
+      `UPDATE categoria SET nombre = $3::varchar, descripcion = $3::varchar || ' de mujer'
         WHERE id_empresa = $1 AND nombre = $2
           AND NOT EXISTS (SELECT 1 FROM categoria WHERE id_empresa = $1 AND nombre = $3)`,
       [idEmpresa, viejo, nuevo],
@@ -232,7 +276,7 @@ export async function actualizarCatalogoDemo(
         [idEmpresa, nombre],
       )) ??
       (await uno(
-        `INSERT INTO categoria (nombre, descripcion, id_empresa) VALUES ($2, $2 || ' de mujer', $1) RETURNING id_categoria`,
+        `INSERT INTO categoria (nombre, descripcion, id_empresa) VALUES ($2::varchar, $2::varchar || ' de mujer', $1) RETURNING id_categoria`,
         [idEmpresa, nombre],
       ));
     idCategoria[nombre] = fila.id_categoria;
@@ -303,6 +347,7 @@ export async function actualizarCatalogoDemo(
         `UPDATE producto SET imagen_url = $2 WHERE id_producto = $1 AND (imagen_url IS NULL OR imagen_url = '')`,
         [existe.id_producto, p.imagen],
       );
+      await ponerVestidor(q, existe.id_producto, p);
       continue;
     }
     const { id_producto } = await uno(
@@ -317,6 +362,7 @@ export async function actualizarCatalogoDemo(
         idCategoria[p.categoria],
       ],
     );
+    await ponerVestidor(q, id_producto, p);
     const combinaciones = (p.tallas.length ? p.tallas : [null]).flatMap((t) =>
       p.colores.map((c) => ({ t, c })),
     );

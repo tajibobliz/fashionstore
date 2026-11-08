@@ -101,7 +101,7 @@ function ImageUrlField({ name, label, placeholder, help, alt, defaultValue, tran
 function ImagePreview({ url, alt, transparent }: { url: string; alt: string; transparent: boolean }) {
   const [failed, setFailed] = useState(false)
   if (!url) return null
-  if (failed || !/^https?:\/\//i.test(url)) return <p className={styles.previewError} role="status">No se pudo cargar la vista previa</p>
+  if (failed || !/^(https?:\/\/|\/)/i.test(url)) return <p className={styles.previewError} role="status">No se pudo cargar la vista previa</p>
   return <img className={`${styles.imagePreview} ${transparent ? styles.imagePreviewChecker : ''}`} src={url} alt={alt} onError={() => setFailed(true)} />
 }
 // Selector "Tipo de prenda" + campo de imagen del vestidor. Van juntos porque elegir "Sin vestidor" debe
@@ -118,7 +118,7 @@ function TryOnFields({ producto }: { producto: Producto | null }) {
     </select></label>
     {/* Al pasar de "Sin vestidor" a un tipo (o viceversa) este key cambia y React remonta el campo, así que
         vuelve a leer su defaultValue: limpio si se acaba de elegir "Sin vestidor", o el valor guardado si no. */}
-    <ImageUrlField key={tipo ? 'con-tipo' : 'sin-tipo'} name="imagenTryOn" label="Imagen para vestidor virtual (URL del PNG sin fondo)" placeholder="https://ejemplo.com/producto-tryon.png" help="PNG sin fondo. Usa remove.bg para quitarle el fondo. Recomendado 500-1000px de ancho." alt="Vista previa de la imagen para el vestidor virtual" defaultValue={tipo ? (producto?.imagenTryOn ?? '') : ''} transparent />
+    <ImageUrlField key={tipo ? 'con-tipo' : 'sin-tipo'} name="imagenTryOn" label="Imagen para vestidor virtual (URL del PNG sin fondo)" placeholder="https://ejemplo.com/producto-tryon.png" help="PNG sin fondo. Usa remove.bg para quitarle el fondo. Recomendado 500-1000px de ancho. Incluidos de ejemplo: /tryon/polera-blanca.png, /tryon/gorra-negra.png, /tryon/sombrero.png, /tryon/lentes-sol.png" alt="Vista previa de la imagen para el vestidor virtual" defaultValue={tipo ? (producto?.imagenTryOn ?? '') : ''} transparent />
   </>
 }
 const TIPO_TRY_ON_LABEL: Record<TipoTryOn, string> = { lentes: 'Lentes', gorra: 'Gorra', polera: 'Polera' }

@@ -19,6 +19,9 @@ interface ProductSeedItem {
   imagenUrl: string;
   tallas: string[];
   colores: string[];
+  /** Vestidor virtual: tipo de prenda y PNG sin fondo (incluido en frontend/public/tryon). */
+  tipoTryOn?: 'lentes' | 'gorra' | 'polera';
+  imagenTryOn?: string;
 }
 
 // NOTA: el array tiene 25 productos (5+5+4+3+2+3+3), no 24 como decía el pedido original.
@@ -49,9 +52,9 @@ const PRODUCTS_SEED_DATA: ProductSeedItem[] = [
 
   { nombre: 'Polerón oversize gris', categoria: 'Poleras y polerones', precio: 220.0, descripcion: 'Polerón oversize cómodo para estilo casual.', imagenUrl: 'https://picsum.photos/seed/poleron-gris/800/800', tallas: ['S', 'M', 'L', 'XL'], colores: ['Gris', 'Rosado', 'Negro'] },
   { nombre: 'Polerón con capucha', categoria: 'Poleras y polerones', precio: 250.0, descripcion: 'Polerón con capucha, ideal para clima frío.', imagenUrl: 'https://picsum.photos/seed/hoodie/800/800', tallas: ['S', 'M', 'L', 'XL'], colores: ['Negro', 'Azul', 'Blanco'] },
-  { nombre: 'Polera básica blanca', categoria: 'Poleras y polerones', precio: 120.0, descripcion: 'Polera básica de algodón, esencial de guardarropa.', imagenUrl: 'https://picsum.photos/seed/polera-basica/800/800', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Blanco', 'Negro', 'Gris'] },
+  { nombre: 'Polera básica blanca', categoria: 'Poleras y polerones', precio: 120.0, descripcion: 'Polera básica de algodón, esencial de guardarropa.', imagenUrl: 'https://picsum.photos/seed/polera-basica/800/800', tallas: ['XS', 'S', 'M', 'L', 'XL'], colores: ['Blanco', 'Negro', 'Gris'], tipoTryOn: 'polera', imagenTryOn: '/tryon/polera-blanca.png' },
 
-  { nombre: 'Sombrero fedora', categoria: 'Accesorios', precio: 120.0, descripcion: 'Sombrero fedora clásico, complemento perfecto.', imagenUrl: 'https://picsum.photos/seed/sombrero-fedora/800/800', tallas: ['UNICA'], colores: ['Negro', 'Beige', 'Café'] },
+  { nombre: 'Sombrero fedora', categoria: 'Accesorios', precio: 120.0, descripcion: 'Sombrero fedora clásico, complemento perfecto.', imagenUrl: 'https://picsum.photos/seed/sombrero-fedora/800/800', tallas: ['UNICA'], colores: ['Negro', 'Beige', 'Café'], tipoTryOn: 'gorra', imagenTryOn: '/tryon/sombrero.png' },
   { nombre: 'Cartera de mano', categoria: 'Accesorios', precio: 320.0, descripcion: 'Cartera de mano elegante, capacidad ideal para el día.', imagenUrl: "https://cdn.dummyjson.com/product-images/womens-bags/blue-women's-handbag/thumbnail.webp", tallas: ['UNICA'], colores: ['Negro', 'Beige', 'Rojo'] },
   { nombre: 'Bufanda tejida', categoria: 'Accesorios', precio: 90.0, descripcion: 'Bufanda tejida a mano, cálida y suave.', imagenUrl: 'https://picsum.photos/seed/bufanda/800/800', tallas: ['UNICA'], colores: ['Rosado', 'Beige', 'Gris'] },
 ];
@@ -124,6 +127,8 @@ export class ProductsSeed implements OnApplicationBootstrap {
         descripcion: item.descripcion,
         precio: item.precio,
         imagenUrl: item.imagenUrl,
+        tipoTryOn: item.tipoTryOn ?? null,
+        imagenTryOn: item.imagenTryOn ?? null,
         categoria,
       }),
     );
