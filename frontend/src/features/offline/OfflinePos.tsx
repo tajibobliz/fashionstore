@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { WifiOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useModoOffline } from '../../offline/sesionOffline'
+import { BannerModoOffline } from './PinOffline'
 import { useCatalogoLocal, descontarStockLocal } from '../../offline/catalog'
 import { encolar } from '../../offline/queue'
 import { turnoLocal } from '../../offline/turno'
@@ -22,6 +24,8 @@ const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-di
  */
 export default function OfflinePos() {
   const { user } = useAuth()
+  // CU17: con el plazo offline vencido solo se consulta (no se guardan ventas).
+  const modo = useModoOffline(user)
   const turno = user ? turnoLocal.get(user.idUsuario) : null
   const catalogo = useCatalogoLocal(user?.idEmpresa, turno?.idSucursal)
   const [buscar, setBuscar] = useState('')
@@ -110,7 +114,7 @@ export default function OfflinePos() {
   }
 
   return <section className={dashboardStyles.content}>
-    {encabezado}{aviso}
+    {encabezado}{aviso}<BannerModoOffline modo={modo} />
     <div className={posStyles.contextGrid}>
       <Dato label="Sucursal" value={turno.sucursal} /><Dato label="Caja" value={turno.caja} /><Dato label="Turno" value={`#${turno.idTurno}`} />
       <Dato label="Cajero" value={turno.cajero || '—'} /><Dato label="Catálogo" value={`Descargado ${hora(catalogo.guardadoEn)}`} />
@@ -145,7 +149,7 @@ export default function OfflinePos() {
           </div>
         </article>)}</div> : <p className={dashboardStyles.emptyState}>Todavía no agregaste productos.</p>}
         <div className={posStyles.total}><strong>Total</strong><strong>{formatMoney(total)}</strong></div>
-        <button className={posStyles.checkout} type="button" disabled={!carrito.length} onClick={() => { setRecibido(total.toFixed(moneda().decimales)); setMetodo('EFECTIVO'); setReferencia(''); setError(''); setCobro(true) }}>Continuar al cobro</button>
+        <button className={posStyles.checkout} type="button" disabled={!carrito.length || modo.vencido} onClick={() => { setRecibido(total.toFixed(moneda().decimales)); setMetodo('EFECTIVO'); setReferencia(''); setError(''); setCobro(true) }}>Continuar al cobro</button>
         <p className={dashboardStyles.emptyState}>Modo sin conexión: solo venta minorista con los precios de la última descarga.</p>
       </aside>
     </div>
@@ -160,7 +164,7 @@ export default function OfflinePos() {
       {error && <p className={dashboardStyles.errorNotice} role="alert">{error}</p>}
       <div className={posStyles.checkoutActions}>
         <button type="button" onClick={() => setCobro(false)} disabled={guardando}>Volver</button>
-        <button className={posStyles.checkout} type="button" disabled={guardando || (metodo === 'EFECTIVO' && Number(recibido) < total)} onClick={() => void guardar()}>{guardando ? 'Guardando…' : 'Guardar venta'}</button>
+        <button className={posStyles.checkout} type="button" disabled={guardando || modo.vencido || (metodo === 'EFECTIVO' && Number(recibido) < total)} onClick={() => void guardar()}>{guardando ? 'Guardando…' : 'Guardar venta'}</button>
       </div>
     </section></div>}
   </section>

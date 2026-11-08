@@ -36,6 +36,11 @@ export const tenantApi = {
     const { data } = await api.get<SuscripcionHistorial[]>('/tenant/suscripciones')
     return data
   },
+  /** Plazo (horas) para operar sin conexión con el PIN, desde la última conexión (CU17). */
+  async cambiarSesionOffline(horasSesionOffline: number) {
+    const { data } = await api.patch<{ horasSesionOffline: number }>('/tenant/sesion-offline', { horasSesionOffline })
+    return data
+  },
   /** El administrador elige la moneda en la que vende su tienda (no convierte precios). */
   async cambiarMoneda(moneda: string) {
     const { data } = await api.patch<{ moneda: string }>('/tenant/moneda', { moneda })

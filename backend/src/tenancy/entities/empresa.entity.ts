@@ -20,6 +20,10 @@ export type EstadoEmpresa = 'ACTIVA' | 'SUSPENDIDA';
   'CHK_empresa_moneda',
   `moneda IN (${CODIGOS_MONEDA.map((c) => `'${c}'`).join(',')})`,
 )
+@Check(
+  'CHK_empresa_horas_sesion_offline',
+  `horas_sesion_offline BETWEEN 1 AND 720`,
+)
 export class Empresa {
   @PrimaryGeneratedColumn({ name: 'id_empresa' })
   idEmpresa: number;
@@ -47,6 +51,13 @@ export class Empresa {
    */
   @Column({ type: 'varchar', length: 3, default: MONEDA_POR_DEFECTO })
   moneda: string;
+
+  /**
+   * Plazo máximo (horas) que un usuario puede operar sin conexión con su PIN, contado desde
+   * la última vez que estuvo en línea (CU17). Pasado el plazo, sin conexión solo puede consultar.
+   */
+  @Column({ name: 'horas_sesion_offline', type: 'integer', default: 72 })
+  horasSesionOffline: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

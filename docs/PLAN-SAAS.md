@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.19 (2026-11-07)
+> Versión: v1.20 (2026-11-07)
 
 ## Fechas clave
 
@@ -274,6 +274,18 @@ Ambos están en la tabla `usuario` con su `id_empresa`; lo que los diferencia es
 - Sesión: si la página se recarga sin red, se sigue con el último usuario conocido (solo se cierra si el servidor rechaza el token). Límite: la sesión vive en `sessionStorage`, así que hay que iniciar sesión con internet en esa ventana.
 - UI: indicador flotante (abajo a la izquierda) con conexión, cantidad por enviar y la lista con el resultado de cada operación; aviso "Listo para vender sin conexión" en el POS; panel **Sincronización offline** para ADMIN/ENCARGADO/ENCARGADO_SUCURSAL.
 
+### 5.1 Sesión offline con PIN (CU17 / RF-028) — implementado (v1.20)
+Para **cajero, encargado de sucursal y clienta** en la PWA (la app móvil queda para la fase 4).
+
+**Conceptos:** *PBKDF2* = convierte un PIN en una clave de cifrado de forma deliberadamente lenta (310 000 iteraciones), para que probar PINs sea costoso; *AES-GCM* = cifrado que además detecta si la clave es incorrecta (si no se puede descifrar, el PIN está mal). El PIN **no se guarda**.
+
+- **Activar** (con internet): tarjeta *"¿Quieres entrar sin internet?"* → PIN de 6 dígitos (no repetidos ni secuencias). Los tokens se guardan cifrados en IndexedDB (`sesiones`, Dexie v2) junto con los datos del usuario (sin secretos). `src/offline/sesionOffline.ts`, `features/offline/PinOffline.tsx`.
+- **Entrar sin conexión**: la pantalla de login, sin red, muestra **Acceso sin conexión** con las cuentas guardadas (en `/t/:slug/login` solo las de esa tienda). PIN correcto → misma sesión de siempre. **5 intentos fallidos** → se borra la sesión guardada y hay que entrar con internet.
+- **Plazo** configurable por empresa (`empresa.horas_sesion_offline`, 1–720 h, por defecto 72; el ADMIN lo cambia en **Sincronización offline** → `PATCH /tenant/sesion-offline`). Se cuenta desde la **última vez en línea**; vencido, sin conexión **solo se consulta** (POS y tienda offline desactivan vender, reservar y pedir; la cola también lo impide). Banner *"Modo offline — última conexión … · te quedan …"*.
+- **Invalidación**: `/auth/profile` ahora consulta la base: usuario desactivado → 401 y la app borra su sesión offline; si cambió el rol, también se borra (hay que activar el PIN de nuevo). Cada login o perfil válido reinicia el plazo.
+- **Cerrar sesión** borra la sesión offline, los catálogos de esa empresa (si no queda otra cuenta de la empresa en el navegador) y las operaciones ya resueltas. Las **pendientes de enviar no se borran** (son ventas o pedidos reales): se envían cuando ese usuario vuelve a entrar.
+- **Límites conocidos:** el contador de intentos vive en el dispositivo (alguien con acceso técnico al navegador podría probar PINs fuera de la app; la derivación lenta lo encarece). No hay revocación de dispositivos desde el servidor. Migración `1780000000012-SesionOfflineEmpresa`.
+
 ## 6. Móvil offline (Desafío III) y sincronización (Desafío IV)
 
 ### 6.1 Móvil — implementado (v1.6)
@@ -526,7 +538,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] P2b **Pago de la suscripción con Stripe Checkout** en los tres planes + webhook firmado + pasarela simulada (§4.4.2)
 - [x] P2c **Medios de pago de la tienda** (todos los planes): tarjeta con Stripe, QR y transferencia con comprobante y confirmación de la tienda, efectivo al retirar en sucursal, contra entrega; el ADMIN activa los que quiere y sube su QR y datos bancarios
 - [x] P2 **CU16 / RF-027 Pago diferido de pedidos offline** (§4.4.4) (solo Empresarial, feature `pagosOnline`; en la moneda de la tienda): orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
-- [ ] P3 **CU17 / RF-028 Sesión offline con PIN**: PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
+- [x] P3 **CU17 / RF-028 Sesión offline con PIN** (§5.1): PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
 - [ ] P4 **RF-026 / CU15 Carrito offline**: conservar el carrito sin conexión (también tras cerrar la app) y convertirlo en orden con pago diferido (enlaza con P2)
 
 ### Fase 4 — App móvil (se hace al final, después de la Fase 3)
@@ -585,7 +597,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 137 pruebas en verde (aislamiento + planes + SaaS público + moneda + cobro de suscripción + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 140 pruebas en verde (aislamiento + planes + SaaS público + moneda + cobro de suscripción + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -642,3 +654,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-07 | v1.18: **medios de pago de la tienda online** (P2c, todos los planes, §4.4.3): tarjeta con Stripe en la moneda de la tienda (webhook de ventas, reembolso si se agotó el stock), QR y transferencia con comprobante verificado por el personal, efectivo al retirar y contra entrega. Se eliminó el simulador público `/mock-gateway` (aprobaba pagos sin autenticación). Migración `1780000000010` | E2E 128/128 (12 nuevas en `tenant-store-payments`: permisos y validaciones de la configuración, QR validado por contenido, quitar QR, medio desactivado y tarjeta manual rechazados, comprobante (tipo, tamaño, otra empresa no lo ve), aprobar descuenta stock, rechazar no, cambiar de medio anula el anterior, tarjeta simulada, webhook de venta idempotente y con monto alterado, reembolso por stock agotado, `/mock-gateway` → 404; restaura la configuración original). Unitarias 169. Migración up/down/up y esquema = entidades. Playwright: ADMIN configura QR y cuenta → clienta paga por QR y sube comprobante → tarjeta simulada → encargado de sucursal ve el comprobante y aprueba → ventas PAGADA; vista móvil |
 | 2026-11-07 | v1.18 (corrección): **reportes por día en la hora de la tienda.** `/reports` cortaba los días en UTC (23:59 UTC = 19:59 en Bolivia), así que lo vendido después de las 20:00 no entraba en el reporte de "hoy" y no cuadraba con los KPIs (que sí usan `APP_TIMEZONE`). Ahora `desde/hasta` AAAA-MM-DD son días completos en `APP_TIMEZONE` y las ventas por día se agrupan en esa zona (`common/zona-horaria.ts`) | Las pruebas de KPIs y de reportes con IA fallaban solo si se corrían después de las 20:00 de Bolivia; reproducido y corregido. E2E 128/128 corridas a las 22:30 de Bolivia. Unitarias 169 (se actualizó la prueba que fijaba el corte en UTC) |
 | 2026-11-07 | v1.19: **P2 pedidos sin conexión con pago diferido** (CU16, solo Empresarial, §4.4.4). Operación `ORDEN_PAGO_DIFERIDO` en la sincronización; pedido pendiente con plazo (48 h), precio central con aceptación del nuevo total, stock validado sin apartar, vencimiento automático (cron) y reembolso si el cobro llega tarde. PWA: botón **Pedir** en la tienda offline y **Pagar pedido** en el indicador. Migración `1780000000011` | E2E 137/137 (9 nuevas en `tenant-pago-diferido`: plan Básico rechaza, Empresarial habilita y el personal no puede pedir, pedido con plazo sin descontar stock e idempotente, pago con tarjeta por webhook descuenta stock, sin stock → conflicto con alternativas, precio cambiado → aceptar antes de pagar, vencido → cancelado y pagos anulados, cobro tardío → reembolso, suscripción vencida → 403). Unitarias 169. Migración sin diferencias con las entidades. Playwright (versión compilada): clienta sin conexión → Pedir → vuelve la red → Pagar pedido → tarjeta simulada → pagado |
+| 2026-11-07 | v1.20: **P3 sesión offline con PIN** (CU17, §5.1): PIN de 6 dígitos que cifra la sesión (PBKDF2 + AES-GCM) en IndexedDB, acceso sin conexión desde el login, bloqueo al 5.º intento, plazo por empresa desde la última conexión (vencido = solo consulta), perfil validado contra la base (usuario desactivado o rol cambiado invalidan la sesión offline) y borrado de datos locales al cerrar sesión. Migración `1780000000012` | E2E 140/140 (3 nuevas en `tenant-sesion-offline`: login y perfil traen el plazo, solo el ADMIN lo cambia y se valida el rango, usuario desactivado → 401). Unitarias 169. Migración up/down/up sin diferencias. Playwright (versión compilada): oferta y PIN rechazado por secuencia → PIN válido → pestaña nueva sin red → PIN incorrecto (quedan 4) → entra con banner del plazo → plazo vencido desactiva Reservar → 5 fallos borran el acceso; ADMIN cambia el plazo |

@@ -18,6 +18,7 @@ import { dashboardConfig } from './features/dashboard/config'
 import { useAuth } from './hooks/useAuth'
 import { getSessionPath } from './routes/auth'
 import OfflineIndicator from './features/offline/OfflineIndicator'
+import { OfertaPinOffline } from './features/offline/PinOffline'
 
 // Carga diferida: MediaPipe y el vestidor solo se descargan al abrir /vestidor/:productoId.
 const VestidorVirtual = lazy(() => import('./features/tryon/VestidorVirtual'))
@@ -69,5 +70,5 @@ export default function App() {
  </Route></Route>)}
  </Route>
  <Route path="*" element={<main className="session-loading"><h1>Página no encontrada</h1><Link to="/">Volver al inicio</Link></main>} />
- </Routes><OfflineIndicator /></BrowserRouter>
+ </Routes><OfflineIndicator /><OfertaPinOffline /></BrowserRouter>
 }

@@ -117,6 +117,14 @@ export class SubscriptionsService {
     return { moneda };
   }
 
+  /** Plazo de la sesión offline con PIN (CU17). Se aplica la próxima vez que cada usuario esté en línea. */
+  async cambiarSesionOffline(idEmpresa: number, horasSesionOffline: number) {
+    await this.dataSource
+      .getRepository(Empresa)
+      .update({ idEmpresa }, { horasSesionOffline });
+    return { horasSesionOffline };
+  }
+
   historial(idEmpresa: number) {
     return this.dataSource.getRepository(Suscripcion).find({
       where: { empresa: { idEmpresa } },

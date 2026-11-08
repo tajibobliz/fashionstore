@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { WifiOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useModoOffline } from '../../offline/sesionOffline'
+import { BannerModoOffline } from './PinOffline'
 import { useStore } from '../store/storeContext'
 import { Brand } from '../../components/common/Brand'
 import { useCatalogosEmpresa, descontarStockLocal } from '../../offline/catalog'
@@ -18,6 +20,8 @@ const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-di
  */
 export default function OfflineStore() {
   const { user, status } = useAuth()
+  // CU17: plazo offline. Vencido, la clienta solo consulta el catálogo.
+  const modo = useModoOffline(user)
   const { base } = useStore()
   const catalogos = useCatalogosEmpresa(user?.idEmpresa)
   const [idSucursal, setIdSucursal] = useState<number | null>(null)
@@ -72,10 +76,11 @@ export default function OfflineStore() {
     <header className="workspace-header"><Brand /></header>
     <main className={styles.storeMain}>
       {aviso}
+      <BannerModoOffline modo={modo} />
       {status === 'loading' || (user && catalogos === undefined)
         ? <p role="status">Cargando el catálogo guardado…</p>
         : !user
-        ? <p>Para reservar sin conexión, primero <Link to={`${base}/login`}>inicia sesión</Link> con internet.</p>
+        ? <p>Para reservar sin conexión, <Link to={`${base}/login`}>entra con tu PIN</Link> si activaste el acceso sin conexión en este navegador; si no, inicia sesión cuando tengas internet.</p>
         : !catalogos?.length
           ? <p>No hay un catálogo guardado en este dispositivo. Entra a la tienda una vez con internet y con tu sesión iniciada para poder usarla sin conexión.</p>
           : catalogo && <>
@@ -95,8 +100,8 @@ export default function OfflineStore() {
                 return <div className={styles.variant} key={v.idVariante}>
                   <span>{detalle} · {v.stockDisponible ? `${v.stockDisponible} disp.` : 'sin stock'}</span>
                   <span className={styles.variantActions}>
-                    <button type="button" disabled={!v.stockDisponible || enviando === v.idVariante} onClick={() => void reservar(v.idVariante, p.nombre, detalle)}>Reservar</button>
-                    {tienda?.pagoDiferido && <button type="button" className={styles.pedir} disabled={!v.stockDisponible || enviando === v.idVariante} onClick={() => void pedir(v.idVariante, p.nombre, detalle, p.precioFinal)}>Pedir</button>}
+                    <button type="button" disabled={!v.stockDisponible || enviando === v.idVariante || modo.vencido} onClick={() => void reservar(v.idVariante, p.nombre, detalle)}>Reservar</button>
+                    {tienda?.pagoDiferido && <button type="button" className={styles.pedir} disabled={!v.stockDisponible || enviando === v.idVariante || modo.vencido} onClick={() => void pedir(v.idVariante, p.nombre, detalle, p.precioFinal)}>Pedir</button>}
                   </span>
                 </div>
               })}</div>

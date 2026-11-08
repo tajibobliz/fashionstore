@@ -84,3 +84,18 @@
 .variantActions { display: flex; gap: 6px; }
 .pedir { background: #ad3e68 !important; color: #fff !important; border-color: #ad3e68 !important; }
 .nota { margin: 0 0 12px; color: var(--text-secondary, #6b7280); font-size: .86rem; line-height: 1.5; }
+
+/* --- Sesión offline con PIN (CU17) --- */
+.pinOffer { position: fixed; left: 16px; bottom: 72px; z-index: 60; display: flex; gap: 12px; width: min(360px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid #f1d5df; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(17, 24, 39, .14); color: #1f2937; }
+.pinOffer > svg { flex: none; margin-top: 2px; color: #ad3e68; }
+.pinOffer strong { display: block; font-size: .92rem; }
+.pinOffer p { margin: 4px 0 0; color: #6b7280; font-size: .83rem; line-height: 1.45; }
+.pinOfferActions { display: flex; gap: 8px; margin-top: 10px; }
+.pinDialog { position: fixed; left: 50%; top: 50%; z-index: 71; display: grid; gap: 14px; width: min(400px, calc(100vw - 32px)); padding: 20px; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(17, 24, 39, .25); transform: translate(-50%, -50%); }
+.pinField { display: grid; gap: 6px; font-size: .86rem; font-weight: 600; color: #374151; }
+.pinField input, .pinField select { min-height: 46px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; font-size: 1.25rem; letter-spacing: .4em; text-align: center; }
+.pinField select { font-size: .95rem; letter-spacing: normal; text-align: left; }
+.pinHelp { margin: 0; color: #6b7280; font-size: .8rem; line-height: 1.45; }
+.pinAccess { display: grid; gap: 14px; margin-top: 8px; }
+.pinWho { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; }
+.pinDialog .status, .pinAccess .status, .storeMain > .status { margin: 0 0 12px; }

@@ -23,3 +23,16 @@
 .resolve button { justify-self: start; min-height: 40px; padding: 8px 16px; border: 0; border-radius: 9px; background: var(--app-primary); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .resolve button:disabled { opacity: .55; cursor: not-allowed; }
 .resolved { margin: 0; padding-top: 10px; border-top: 1px solid var(--border); font-size: .82rem; color: #15803d; }
+
+/* Plazo del acceso sin conexión con PIN (CU17) */
+.plazo { display: flex; gap: 12px; margin: 18px 0; padding: 16px 18px; border: 1px solid #eee5e9; border-radius: 14px; background: #fff; }
+.plazo > svg { flex: none; margin-top: 2px; color: #ad3e68; }
+.plazo p { margin: 4px 0 0; color: #6b7280; font-size: .86rem; line-height: 1.5; }
+.plazoForm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; font-size: .86rem; }
+.plazoForm label { font-weight: 600; }
+.plazoForm input { width: 96px; min-height: 38px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+.plazoForm button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: #ad3e68; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.plazoForm button:disabled { opacity: .5; cursor: default; }
+.plazoForm small { color: #6b7280; }
+.plazoOk { color: #15803d !important; }
+.plazoError { color: #b91c1c !important; }

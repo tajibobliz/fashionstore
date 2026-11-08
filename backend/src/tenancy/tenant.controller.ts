@@ -12,7 +12,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { SubscriptionsService } from './subscriptions.service';
-import { MonedaEmpresaDto } from './dto/platform.dto';
+import { MonedaEmpresaDto, SesionOfflineDto } from './dto/platform.dto';
 
 /** Datos de la empresa del usuario logueado: plan, vigencia, límites y uso. */
 @ApiTags('Mi empresa (SaaS)')
@@ -36,6 +36,16 @@ export class TenantController {
   @Roles(Role.ADMIN)
   cambiarMoneda(@Request() req: any, @Body() dto: MonedaEmpresaDto) {
     return this.service.cambiarMoneda(req.user.idEmpresa, dto.moneda);
+  }
+
+  /** Plazo máximo (horas) para operar sin conexión con el PIN local (CU17). */
+  @Patch('sesion-offline')
+  @Roles(Role.ADMIN)
+  cambiarSesionOffline(@Request() req: any, @Body() dto: SesionOfflineDto) {
+    return this.service.cambiarSesionOffline(
+      req.user.idEmpresa,
+      dto.horasSesionOffline,
+    );
   }
 
   @Get('suscripciones')

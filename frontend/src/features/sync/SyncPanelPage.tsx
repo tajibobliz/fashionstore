@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, CloudOff, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, CloudOff, KeyRound, XCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { syncApi } from '../../api/sync.api'
 import type { OperacionPanel, TipoConflicto } from '../../api/sync.api'
@@ -10,6 +10,9 @@ import { getApiErrorMessage } from '../../utils/apiError'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './SyncPanel.module.css'
 import { formatMoney } from '../../utils/money'
+import { tenantApi } from '../../api/tenant.api'
+import { authApi } from '../auth/auth.api'
+import { useAuth } from '../../hooks/useAuth'
 
 const CONFLICTO: Record<TipoConflicto, string> = {
   STOCK: 'Faltó stock',
@@ -17,6 +20,43 @@ const CONFLICTO: Record<TipoConflicto, string> = {
   PRECIO: 'Precio distinto',
   TURNO_CERRADO: 'Turno cerrado',
 }
+/**
+ * Plazo del acceso sin conexión con PIN (CU17): cuántas horas desde su última conexión puede un
+ * cajero, encargado de sucursal o clienta seguir operando sin internet. Solo el ADMIN lo cambia.
+ */
+function PlazoSesionOffline() {
+  const { user } = useAuth()
+  const client = useQueryClient()
+  const perfil = useQuery({ queryKey: ['auth', 'perfil'], queryFn: authApi.profile, staleTime: 60_000 })
+  const actual = perfil.data?.empresa?.horasSesionOffline ?? 72
+  const [valor, setValor] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null)
+  const guardar = useMutation({
+    mutationFn: () => tenantApi.cambiarSesionOffline(Number(valor)),
+    onSuccess: async r => {
+      setValor(null)
+      setAviso({ ok: true, texto: `Listo: ${r.horasSesionOffline} h. Cada usuario lo toma la próxima vez que se conecte.` })
+      await client.invalidateQueries({ queryKey: ['auth', 'perfil'] })
+    },
+    onError: e => setAviso({ ok: false, texto: getApiErrorMessage(e) }),
+  })
+  const esAdmin = user?.rol === 'ADMIN'
+  return <div className={styles.plazo}>
+    <KeyRound size={20} aria-hidden="true" />
+    <div>
+      <strong>Acceso sin conexión con PIN</strong>
+      <p>Cajeros, encargados de sucursal y clientas pueden activar un PIN para entrar sin internet. Pueden operar hasta <strong>{actual} h</strong> desde su última conexión; después, sin internet solo consultan.</p>
+      {esAdmin && <form className={styles.plazoForm} onSubmit={e => { e.preventDefault(); guardar.mutate() }}>
+        <label htmlFor="horas-offline">Plazo (horas)</label>
+        <input id="horas-offline" type="number" min={1} max={720} step={1} value={valor ?? actual} onChange={e => { setValor(e.target.value); setAviso(null) }} />
+        <button type="submit" disabled={valor === null || Number(valor) === actual || guardar.isPending}>{guardar.isPending ? 'Guardando…' : 'Guardar'}</button>
+        <small>Entre 1 hora y 720 (30 días).</small>
+      </form>}
+      {aviso && <p className={aviso.ok ? styles.plazoOk : styles.plazoError} role={aviso.ok ? 'status' : 'alert'}>{aviso.texto}</p>}
+    </div>
+  </div>
+}
+
 const fecha = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 /**
@@ -49,6 +89,8 @@ export default function SyncPanelPage() {
       <Metric icon={CloudOff} value={resumen.data.ultimas24h.conflictos} label="Con conflicto (24 h)" />
       <Metric icon={XCircle} value={resumen.data.ultimas24h.rechazadas} label="Rechazadas (24 h)" />
     </div>}
+
+    <PlazoSesionOffline />
 
     <div className={styles.filters} role="group" aria-label="Filtro">
       <button type="button" aria-pressed={pendientes} onClick={() => setPendientes(true)}>Por revisar</button>

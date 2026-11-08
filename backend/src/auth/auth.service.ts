@@ -16,6 +16,7 @@ import { ConfigService } from '@nestjs/config';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 import { TenantContext } from '../tenancy/tenant-context';
 import { Empresa } from '../tenancy/entities/empresa.entity';
+import { Usuario } from '../users/entities/user.entity';
 
 const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
@@ -113,6 +114,7 @@ export class AuthService {
               nombre: user.empresa.nombre,
               slug: user.empresa.slug,
               moneda: user.empresa.moneda,
+              horasSesionOffline: user.empresa.horasSesionOffline,
             }
           : null,
       },
@@ -129,6 +131,13 @@ export class AuthService {
     rol: string;
     idEmpresa: number | null;
   }) {
+    // Se consulta la base (no solo el token): si el usuario fue desactivado, el perfil falla y la
+    // app borra su sesión offline (CU17); `rol` es el vigente, por si cambió desde el login.
+    const usuario = await this.sessions.manager.findOne(Usuario, {
+      where: { idUsuario: user.idUsuario },
+    });
+    if (!usuario || !usuario.estado)
+      throw new UnauthorizedException('Tu usuario fue desactivado');
     const empresa =
       user.idEmpresa == null
         ? null
@@ -137,12 +146,15 @@ export class AuthService {
           });
     return {
       ...user,
+      nombre: usuario.nombre,
+      rol: usuario.rol?.nombre ?? user.rol,
       empresa: empresa
         ? {
             idEmpresa: empresa.idEmpresa,
             nombre: empresa.nombre,
             slug: empresa.slug,
             moneda: empresa.moneda,
+            horasSesionOffline: empresa.horasSesionOffline,
           }
         : null,
     };

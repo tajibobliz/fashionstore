@@ -3,6 +3,7 @@ import { offlineDb } from './db'
 import type { OperacionLocal } from './db'
 import type { PayloadOperacion, TipoOperacion } from '../api/sync.api'
 import { sincronizarPronto } from './sync'
+import { puedeOperarSinConexion } from './sesionOffline'
 
 interface NuevaOperacion {
   type: TipoOperacion
@@ -18,6 +19,9 @@ interface NuevaOperacion {
  * una sola vez: es la llave de idempotencia que el servidor usa para no duplicarla.
  */
 export async function encolar(op: NuevaOperacion) {
+  // CU17: sin conexión y con el plazo vencido solo se puede consultar.
+  if (!(await puedeOperarSinConexion(op)))
+    throw new Error('Venció el plazo para operar sin conexión: conéctate a internet para seguir.')
   const registro: OperacionLocal = {
     ...op,
     operationId: crypto.randomUUID(),

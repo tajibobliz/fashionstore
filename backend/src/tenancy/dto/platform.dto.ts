@@ -80,6 +80,14 @@ export class FechaVencimientoDto {
   @IsISO8601({ strict: true }) fechaVencimiento: string;
 }
 
+export class SesionOfflineDto {
+  /** Horas que se puede operar sin conexión desde la última vez en línea (1 hora a 30 días). */
+  @IsInt({ message: 'Indica un número entero de horas' })
+  @Min(1, { message: 'El mínimo es 1 hora' })
+  @Max(720, { message: 'El máximo es 720 horas (30 días)' })
+  horasSesionOffline: number;
+}
+
 export class MonedaEmpresaDto {
   @IsIn(CODIGOS_MONEDA, { message: 'Moneda no soportada' }) moneda: string;
 }

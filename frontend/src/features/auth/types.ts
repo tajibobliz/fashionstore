@@ -8,7 +8,7 @@ export interface AuthUser {
   /** Empresa (tenant) del usuario. null = usuario de la plataforma (SUPER_ADMIN). */
   idEmpresa?: number | null
   /** `moneda`: en la que vende la tienda (ISO 4217); las sesiones guardadas antes pueden no traerla. */
-  empresa?: { idEmpresa: number; nombre: string; slug: string; moneda?: string } | null
+  empresa?: { idEmpresa: number; nombre: string; slug: string; moneda?: string; horasSesionOffline?: number } | null
 }
 
 export interface LoginInput {

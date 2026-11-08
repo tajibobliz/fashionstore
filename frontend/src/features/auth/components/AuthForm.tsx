@@ -8,6 +8,8 @@ import { getApiErrorMessage } from '../../../utils/apiError'
 import { getSessionPath } from '../../../routes/auth'
 import { AuthLayout } from './AuthLayout'
 import { useStore } from '../../store/storeContext'
+import { useOnline } from '../../../offline/network'
+import { AccesoOffline } from '../../offline/PinOffline'
 import type { Role } from '../types'
 import styles from './Auth.module.css'
 
@@ -28,6 +30,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const home = (rol: Role) => rol === 'CLIENTE' && store.slug ? `${store.base}/tienda` : getSessionPath(rol)
   const [empresa, setEmpresa] = useState(searchParams.get('empresa') ?? '')
   const isSafeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
+  const online = useOnline()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -49,6 +52,12 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     }
   }
 
+  // Sin internet: entrar con el PIN de una cuenta guardada en este navegador (CU17).
+  if (!online && !isRegister && !auth.isAuthenticated) return <AuthLayout>
+    <h1>Acceso sin conexión</h1>
+    {store.slug && <p className={styles.subtitle}><strong>{store.nombre}</strong></p>}
+    <AccesoOffline slug={store.slug} alEntrar={user => navigate(user.rol === 'CLIENTE' ? (isSafeRedirect ? redirect! : `/t/${user.empresa?.slug ?? store.slug}/tienda`) : home(user.rol), { replace: true })} />
+  </AuthLayout>
   if (auth.isAuthenticated && auth.user) return <Navigate to={auth.user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : home(auth.user.rol)} replace />
   return <AuthLayout>
     <h1>{isRegister ? 'Crea tu cuenta' : 'Bienvenida de nuevo'}</h1>
