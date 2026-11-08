@@ -78,3 +78,9 @@
   .drawer { left: 8px; right: 8px; bottom: 8px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .dotBusy { animation: none; } }
+
+/* Pedido con pago diferido: enlace para pagarlo una vez registrado (CU16). */
+.payLink { display: inline-flex; align-self: flex-start; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 10px; background: #ad3e68; color: #fff; font-size: .82rem; font-weight: 700; text-decoration: none; }
+.variantActions { display: flex; gap: 6px; }
+.pedir { background: #ad3e68 !important; color: #fff !important; border-color: #ad3e68 !important; }
+.nota { margin: 0 0 12px; color: var(--text-secondary, #6b7280); font-size: .86rem; line-height: 1.5; }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useOnline } from '../../offline/network'
 import { useOperacionesPropias, descartar, limpiarConfirmadas } from '../../offline/queue'
@@ -54,9 +55,9 @@ export default function OfflineIndicator() {
         </div>
         {sync.error
           ? <p className={`${styles.status} ${styles.statusError}`} role="status">{sync.error}{sync.proximoIntento ? ` Reintento automático a las ${new Date(sync.proximoIntento).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</p>
-          : <p className={styles.status}>Las ventas y reservas hechas sin conexión se guardan aquí y se envían solas. Reenviar es seguro: el servidor no las duplica.</p>}
+          : <p className={styles.status}>Las ventas, reservas y pedidos hechos sin conexión se guardan aquí y se envían solos. Reenviar es seguro: el servidor no los duplica.</p>}
         <ul className={styles.list} aria-live="polite">
-          {ops.length ? ops.map(op => <Item key={op.operationId} op={op} />) : <p className={styles.empty}>No hay operaciones guardadas.</p>}
+          {ops.length ? ops.map(op => <Item key={op.operationId} op={op} slug={user.empresa?.slug || 'fashionstore'} cerrar={() => setAbierto(false)} />) : <p className={styles.empty}>No hay operaciones guardadas.</p>}
         </ul>
         <div className={styles.foot}>
           <button type="button" className={styles.ghost} onClick={() => void limpiarConfirmadas(user.idEmpresa!, user.idUsuario)} disabled={!ops.some(o => o.estado === 'CONFIRMADA')}>Limpiar confirmadas</button>
@@ -69,7 +70,9 @@ export default function OfflineIndicator() {
   </>
 }
 
-function Item({ op }: { op: OperacionLocal }) {
+const NOMBRE_TIPO: Record<OperacionLocal['type'], string> = { VENTA: 'venta', RESERVA: 'reserva', ORDEN_PAGO_DIFERIDO: 'pedido' }
+
+function Item({ op, slug, cerrar }: { op: OperacionLocal; slug: string; cerrar: () => void }) {
   const final = op.estado === 'CONFIRMADA' || op.estado === 'CONFLICTO' || op.estado === 'RECHAZADA'
   return <li className={styles.item}>
     <div className={styles.itemTop}>
@@ -78,11 +81,13 @@ function Item({ op }: { op: OperacionLocal }) {
     </div>
     <span className={styles.meta}>
       Creada {hora(op.createdAtLocal)} · código {op.operationId.slice(0, 8)}
-      {op.serverId ? ` · ${op.type === 'VENTA' ? 'venta' : 'reserva'} #${op.serverId}` : ''}
+      {op.serverId ? ` · ${NOMBRE_TIPO[op.type]} #${op.serverId}` : ''}
       {op.intentos > 1 ? ` · ${op.intentos} envíos` : ''}
     </span>
     {op.motivo && <span className={styles.reason}>{op.motivo}</span>}
     {op.alternativas?.length ? <span className={styles.reason}>Disponible en: {[...new Set(op.alternativas.map(a => `${a.sucursal} (${a.stock})`))].join(', ')}</span> : null}
+    {/* Pedido con pago diferido (CU16): registrado en el servidor, falta pagarlo. */}
+    {op.type === 'ORDEN_PAGO_DIFERIDO' && op.serverId && <Link className={styles.payLink} to={`/t/${slug}/compra/${op.serverId}`} onClick={cerrar}>{op.estado === 'CONFLICTO' ? 'Revisar el nuevo total y pagar' : 'Pagar pedido'}</Link>}
     {op.estado === 'PENDIENTE' && op.ultimoError && <span className={styles.meta}>{op.ultimoError}</span>}
     {final && <button type="button" className={styles.linkBtn} onClick={() => void descartar(op.operationId)}>Quitar de la lista</button>}
   </li>

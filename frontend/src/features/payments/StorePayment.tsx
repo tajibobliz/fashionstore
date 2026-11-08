@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, CheckCircle2, CreditCard, Landmark, QrCode, Truck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { paymentsApi, fileToBase64 } from '../../api/payments.api'
+import { salesApi } from '../../api/sales.api'
 import { queryKeys } from '../../api/queryKeys'
 import type { MetodoPago, MetodosTienda, Pago } from '../../types/payment'
 import type { Venta } from '../../types/sale'
@@ -37,6 +38,8 @@ export default function StorePayment({ sale, aviso }: { sale: Venta; aviso?: str
   const [elegido, setElegido] = useState<MetodoPago | null>(null)
   const [cambiando, setCambiando] = useState(false)
   const [error, setError] = useState('')
+  // Pedido hecho sin conexión (CU16): cambios locales tras aceptar el total o cancelar.
+  const [decision, setDecision] = useState<'aceptado' | 'cancelado' | null>(null)
 
   const refrescar = () => Promise.all([
     client.invalidateQueries({ queryKey: queryKeys.payments.bySale(sale.idVenta) }),
@@ -57,8 +60,19 @@ export default function StorePayment({ sale, aviso }: { sale: Venta; aviso?: str
     onError: e => setError(getApiErrorMessage(e)),
   })
 
+  const decidir = useMutation({
+    mutationFn: (d: 'aceptado' | 'cancelado') => d === 'aceptado' ? salesApi.acceptTotal(sale.idVenta) : salesApi.cancel(sale.idVenta),
+    onSuccess: async (_, d) => { setDecision(d); setError(''); await refrescar() },
+    onError: e => setError(getApiErrorMessage(e)),
+  })
+
   const m = metodos.data
   const lista = pagos.data ?? []
+  const pendiente = sale.estado === 'PENDIENTE' && decision !== 'cancelado'
+  const vence = sale.pagoDiferido && sale.pagoVenceEn ? new Date(sale.pagoVenceEn) : null
+  const venceTexto = vence?.toLocaleString('es-BO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const precioPorAceptar = pendiente && sale.pagoDiferido && decision !== 'aceptado' &&
+    sale.totalEstimado != null && Number(sale.totalEstimado) !== Number(sale.total)
   const aprobado = sale.estado === 'PAGADA' || lista.some(p => p.estado === 'APROBADO')
   // El pago "en curso" es el último pendiente que no sea de tarjeta (la tarjeta se resuelve en la pasarela).
   const enCurso = [...lista].reverse().find(p => p.estado === 'PENDIENTE' && p.metodo !== 'TARJETA') ?? null
@@ -72,13 +86,21 @@ export default function StorePayment({ sale, aviso }: { sale: Venta; aviso?: str
       <span>{formatMoney(d.subtotal, m?.moneda)}</span>
     </div>)}</div>
     <div className={styles.total}><span>Total</span><strong>{formatMoney(sale.total ?? 0, m?.moneda)}</strong></div>
+    {sale.pagoDiferido && <p className={styles.ayuda}>Pedido hecho sin conexión{pendiente && venceTexto ? ` · págalo antes del ${venceTexto}; si no, se cancela solo` : ''}.</p>}
   </article>
 
   let panel
   if (metodos.isLoading || pagos.isLoading) panel = <p role="status">Cargando medios de pago…</p>
   else if (metodos.error || !m) panel = <p className={styles.error} role="alert">{getApiErrorMessage(metodos.error)}</p>
   else if (aprobado) panel = <p className={styles.notice} role="status"><CheckCircle2 size={16} style={{ verticalAlign: 'text-bottom' }} /> ¡Pago confirmado! Tu pedido está pagado y la tienda ya lo está preparando.</p>
-  else if (sale.estado === 'CANCELADA') panel = <p className={styles.error}>Este pedido fue cancelado.</p>
+  else if (!pendiente) panel = <p className={styles.error}>Este pedido fue cancelado{sale.pagoDiferido && decision !== 'cancelado' ? ' porque venció el plazo para pagarlo' : ''}.</p>
+  else if (precioPorAceptar) panel = <div className={styles.stack}>
+    <p className={styles.warning}>El precio cambió mientras estabas sin conexión. Total que viste: <strong>{formatMoney(sale.totalEstimado, m.moneda)}</strong>; total actual: <strong>{formatMoney(sale.total ?? 0, m.moneda)}</strong>.</p>
+    <p>Para pagar debes aceptar el nuevo total. Si no te conviene, puedes cancelar el pedido.</p>
+    {error && <p className={styles.error} role="alert">{error}</p>}
+    <button className="primary-button" disabled={decidir.isPending} onClick={() => decidir.mutate('aceptado')}>Aceptar {formatMoney(sale.total ?? 0, m.moneda)}</button>
+    <button className="logout-button" disabled={decidir.isPending} onClick={() => decidir.mutate('cancelado')}>Cancelar pedido</button>
+  </div>
   else if (enCurso && !cambiando) panel = <PagoEnCurso pago={enCurso} metodos={m} sucursal={sale.sucursal?.nombre} alCambiar={() => { setCambiando(true); setElegido(null) }} alSubir={refrescar} />
   else {
     const opciones = OPCIONES.filter(o => o.activo(m))

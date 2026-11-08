@@ -13,12 +13,13 @@ import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
 import { Usuario } from '../../users/entities/user.entity';
 
-export type TipoOperacionSync = 'VENTA' | 'RESERVA';
+export type TipoOperacionSync = 'VENTA' | 'RESERVA' | 'ORDEN_PAGO_DIFERIDO';
 export type EstadoOperacionSync = 'CONFIRMADA' | 'RECHAZADA' | 'CONFLICTO';
 /**
  * STOCK: venta presencial registrada con faltante (la prenda ya se entregó).
  * SIN_STOCK: reserva no registrada porque el stock ya no alcanza.
- * PRECIO: venta registrada con un precio local distinto al vigente fuera de la ventana permitida.
+ * PRECIO: venta registrada con un precio local distinto al vigente fuera de la ventana permitida,
+ *   o pedido diferido con otro total (la clienta debe aceptarlo antes de pagar).
  * TURNO_CERRADO: venta registrada en un turno que se cerró antes de sincronizar.
  */
 export type TipoConflictoSync =
@@ -72,7 +73,7 @@ export class OperacionSync extends TenantOwned {
   @Column({ type: 'varchar', length: 300, nullable: true })
   motivo: string | null;
 
-  /** id de la venta o reserva creada en el servidor (si se registró). */
+  /** id de la venta, reserva o pedido creado en el servidor (si se registró). */
   @Column({ name: 'server_id', type: 'integer', nullable: true })
   serverId: number | null;
 

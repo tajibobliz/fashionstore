@@ -3,7 +3,7 @@
 > Rama: `feat/saas` (creada desde `main` @ `60d70c2`). `main` = producción, no se toca.
 > `feat/ai-harness` queda aparte (otra presentación). No se usa OpenSpec: este archivo es el plan y la bitácora de avance.
 > Fuente de requisitos: Examen Parcial 2 — Sistemas de Información 2 (S2-2026).
-> Versión: v1.18 (2026-11-07)
+> Versión: v1.19 (2026-11-07)
 
 ## Fechas clave
 
@@ -227,6 +227,20 @@ Pago (B): la **clienta** paga su compra a la **tienda**. Disponible en **todos l
 - **Seguridad:** se eliminó `/mock-gateway/*` (aprobaba cualquier pago **sin autenticación**). La clienta ya no puede registrar un pago con tarjeta "a mano": tarjeta solo vía pasarela.
 - API: `GET|PUT /payments/config`, `PUT|GET|DELETE /payments/config/qr`, `GET /payments/metodos`, `POST /payments/venta/:id/tarjeta`, `POST|GET /payments/:id/comprobante`, `GET /payments/por-verificar`, `POST /payments/:id/simulado/pagar`. Tablas `config_pago_tienda` y `comprobante_pago` (RLS) — migración `1780000000010-MediosDePagoTienda`.
 - Web: dashboard **Medios de pago** (ADMIN) y **Pagos por verificar** (ADMIN, encargados, cajero; por sucursal autorizada); en la tienda, pantalla **Pagar mi compra** (también desde *Mis compras* → **Pagar**) y la página `/t/:slug/compra/:idVenta`, que es la vuelta de la pasarela (`?ref`, `?cancelado`, `?simulado`).
+
+### 4.4.4 Pedidos sin conexión con pago diferido (CU16 / RF-027) — implementado (v1.19)
+Lo exclusivo del plan **Empresarial** (feature `pagosOnline`). En los otros planes la tienda offline solo **reserva**.
+
+1. **Sin conexión** (PWA, tienda de la clienta): botón **Pedir** → operación `ORDEN_PAGO_DIFERIDO` en la cola con UUID y el precio que vio. Mensaje: *"Pedido guardado localmente. El pago se completará cuando haya conexión."* El catálogo offline trae `tienda { moneda, pagoDiferido, horasParaPagar }` para saber si se puede pedir sin preguntar al servidor.
+2. **Al sincronizar** (`POST /sync/operations`): solo CLIENTE y plan con `pagosOnline` (si no → RECHAZADA). Se valida producto activo y **stock central** de la sucursal:
+   - no alcanza → **CONFLICTO `SIN_STOCK`** + alternativas; no se crea el pedido;
+   - alcanza → venta DIGITAL **PENDIENTE** con `pago_diferido = true` y `pago_vence_en = ahora + PAGO_DIFERIDO_HORAS` (48 h). **No se aparta stock**: se valida otra vez al cobrar (si se agotó, se reembolsa — RN-018);
+   - el precio cambió → se cobra el **vigente** (RN-007), queda `total_estimado` = total que vio la clienta y la operación vuelve como **CONFLICTO `PRECIO`**: debe **aceptar el nuevo total** (`PATCH /sales/:id/aceptar-total`) o cancelar; hasta entonces no se puede pagar.
+   - idempotente por `operationId`; suscripción vencida → el lote queda pendiente en el dispositivo (403).
+3. **Pago**: desde el aviso de sincronización (**Pagar pedido**) o *Mis compras*, con la pantalla de §4.4.3 (tarjeta por Stripe Checkout con webhook, o los medios de la tienda).
+4. **Vencimiento (EXPIRADO)**: la tarea `PagoDiferidoScheduler` (cada 15 min, `PAGO_DIFERIDO_CRON`) cancela los pedidos vencidos y anula sus pagos pendientes; además se revisa al intentar pagar. Si el cobro de Stripe llega cuando el pedido ya se canceló, se **reembolsa**.
+
+Migración `1780000000011-PagoDiferidoOffline` (columnas en `venta` + índice parcial de pedidos pendientes por vencimiento).
 
 ### 4.5 Migración de datos existentes
 Migración `1780000000000-AddMultitenancy`: crea `plan/empresa/suscripcion`, crea **Empresa A = "FashionStore"** con todos los datos actuales, agrega `id_empresa` (primero nullable → backfill → NOT NULL), reemplaza UNIQUE globales por compuestos. `npm run seed:demo` crea la **Empresa B "Urban Step"** (`urban-step`, plan Básico, calzado y ropa deportiva) con 2 sucursales, almacenes, cajas, 5 usuarios, catálogo, inventario y 3 ventas; y el SUPER_ADMIN de la plataforma. No corre en producción.
@@ -511,7 +525,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 - [x] P2a **Moneda** (antes de Stripe): planes en USD, cada tienda en su moneda, feature `pagosOnline` solo en Empresarial (§4.4.1)
 - [x] P2b **Pago de la suscripción con Stripe Checkout** en los tres planes + webhook firmado + pasarela simulada (§4.4.2)
 - [x] P2c **Medios de pago de la tienda** (todos los planes): tarjeta con Stripe, QR y transferencia con comprobante y confirmación de la tienda, efectivo al retirar en sucursal, contra entrega; el ADMIN activa los que quiere y sube su QR y datos bancarios
-- [ ] P2 **CU16 / RF-027 Pago diferido de pedidos offline** (solo Empresarial, feature `pagosOnline`; en la moneda de la tienda): orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
+- [x] P2 **CU16 / RF-027 Pago diferido de pedidos offline** (§4.4.4) (solo Empresarial, feature `pagosOnline`; en la moneda de la tienda): orden creada offline con "Pago pendiente diferido"; al reconectar el backend crea el `PaymentIntent`, la clienta confirma y el webhook actualiza la orden o reembolsa
 - [ ] P3 **CU17 / RF-028 Sesión offline con PIN**: PIN local + token cifrado, plazo máximo configurable, bloqueo por intentos fallidos y borrado de datos al cerrar sesión
 - [ ] P4 **RF-026 / CU15 Carrito offline**: conservar el carrito sin conexión (también tras cerrar la app) y convertirlo en orden con pago diferido (enlaza con P2)
 
@@ -571,7 +585,7 @@ Regla: **primero el modelo de datos, después todo lo demás**. Offline, sincron
 | 3 | Crear la Empresa B y el SUPER_ADMIN | `npm run seed:demo` |
 | 4 | Cambiar el backend al rol normal | `.env`: `DB_USER=fashion_app` y `DB_PASSWORD=fashion_app_local` |
 | 5 | Arrancar y revisar el log | `npm run start:dev` → debe decir *"Aislamiento por empresa activo en la base de datos (RLS)"* |
-| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 128 pruebas en verde (aislamiento + planes + SaaS público + moneda + cobro de suscripción + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
+| 6 | Pruebas automáticas | `npm run test:e2e:tenant` → 137 pruebas en verde (aislamiento + planes + SaaS público + moneda + cobro de suscripción + sincronización + cambios + traspasos + reportes con IA + ML + KPIs; las de ML necesitan `ml-service/.venv`) |
 
 Usuarios de prueba (contraseña `demo1234`):
 
@@ -627,3 +641,4 @@ Rutas web para probar: `/` (página del SaaS), `/contratar`, `/t/fashionstore` (
 | 2026-11-07 | v1.17: **pago de la suscripción con Stripe Checkout** (los 3 planes, USD). Decisiones: los medios de pago de la tienda van en **todos** los planes y lo exclusivo de Empresarial es el **pago diferido offline** (`pagosOnline`); el registro crea la empresa sin plan y la lleva a pagar; el plan se activa solo con el **webhook firmado** (idempotente, filtra `metadata.app=fashionstore` porque la cuenta de prueba es compartida); renovar suma meses al vencimiento; pasarela simulada sin claves. SDK `stripe` 22.6.2 (fijado). Migración `1780000000009` (ver §4.4.2) | E2E 116/116 (10 nuevas en `tenant-billing`: pago pendiente al registrarse y solo lectura, pagar activa y es idempotente, renovar suma meses y cambiar empieza hoy, cancelar, permisos y otra empresa, webhook sin firma/firma falsa → 400, eventos de otro proyecto ignorados, monto alterado no activa, aviso repetido → ya_procesado, sesión expirada → EXPIRADO, tienda vencida paga y vuelve a operar; se adaptaron registro, moneda y planes). Unitarias 169 (+3: parámetros de la sesión de Stripe con cliente simulado). Migración up/down/up y esquema = entidades. Playwright: contratar → pago simulado (tarjeta rechazada bloquea) → éxito con plan activo → Mi plan: Empresarial 3 meses US$ 357 → cancelar → tabla de Pagos |
 | 2026-11-07 | v1.18: **medios de pago de la tienda online** (P2c, todos los planes, §4.4.3): tarjeta con Stripe en la moneda de la tienda (webhook de ventas, reembolso si se agotó el stock), QR y transferencia con comprobante verificado por el personal, efectivo al retirar y contra entrega. Se eliminó el simulador público `/mock-gateway` (aprobaba pagos sin autenticación). Migración `1780000000010` | E2E 128/128 (12 nuevas en `tenant-store-payments`: permisos y validaciones de la configuración, QR validado por contenido, quitar QR, medio desactivado y tarjeta manual rechazados, comprobante (tipo, tamaño, otra empresa no lo ve), aprobar descuenta stock, rechazar no, cambiar de medio anula el anterior, tarjeta simulada, webhook de venta idempotente y con monto alterado, reembolso por stock agotado, `/mock-gateway` → 404; restaura la configuración original). Unitarias 169. Migración up/down/up y esquema = entidades. Playwright: ADMIN configura QR y cuenta → clienta paga por QR y sube comprobante → tarjeta simulada → encargado de sucursal ve el comprobante y aprueba → ventas PAGADA; vista móvil |
 | 2026-11-07 | v1.18 (corrección): **reportes por día en la hora de la tienda.** `/reports` cortaba los días en UTC (23:59 UTC = 19:59 en Bolivia), así que lo vendido después de las 20:00 no entraba en el reporte de "hoy" y no cuadraba con los KPIs (que sí usan `APP_TIMEZONE`). Ahora `desde/hasta` AAAA-MM-DD son días completos en `APP_TIMEZONE` y las ventas por día se agrupan en esa zona (`common/zona-horaria.ts`) | Las pruebas de KPIs y de reportes con IA fallaban solo si se corrían después de las 20:00 de Bolivia; reproducido y corregido. E2E 128/128 corridas a las 22:30 de Bolivia. Unitarias 169 (se actualizó la prueba que fijaba el corte en UTC) |
+| 2026-11-07 | v1.19: **P2 pedidos sin conexión con pago diferido** (CU16, solo Empresarial, §4.4.4). Operación `ORDEN_PAGO_DIFERIDO` en la sincronización; pedido pendiente con plazo (48 h), precio central con aceptación del nuevo total, stock validado sin apartar, vencimiento automático (cron) y reembolso si el cobro llega tarde. PWA: botón **Pedir** en la tienda offline y **Pagar pedido** en el indicador. Migración `1780000000011` | E2E 137/137 (9 nuevas en `tenant-pago-diferido`: plan Básico rechaza, Empresarial habilita y el personal no puede pedir, pedido con plazo sin descontar stock e idempotente, pago con tarjeta por webhook descuenta stock, sin stock → conflicto con alternativas, precio cambiado → aceptar antes de pagar, vencido → cancelado y pagos anulados, cobro tardío → reembolso, suscripción vencida → 403). Unitarias 169. Migración sin diferencias con las entidades. Playwright (versión compilada): clienta sin conexión → Pedir → vuelve la red → Pagar pedido → tarjeta simulada → pagado |

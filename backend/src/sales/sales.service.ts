@@ -31,6 +31,20 @@ import { TurnoCaja } from '../pos/entities/turno-caja.entity';
 import { Pago } from '../payments/entities/pago.entity';
 import type { MetodoPago } from '../payments/entities/pago.entity';
 
+export interface PedidoDiferidoInput {
+  operationId: string;
+  idSucursal: number;
+  detalles: { idVariante: number; cantidad: number; precioUnitario?: number }[];
+  horasParaPagar: number;
+}
+
+export interface PedidoDiferidoResultado {
+  /** null si no se creó (faltó stock). */
+  venta: Venta | null;
+  faltantes: { idVariante: number; solicitado: number; disponible: number }[];
+  precios: { idVariante: number; precioLocal: number; precioServidor: number }[];
+}
+
 export interface VentaOfflineInput {
   operationId: string;
   idSucursal: number;
@@ -148,6 +162,101 @@ export class SalesService {
 
       return ventaGuardada;
     }));
+  }
+
+  /**
+   * Pedido hecho sin conexión con pago diferido (CU16). Llega por sincronización y crea una venta
+   * DIGITAL pendiente que la clienta paga después, antes de `pagoVenceEn`.
+   * - Valida el stock central de la sucursal (sin apartarlo): si no alcanza, no crea nada y devuelve
+   *   los faltantes para que la sincronización responda CONFLICTO con alternativas.
+   * - Cobra el precio vigente (prioridad central, RN-007). Si difiere del que vio la clienta offline,
+   *   se guarda el `totalEstimado` local y ella debe aceptar el nuevo total antes de pagar.
+   * - Idempotente por `operationId` (= `client_request_id`).
+   */
+  async crearPedidoDiferido(idUsuario: number, input: PedidoDiferidoInput): Promise<PedidoDiferidoResultado> {
+    const findExisting = () => this.ventaRepo.findOne({ where: {
+      usuario: { idUsuario }, clientRequestId: input.operationId, tipoVenta: 'DIGITAL',
+    } });
+    const existente = await findExisting();
+    if (existente) return { venta: existente, faltantes: [], precios: [] };
+
+    const sucursal = await this.sucursalRepo.findOne({ where: { idSucursal: input.idSucursal } });
+    if (!sucursal || !sucursal.estado) throw new NotFoundException('Sucursal no encontrada');
+    const almacen = await this.findPrincipal(input.idSucursal);
+    const local = new Map(input.detalles.filter((d) => d.precioUnitario !== undefined).map((d) => [d.idVariante, Number(d.precioUnitario)]));
+
+    const resultado = await this.ejecutarIdempotente(input.operationId, findExisting, () => this.dataSource.transaction(async (manager) => {
+      const faltantes: PedidoDiferidoResultado['faltantes'] = [];
+      const precios: PedidoDiferidoResultado['precios'] = [];
+      const detalles: DetalleVenta[] = [];
+      let total = 0;
+      let totalEstimado = 0;
+      for (const item of this.agruparDetalles(input.detalles)) {
+        const variante = await manager.findOne(VarianteProducto, { where: { idVariante: item.idVariante } });
+        if (!variante) throw new NotFoundException(`Variante ${item.idVariante} no encontrada`);
+        if (!variante.producto?.estado) throw new BadRequestException(`El producto de la variante ${item.idVariante} ya no está activo`);
+        const inventario = await manager.findOne(Inventario, { where: { almacen: { idAlmacen: almacen.idAlmacen }, variante: { idVariante: item.idVariante } } });
+        const disponible = inventario?.stockDisponible ?? 0;
+        if (disponible < item.cantidad) faltantes.push({ idVariante: item.idVariante, solicitado: item.cantidad, disponible });
+
+        const precio = await this.resolverPrecio(variante.producto, item.cantidad);
+        const precioLocal = local.get(item.idVariante) ?? precio;
+        if (Math.abs(precioLocal - precio) >= 0.01) precios.push({ idVariante: item.idVariante, precioLocal, precioServidor: precio });
+        const subtotal = toMoney(precio * item.cantidad);
+        total = toMoney(total + subtotal);
+        totalEstimado = toMoney(totalEstimado + precioLocal * item.cantidad);
+        detalles.push(manager.create(DetalleVenta, { variante, cantidad: item.cantidad, precioUnitario: precio, subtotal }));
+      }
+      if (faltantes.length) return { venta: null, faltantes, precios };
+
+      const venta = await manager.save(manager.create(Venta, {
+        tipoVenta: 'DIGITAL',
+        modalidadComercial: 'MINORISTA',
+        clientRequestId: input.operationId,
+        estado: 'PENDIENTE',
+        total,
+        numeroComprobante: this.generarComprobante('DIF'),
+        usuario: { idUsuario } as any,
+        sucursal,
+        almacen,
+        detalles,
+        pagoDiferido: true,
+        pagoVenceEn: new Date(Date.now() + input.horasParaPagar * 3_600_000),
+        totalEstimado,
+      }));
+      return { venta, faltantes, precios };
+    }));
+    return resultado instanceof Venta ? { venta: resultado, faltantes: [], precios: [] } : resultado;
+  }
+
+  /**
+   * Cancela los pedidos diferidos cuyo plazo de pago venció (estado EXPIRADO del CU16) y anula
+   * sus pagos pendientes. Sin `idVenta` revisa todos los de la empresa actual (o de todas, si se
+   * llama en modo plataforma desde la tarea programada). Devuelve los ids cancelados.
+   */
+  async vencerPedidosDiferidos(idVenta?: number): Promise<number[]> {
+    return this.dataSource.transaction(async (m) => {
+      // En PostgreSQL, TypeORM devuelve [filas, cantidad] para un UPDATE ... RETURNING.
+      const [filas]: [{ id_venta: number }[], number] = await m.query(
+        `UPDATE venta SET estado = 'CANCELADA'
+          WHERE pago_diferido AND estado = 'PENDIENTE' AND pago_vence_en < now() AND ($1::int IS NULL OR id_venta = $1)
+          RETURNING id_venta`,
+        [idVenta ?? null],
+      );
+      const ids = filas.map((f) => Number(f.id_venta));
+      if (ids.length)
+        await m.query(`UPDATE pago SET estado = 'ANULADO' WHERE estado = 'PENDIENTE' AND id_venta = ANY($1::int[])`, [ids]);
+      return ids;
+    });
+  }
+
+  /** La clienta acepta el nuevo total de su pedido diferido (el precio cambió mientras estaba offline). */
+  async aceptarTotal(id: number, actor: AuthenticatedUser) {
+    const venta = await this.findOne(id);
+    if (venta.usuario?.idUsuario !== actor.idUsuario) throw new ForbiddenException('No puedes modificar esta venta');
+    if (!venta.pagoDiferido || venta.estado !== 'PENDIENTE') throw new BadRequestException('Este pedido no tiene un total por aceptar');
+    venta.totalEstimado = venta.total;
+    return this.ventaRepo.save(venta);
   }
 
   // Cajero registra venta presencial (descuenta stock inmediatamente)

@@ -4,6 +4,8 @@ import { api } from './axios'
 export interface CatalogoSync {
   serverTime: string
   sucursal: { idSucursal: number; nombre: string }
+  /** Moneda de la tienda y si permite pedidos con pago diferido sin conexión (plan Empresarial). */
+  tienda?: { moneda: string; pagoDiferido: boolean; horasParaPagar: number }
   productos: {
     idProducto: number
     nombre: string
@@ -15,7 +17,7 @@ export interface CatalogoSync {
   }[]
 }
 
-export type TipoOperacion = 'VENTA' | 'RESERVA'
+export type TipoOperacion = 'VENTA' | 'RESERVA' | 'ORDEN_PAGO_DIFERIDO'
 export type EstadoServidor = 'CONFIRMADA' | 'RECHAZADA' | 'CONFLICTO'
 export type TipoConflicto = 'STOCK' | 'SIN_STOCK' | 'PRECIO' | 'TURNO_CERRADO'
 export interface Alternativa { idSucursal: number; sucursal: string; idVariante: number; stock: number }

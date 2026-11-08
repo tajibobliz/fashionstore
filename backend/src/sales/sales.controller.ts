@@ -72,6 +72,13 @@ export class SalesController {
     return this.service.confirmar(id);
   }
 
+  // Pedido hecho sin conexión: la clienta acepta el nuevo total si el precio cambió (CU16)
+  @Patch(':id/aceptar-total')
+  @Roles(Role.CLIENTE)
+  aceptarTotal(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.service.aceptarTotal(id, req.user);
+  }
+
   // Cancelar venta pendiente
   @Patch(':id/cancelar')
   cancelar(@Param('id', ParseIntPipe) id: number, @Request() req: any) {

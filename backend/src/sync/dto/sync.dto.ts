@@ -104,9 +104,13 @@ export class OperacionDto {
   @IsUUID()
   operationId: string;
 
-  @ApiProperty({ enum: ['VENTA', 'RESERVA'] })
-  @IsIn(['VENTA', 'RESERVA'])
-  type: 'VENTA' | 'RESERVA';
+  @ApiProperty({
+    enum: ['VENTA', 'RESERVA', 'ORDEN_PAGO_DIFERIDO'],
+    description:
+      'ORDEN_PAGO_DIFERIDO: pedido de la clienta hecho sin conexión que se paga al volver la red (CU16, plan Empresarial)',
+  })
+  @IsIn(['VENTA', 'RESERVA', 'ORDEN_PAGO_DIFERIDO'])
+  type: 'VENTA' | 'RESERVA' | 'ORDEN_PAGO_DIFERIDO';
 
   @IsInt()
   @IsPositive()

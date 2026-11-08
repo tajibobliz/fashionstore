@@ -25,7 +25,31 @@ export default function OfflineStore() {
   const [enviando, setEnviando] = useState<number | null>(null)
 
   const catalogo = catalogos?.find(c => c.sucursal.idSucursal === idSucursal) ?? catalogos?.[0]
-  const aviso = <div className={styles.banner} role="status"><WifiOff size={18} aria-hidden="true" /><span><strong>Estás sin conexión.</strong> Puedes ver el catálogo guardado y dejar reservas: se envían solas cuando vuelva internet.</span></div>
+  const aviso = <div className={styles.banner} role="status"><WifiOff size={18} aria-hidden="true" /><span><strong>Estás sin conexión.</strong> Puedes ver el catálogo guardado y dejar {catalogo?.tienda?.pagoDiferido ? 'reservas o pedidos' : 'reservas'}: se envían solos cuando vuelva internet.</span></div>
+
+  const tienda = catalogo?.tienda
+  const dinero = (n: number) => formatMoney(n, tienda?.moneda)
+
+  /**
+   * Pedido con pago diferido (CU16, plan Empresarial): queda en la cola como ORDEN_PAGO_DIFERIDO
+   * con el precio que ve la clienta; al volver la red el servidor lo registra y ella lo paga.
+   */
+  async function pedir(idVariante: number, nombre: string, detalle: string, precioFinal: number) {
+    if (!user?.idEmpresa || !catalogo) return
+    setEnviando(idVariante)
+    try {
+      const items = [{ idVariante, cantidad: 1, precioUnitario: precioFinal }]
+      await encolar({
+        type: 'ORDEN_PAGO_DIFERIDO', idEmpresa: user.idEmpresa, idUsuario: user.idUsuario, idSucursal: catalogo.sucursal.idSucursal,
+        resumen: `Pedido · ${nombre} (${detalle}) · ${dinero(precioFinal)} · ${catalogo.sucursal.nombre}`,
+        payload: { detalles: items, catalogoDescargadoEn: catalogo.serverTime },
+      })
+      await descontarStockLocal(user.idEmpresa, catalogo.sucursal.idSucursal, items)
+      setMensaje(`Pedido guardado localmente. El pago se completará cuando haya conexión: tendrás ${tienda?.horasParaPagar ?? 48} horas para pagar ${nombre}.`)
+    } finally {
+      setEnviando(null)
+    }
+  }
 
   async function reservar(idVariante: number, nombre: string, detalle: string) {
     if (!user?.idEmpresa || !catalogo) return
@@ -61,15 +85,19 @@ export default function OfflineStore() {
                 {catalogos.map(c => <option key={c.clave} value={c.sucursal.idSucursal}>{c.sucursal.nombre}</option>)}
               </select></label>
             </div>
+            {tienda?.pagoDiferido && <p className={styles.nota}><strong>Pedir</strong>: compras ahora y pagas cuando vuelva la conexión (tienes {tienda.horasParaPagar} h). <strong>Reservar</strong>: apartas la prenda para pagarla en la tienda. Precio y stock se confirman al sincronizar.</p>}
             {mensaje && <p className={styles.feedback} role="status">{mensaje}</p>}
             <div className={styles.grid}>{catalogo.productos.map(p => <article className={styles.card} key={p.idProducto}>
               <div><p>{p.categoria ?? 'Moda'}</p><h2>{p.nombre}</h2></div>
-              <span className={styles.price}>{formatMoney(p.precioFinal)}</span>
+              <span className={styles.price}>{dinero(p.precioFinal)}</span>
               <div className={styles.variants}>{p.variantes.map(v => {
                 const detalle = [v.talla ?? 'Única', v.color].filter(Boolean).join(' / ')
                 return <div className={styles.variant} key={v.idVariante}>
                   <span>{detalle} · {v.stockDisponible ? `${v.stockDisponible} disp.` : 'sin stock'}</span>
-                  <button type="button" disabled={!v.stockDisponible || enviando === v.idVariante} onClick={() => void reservar(v.idVariante, p.nombre, detalle)}>Reservar</button>
+                  <span className={styles.variantActions}>
+                    <button type="button" disabled={!v.stockDisponible || enviando === v.idVariante} onClick={() => void reservar(v.idVariante, p.nombre, detalle)}>Reservar</button>
+                    {tienda?.pagoDiferido && <button type="button" className={styles.pedir} disabled={!v.stockDisponible || enviando === v.idVariante} onClick={() => void pedir(v.idVariante, p.nombre, detalle, p.precioFinal)}>Pedir</button>}
+                  </span>
                 </div>
               })}</div>
             </article>)}</div>

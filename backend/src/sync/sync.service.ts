@@ -17,6 +17,8 @@ import { Inventario } from '../inventory/entities/inventario.entity';
 import { ReservationsService } from '../reservations/reservations.service';
 import { SalesService } from '../sales/sales.service';
 import { BranchAccessService } from '../users/branch-access.service';
+import { PlanService } from '../tenancy/plan.service';
+import { TenantContext } from '../tenancy/tenant-context';
 import { Almacen } from '../warehouses/entities/almacen.entity';
 import { OperacionDto, SyncOperationsDto } from './dto/sync.dto';
 import {
@@ -70,6 +72,7 @@ export class SyncService {
     private readonly reservations: ReservationsService,
     private readonly access: BranchAccessService,
     private readonly config: ConfigService,
+    private readonly plans: PlanService,
   ) {}
 
   // ---------------------------------------------------------------- catálogo offline
@@ -132,8 +135,29 @@ export class SyncService {
     return {
       serverTime,
       sucursal: { idSucursal: sucursal.idSucursal, nombre: sucursal.nombre },
+      // Se guarda junto al catálogo: sin conexión la app sabe la moneda y si puede hacer pedidos.
+      tienda: await this.tienda(),
       productos: [...productos.values()],
     };
+  }
+
+  /** Moneda y opciones offline de la tienda actual (pedido con pago diferido solo en Empresarial). */
+  private async tienda() {
+    const idEmpresa = TenantContext.currentTenantId();
+    if (!idEmpresa)
+      return { moneda: 'BOB', pagoDiferido: false, horasParaPagar: 0 };
+    const e = await this.plans.estado(idEmpresa);
+    const pagoDiferido = e.vigente && !!e.plan?.features?.pagosOnline;
+    return {
+      moneda: e.empresa.moneda ?? 'BOB',
+      pagoDiferido,
+      horasParaPagar: pagoDiferido ? this.horasParaPagar() : 0,
+    };
+  }
+
+  private horasParaPagar() {
+    const h = Number(this.config.get('PAGO_DIFERIDO_HORAS') ?? 48);
+    return Number.isFinite(h) && h > 0 ? h : 48;
   }
 
   // ---------------------------------------------------------------- operaciones offline
@@ -176,7 +200,9 @@ export class SyncService {
       evaluacion =
         op.type === 'VENTA'
           ? await this.procesarVenta(actor, op)
-          : await this.procesarReserva(actor, op);
+          : op.type === 'ORDEN_PAGO_DIFERIDO'
+            ? await this.procesarPedidoDiferido(actor, op)
+            : await this.procesarReserva(actor, op);
     } catch (error) {
       // Errores de negocio (403/404/400) = la operación no es válida → RECHAZADA, queda en el panel.
       if (!(error instanceof HttpException)) throw error;
@@ -349,6 +375,64 @@ export class SyncService {
         },
       };
     }
+  }
+
+  /**
+   * Pedido de la clienta hecho sin conexión (CU16). Solo planes con `pagosOnline` (Empresarial).
+   * - Falta stock central → CONFLICTO SIN_STOCK con alternativas; no se crea el pedido.
+   * - Cambió el precio → se crea con el precio vigente y CONFLICTO PRECIO: la clienta acepta el
+   *   nuevo total antes de pagar (o cancela).
+   * - Si no → CONFIRMADA: el pedido queda pendiente de pago hasta `pagoVenceEn`.
+   */
+  private async procesarPedidoDiferido(
+    actor: AuthenticatedUser,
+    op: OperacionDto,
+  ): Promise<Evaluacion> {
+    if (actor.rol !== Role.CLIENTE)
+      throw new ForbiddenException('Solo la clienta puede hacer pedidos');
+    await this.plans.asegurarFuncionalidad(actor.idEmpresa!, 'pagosOnline');
+    const items = op.payload.detalles.map(({ idVariante, cantidad }) => ({
+      idVariante,
+      cantidad,
+    }));
+    const r = await this.sales.crearPedidoDiferido(actor.idUsuario, {
+      operationId: op.operationId,
+      idSucursal: op.idSucursal,
+      detalles: op.payload.detalles,
+      horasParaPagar: this.horasParaPagar(),
+    });
+    if (!r.venta) {
+      return {
+        estado: 'CONFLICTO',
+        serverId: null,
+        conflictos: ['SIN_STOCK'],
+        motivo: `No se registró el pedido: ya no hay stock suficiente (${r.faltantes.map((f) => `variante ${f.idVariante}: quedan ${f.disponible}`).join(', ')})`,
+        detalle: {
+          items,
+          alternativas: await this.alternativas(op.idSucursal, items),
+        },
+      };
+    }
+    const precio = new Map(r.precios.map((x) => [x.idVariante, x]));
+    const total = Number(r.venta.total).toFixed(2);
+    return {
+      estado: r.precios.length ? 'CONFLICTO' : 'CONFIRMADA',
+      serverId: r.venta.idVenta,
+      conflictos: r.precios.length ? ['PRECIO'] : [],
+      motivo: r.precios.length
+        ? `El precio cambió mientras estabas sin conexión: el nuevo total es ${total}. Acéptalo para pagar o cancela el pedido`
+        : null,
+      detalle: {
+        items: op.payload.detalles.map(
+          ({ idVariante, cantidad, precioUnitario }) => ({
+            idVariante,
+            cantidad,
+            precioLocal: precioUnitario,
+            precioServidor: precio.get(idVariante)?.precioServidor,
+          }),
+        ),
+      },
+    };
   }
 
   /** Otras sucursales de la empresa con stock suficiente para cada prenda. */

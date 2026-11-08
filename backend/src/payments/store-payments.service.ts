@@ -27,6 +27,7 @@ import { ComprobantePago } from './entities/comprobante-pago.entity';
 import { ConfigPagoTienda } from './entities/config-pago-tienda.entity';
 import { MetodoPago, Pago } from './entities/pago.entity';
 import { PaymentsService } from './payments.service';
+import { SalesService } from '../sales/sales.service';
 
 const MAX_QR = 600 * 1024;
 const MAX_COMPROBANTE = 3 * 1024 * 1024;
@@ -74,6 +75,7 @@ export class StorePaymentsService implements OnModuleInit {
     private readonly billing: BillingService,
     private readonly access: BranchAccessService,
     private readonly dataSource: DataSource,
+    private readonly sales: SalesService,
   ) {}
 
   /** El webhook de Stripe (BillingService) nos entrega los cobros de ventas confirmados. */
@@ -212,12 +214,32 @@ export class StorePaymentsService implements OnModuleInit {
       throw new BadRequestException(
         'Para pagar con tarjeta usa "Pagar con tarjeta" (página segura de pago).',
       );
+    await this.asegurarPedidoPagable(idVenta);
     const c = await this.configDe(this.empresa(actor));
     const activo = metodo === 'QR' ? c.qr && !!c.qrMime : c[OPCION[metodo]];
     if (!activo)
       throw new BadRequestException('Esta tienda no acepta ese medio de pago');
     // Si cambió de método, el intento anterior pendiente deja de valer.
     await this.anularPendientes(idVenta, metodo);
+  }
+
+  /**
+   * Pedido hecho sin conexión (CU16): no se cobra si su plazo venció (se cancela en ese momento)
+   * ni si el precio cambió y la clienta todavía no aceptó el nuevo total.
+   */
+  private async asegurarPedidoPagable(idVenta: number, venta?: Venta | null) {
+    const v = venta ?? (await this.ventas.findOne({ where: { idVenta } }));
+    if (!v?.pagoDiferido) return;
+    if (v.pagoVenceEn && v.pagoVenceEn.getTime() < Date.now()) {
+      await this.sales.vencerPedidosDiferidos(idVenta);
+      throw new BadRequestException(
+        'El plazo para pagar este pedido venció y se canceló. Puedes hacer un pedido nuevo.',
+      );
+    }
+    if (v.totalEstimado !== null && Number(v.totalEstimado) !== Number(v.total))
+      throw new BadRequestException(
+        'El precio cambió desde que hiciste el pedido: acepta el nuevo total antes de pagar.',
+      );
   }
 
   // ------------------------------------------------------------ comprobantes (QR / transferencia)
@@ -355,6 +377,7 @@ export class StorePaymentsService implements OnModuleInit {
       throw new BadRequestException(
         `Esta compra no se puede pagar (estado ${venta.estado})`,
       );
+    await this.asegurarPedidoPagable(idVenta, venta);
     const idEmpresa = this.empresa(actor);
     const c = await this.configDe(idEmpresa);
     if (!c.tarjeta)
