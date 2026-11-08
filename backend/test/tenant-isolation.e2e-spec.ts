@@ -58,7 +58,7 @@ describe('Aislamiento multitenant (e2e)', () => {
     const a = (await api('GET', '/catalog/categorias', { who: 'A' })).body;
     const b = (await api('GET', '/catalog/categorias', { who: 'B' })).body;
     expect(b.map((c: any) => c.nombre)).toEqual(
-      expect.arrayContaining(['Zapatillas', 'Botas']),
+      expect.arrayContaining(['Vestidos', 'Carteras']),
     );
     expect(a.every((c: any) => c.idEmpresa === tid('A'))).toBe(true);
     expect(b.every((c: any) => c.idEmpresa === tid('B'))).toBe(true);

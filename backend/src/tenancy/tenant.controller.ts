@@ -12,7 +12,11 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { SubscriptionsService } from './subscriptions.service';
-import { MonedaEmpresaDto, SesionOfflineDto } from './dto/platform.dto';
+import {
+  MonedaEmpresaDto,
+  PortadaTiendaDto,
+  SesionOfflineDto,
+} from './dto/platform.dto';
 
 /** Datos de la empresa del usuario logueado: plan, vigencia, límites y uso. */
 @ApiTags('Mi empresa (SaaS)')
@@ -46,6 +50,13 @@ export class TenantController {
       req.user.idEmpresa,
       dto.horasSesionOffline,
     );
+  }
+
+  /** Imagen grande y frase de la portada de la tienda online (/t/:slug). */
+  @Patch('portada')
+  @Roles(Role.ADMIN)
+  cambiarPortada(@Request() req: any, @Body() dto: PortadaTiendaDto) {
+    return this.service.cambiarPortada(req.user.idEmpresa, dto);
   }
 
   @Get('suscripciones')

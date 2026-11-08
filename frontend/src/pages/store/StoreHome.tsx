@@ -37,7 +37,9 @@ function Foto({ producto, className }: { producto: Producto; className?: string 
  * sin sesión, las consultas salen con X-Tenant, así que cada tienda ve únicamente lo suyo.
  */
 export default function StoreHome() {
-  const { nombre, base, slug } = useStore()
+  const { nombre, base, slug, portadaUrl, eslogan } = useStore()
+  const [portadaFalla, setPortadaFalla] = useState(false)
+  const conPortada = !!portadaUrl && !portadaFalla
   const { user, isAuthenticated } = useAuth()
   const cuenta = isAuthenticated && user ? (user.rol === 'CLIENTE' ? `${base}/tienda` : getSessionPath(user.rol, user.empresa?.slug)) : `${base}/login`
   const catalogo = `${base}/tienda`
@@ -46,7 +48,8 @@ export default function StoreHome() {
   const productos = useQuery({ queryKey: ['store-home', slug, 'productos'], queryFn: catalogApi.products.list, staleTime: 5 * 60_000 })
   const activos = (productos.data ?? []).filter(p => p.estado !== false).sort((a, b) => b.idProducto - a.idProducto)
   const conFoto = activos.filter(p => p.imagenUrl)
-  const portada = (conFoto.length >= 3 ? conFoto : activos).slice(0, 3)
+  // Con imagen de portada (la elige el administrador) va en el recuadro grande; si no, 3 prendas.
+  const portada = (conFoto.length >= 3 ? conFoto : activos).slice(0, conPortada ? 2 : 3)
   // Filas completas de 4 (con 6 prendas se ven 4, no una fila con una sola tarjeta).
   const novedades = activos.slice(0, activos.length < 4 ? activos.length : Math.min(8, Math.floor(activos.length / 4) * 4))
 
@@ -77,7 +80,7 @@ export default function StoreHome() {
         <div className={styles.heroText}>
           <p className={styles.eyebrow}><Store size={14} aria-hidden="true" /> Tienda online y en sucursales</p>
           <h1>Tu estilo, <em>a tu manera</em>, en {nombre}</h1>
-          <p className={styles.lead}>Descubre lo nuevo de la temporada, elige tu talla y color, y compra online o reserva para retirar en tu sucursal favorita.</p>
+          <p className={styles.lead}>{eslogan || 'Descubre lo nuevo de la temporada, elige tu talla y color, y compra online o reserva para retirar en tu sucursal favorita.'}</p>
           <div className={styles.actions}>
             <Link to={catalogo} className={styles.primary}>Comprar ahora <ArrowRight size={16} aria-hidden="true" /></Link>
             {!isAuthenticated && <Link to={`${base}/register`} className={styles.secondary}>Crear mi cuenta</Link>}
@@ -88,12 +91,17 @@ export default function StoreHome() {
             <div><dt>Retiro</dt><dd>Gratis</dd></div>
           </dl>}
         </div>
-        <div className={styles.collage} aria-hidden={portada.length === 0}>
+        <div className={styles.collage} aria-hidden={portada.length === 0 && !conPortada}>
+          {conPortada && <Link to={catalogo} className={`${styles.tile} ${styles.tile0}`} tabIndex={-1}>
+            <img src={portadaUrl!} alt={`Portada de ${nombre}`} onError={() => setPortadaFalla(true)} />
+            <span className={styles.badge}>Nueva temporada</span>
+          </Link>}
           {portada.length > 0
-            ? portada.map((p, i) => <Link key={p.idProducto} to={catalogo} className={`${styles.tile} ${styles[`tile${i}`]}`} tabIndex={-1}>
-              <Foto producto={p} />
-              {i === 0 && <span className={styles.badge}>Nuevo</span>}
-            </Link>)
+            ? portada.map((p, i) => { const pos = conPortada ? i + 1 : i
+              return <Link key={p.idProducto} to={catalogo} className={`${styles.tile} ${styles[`tile${pos}`]}`} tabIndex={-1}>
+                <Foto producto={p} />
+                {pos === 0 && <span className={styles.badge}>Nuevo</span>}
+              </Link> })
             : [0, 1, 2].map(i => <div key={i} className={`${styles.tile} ${styles[`tile${i}`]} ${styles.skeleton}`} />)}
         </div>
       </section>

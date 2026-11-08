@@ -19,11 +19,13 @@ import { Inventario } from '../../inventory/entities/inventario.entity';
 import { Venta } from '../../sales/entities/venta.entity';
 import { DetalleVenta } from '../../sales/entities/detalle-venta.entity';
 import { Pago } from '../../payments/entities/pago.entity';
+import { actualizarCatalogoDemo, PORTADA_DEMO } from './catalogo-demo';
 
 /**
- * Empresa B de demostración: "Urban Step" (calzado y ropa deportiva), plan BÁSICO.
+ * Empresa B de demostración: "Urban Step" (moda urbana para mujer), plan BÁSICO.
  * Sirve para demostrar el aislamiento entre empresas (requisito 9.3: "como mínimo,
- * dos empresas de prueba independientes"). Es idempotente: si ya existe, no hace nada.
+ * dos empresas de prueba independientes"). Es idempotente: si ya existe, solo completa el
+ * catálogo de moda mujer con fotos (ver catalogo-demo.ts).
  *
  * A propósito repite nombres que también usa la Empresa A (categoría "Accesorios",
  * tallas "38", comprobante "V-0001") para mostrar que los UNIQUE ahora son por empresa.
@@ -49,6 +51,7 @@ export async function seedDemoTenant(
         `UPDATE almacen SET codigo = 'PRINCIPAL' WHERE id_empresa = $1 AND codigo LIKE 'US-A%'`,
         [existente.idEmpresa],
       );
+      await actualizarCatalogoDemo(m, existente.idEmpresa);
       return {
         creada: false,
         idEmpresa: existente.idEmpresa,
@@ -62,6 +65,7 @@ export async function seedDemoTenant(
         nombre: 'Urban Step',
         slug: DEMO_SLUG,
         nit: '1029384756',
+        ...PORTADA_DEMO,
       }),
     );
     const idEmpresa = empresa.idEmpresa;
@@ -308,6 +312,9 @@ export async function seedDemoTenant(
         }),
       );
     }
+
+    // Catálogo de moda mujer con fotos: renombra los productos base y agrega el resto.
+    await actualizarCatalogoDemo(m, idEmpresa);
 
     return { creada: true, idEmpresa, usuarios: demoUsers() };
   });

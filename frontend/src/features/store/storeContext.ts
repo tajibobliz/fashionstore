@@ -6,6 +6,9 @@ export interface StoreInfo {
   nombre: string
   /** Prefijo de rutas de la tienda: '' o '/t/<slug>'. */
   base: string
+  /** Imagen grande de la portada y frase (las elige el administrador). */
+  portadaUrl?: string | null
+  eslogan?: string | null
 }
 
 export const DEFAULT_STORE: StoreInfo = { slug: null, nombre: 'Fashionstore', base: '' }

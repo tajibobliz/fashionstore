@@ -59,6 +59,14 @@ export class Empresa {
   @Column({ name: 'horas_sesion_offline', type: 'integer', default: 72 })
   horasSesionOffline: number;
 
+  /** Imagen grande de la portada de la tienda online (enlace https). Sin ella, mosaico de prendas. */
+  @Column({ name: 'portada_url', type: 'varchar', length: 500, nullable: true })
+  portadaUrl: string | null;
+
+  /** Frase corta bajo el título de la portada de la tienda online. */
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  eslogan: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

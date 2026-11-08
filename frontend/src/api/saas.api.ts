@@ -44,7 +44,7 @@ export const saasApi = {
   },
   /** Datos públicos de una tienda (/t/:slug). */
   async tienda(slug: string) {
-    const { data } = await api.get<{ idEmpresa: number; nombre: string; slug: string; moneda?: string }>(`/saas/tiendas/${encodeURIComponent(slug)}`)
+    const { data } = await api.get<{ idEmpresa: number; nombre: string; slug: string; moneda?: string; portadaUrl?: string | null; eslogan?: string | null }>(`/saas/tiendas/${encodeURIComponent(slug)}`)
     return data
   },
   /** Crea la empresa con su plan y su administrador, y deja la sesión iniciada. */

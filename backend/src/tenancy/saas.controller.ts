@@ -96,6 +96,8 @@ export class SaasController {
       nombre: empresa.nombre,
       slug: empresa.slug,
       moneda: empresa.moneda,
+      portadaUrl: empresa.portadaUrl,
+      eslogan: empresa.eslogan,
     };
   }
 

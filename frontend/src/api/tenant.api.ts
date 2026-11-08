@@ -2,7 +2,7 @@ import { api } from './axios'
 import type { CodigoPlan } from './saas.api'
 
 export interface TenantResumen {
-  empresa: { idEmpresa: number; nombre: string; slug: string; estado: 'ACTIVA' | 'SUSPENDIDA'; moneda?: string }
+  empresa: { idEmpresa: number; nombre: string; slug: string; estado: 'ACTIVA' | 'SUSPENDIDA'; moneda?: string; portadaUrl?: string | null; eslogan?: string | null }
   suscripcion: {
     idSuscripcion?: number
     estado: 'ACTIVA' | 'VENCIDA' | 'SIN_SUSCRIPCION'
@@ -34,6 +34,11 @@ export const tenantApi = {
   },
   async historial() {
     const { data } = await api.get<SuscripcionHistorial[]>('/tenant/suscripciones')
+    return data
+  },
+  /** Imagen grande (enlace https) y frase de la portada de la tienda online. Vacío = quitar. */
+  async cambiarPortada(body: { portadaUrl?: string | null; eslogan?: string | null }) {
+    const { data } = await api.patch<{ portadaUrl: string | null; eslogan: string | null }>('/tenant/portada', body)
     return data
   },
   /** Plazo (horas) para operar sin conexión con el PIN, desde la última conexión (CU17). */

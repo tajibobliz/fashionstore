@@ -46,7 +46,7 @@ export default function StoreScope() {
     <h1>Tienda no encontrada</h1><p>La dirección /t/{slug} no corresponde a ninguna tienda activa.</p><Link to="/">Ir a FashionStore SaaS</Link>
   </main>
 
-  const info = { slug: tienda.data.slug, nombre: tienda.data.nombre, base: `/t/${tienda.data.slug}` }
+  const info = { slug: tienda.data.slug, nombre: tienda.data.nombre, base: `/t/${tienda.data.slug}`, portadaUrl: tienda.data.portadaUrl, eslogan: tienda.data.eslogan }
   // Con sesión de otra empresa, el backend mostraría los datos de esa otra empresa: avisar.
   const otraEmpresa = user?.idEmpresa != null && user.idEmpresa !== tienda.data.idEmpresa
   return <StoreContext.Provider value={info}>

@@ -20,6 +20,7 @@ import { usePlan } from '../plan/usePlan'
 import SyncPanelPage from '../sync/SyncPanelPage'
 import TransfersPage from '../transfers/TransfersPage'
 import PaymentSettingsPage from '../payments/PaymentSettingsPage'
+import PortadaTiendaPage from '../storefront/PortadaTiendaPage'
 import PaymentsToVerifyPage from '../payments/PaymentsToVerifyPage'
 import ExchangesPage from '../exchanges/ExchangesPage'
 import AiReportsPage from '../ai-reports/AiReportsPage'
@@ -65,6 +66,7 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (section === 'sincronizacion' && role !== 'CAJERO') return <SyncPanelPage />
  if (section === 'cambios') return <ExchangesPage />
  if (section === 'traspasos' && role !== 'CAJERO') return <TransfersPage />
+ if (section === 'portada-tienda' && role === 'ADMIN') return <PortadaTiendaPage />
  if (section === 'medios-pago' && role === 'ADMIN') return <PaymentSettingsPage />
  if (section === 'pagos-por-verificar') return <PaymentsToVerifyPage />
  if (section === 'dashboard-analitico' && role !== 'CAJERO') return <AnalyticsPage base={base} secciones={new Set(config.sections.filter(s => !s.pending).map(s => s.id))} />

@@ -14,7 +14,9 @@ import {
   MaxLength,
   Min,
   MinLength,
+  IsUrl,
   NotContains,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -78,6 +80,24 @@ export class UpdatePlanDto {
 /** Solo para simular vencimientos en pruebas y en la defensa. */
 export class FechaVencimientoDto {
   @IsISO8601({ strict: true }) fechaVencimiento: string;
+}
+
+/** Portada de la tienda online: imagen grande (enlace https) y frase. Vacío = quitar. */
+export class PortadaTiendaDto {
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== '')
+  @IsUrl(
+    { protocols: ['https'], require_protocol: true },
+    { message: 'La imagen debe ser un enlace que empiece con https://' },
+  )
+  @MaxLength(500, { message: 'El enlace es demasiado largo (máx. 500)' })
+  portadaUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(160, { message: 'La frase admite hasta 160 caracteres' })
+  eslogan?: string | null;
 }
 
 export class SesionOfflineDto {

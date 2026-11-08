@@ -82,6 +82,8 @@ export class SubscriptionsService {
         slug: e.empresa.slug,
         estado: e.empresa.estado,
         moneda: e.empresa.moneda,
+        portadaUrl: e.empresa.portadaUrl,
+        eslogan: e.empresa.eslogan,
       },
       suscripcion: e.suscripcion
         ? {
@@ -115,6 +117,22 @@ export class SubscriptionsService {
       .update({ idEmpresa }, { moneda });
     this.plans.invalidar(idEmpresa);
     return { moneda };
+  }
+
+  /** Imagen y frase de la portada de la tienda online. Texto vacío = sin portada / sin frase. */
+  async cambiarPortada(
+    idEmpresa: number,
+    dto: { portadaUrl?: string | null; eslogan?: string | null },
+  ) {
+    const cambios: { portadaUrl?: string | null; eslogan?: string | null } = {};
+    if (dto.portadaUrl !== undefined)
+      cambios.portadaUrl = dto.portadaUrl?.trim() || null;
+    if (dto.eslogan !== undefined)
+      cambios.eslogan = dto.eslogan?.trim() || null;
+    const repo = this.dataSource.getRepository(Empresa);
+    if (Object.keys(cambios).length) await repo.update({ idEmpresa }, cambios);
+    const e = await repo.findOneByOrFail({ idEmpresa });
+    return { portadaUrl: e.portadaUrl, eslogan: e.eslogan };
   }
 
   /** Plazo de la sesión offline con PIN (CU17). Se aplica la próxima vez que cada usuario esté en línea. */

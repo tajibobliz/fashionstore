@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart, ArrowLeftRight, CreditCard, ReceiptText } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart, ArrowLeftRight, CreditCard, ReceiptText, ImageIcon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -14,6 +14,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'reservas', label: 'Reservas', icon: CalendarCheck },
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'portada-tienda', label: 'Portada de la tienda', icon: ImageIcon, description: 'Imagen y frase de la página de inicio de tu tienda online.' },
  { id: 'medios-pago', label: 'Medios de pago', icon: CreditCard, description: 'Elige cómo te pagan tus clientas en la tienda online.' },
  { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
