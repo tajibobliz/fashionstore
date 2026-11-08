@@ -93,7 +93,7 @@ function HeroDiagram() {
 
 export default function SaasLanding() {
   const { user, isAuthenticated } = useAuth()
-  const panel = user && isAuthenticated ? getSessionPath(user.rol) : '/login'
+  const panel = user && isAuthenticated ? getSessionPath(user.rol, user.empresa?.slug) : '/login'
   const planes = useQuery({ queryKey: ['saas', 'planes'], queryFn: saasApi.planes, staleTime: 5 * 60_000 })
 
   return <div className={styles.page}>

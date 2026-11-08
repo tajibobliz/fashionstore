@@ -8,6 +8,6 @@ export function ProtectedRoute({ roles }: { roles?: Role[] }) {
   const location = useLocation()
   if (status === 'loading') return <div className="session-loading" role="status">Comprobando tu sesión…</div>
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
-  if (roles && !roles.includes(user.rol)) return <Navigate to={getSessionPath(user.rol)} replace />
+  if (roles && !roles.includes(user.rol)) return <Navigate to={getSessionPath(user.rol, user.empresa?.slug)} replace />
   return <Outlet />
 }

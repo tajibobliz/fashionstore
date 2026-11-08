@@ -39,7 +39,7 @@ function Foto({ producto, className }: { producto: Producto; className?: string 
 export default function StoreHome() {
   const { nombre, base, slug } = useStore()
   const { user, isAuthenticated } = useAuth()
-  const cuenta = isAuthenticated && user ? (user.rol === 'CLIENTE' ? `${base}/tienda` : getSessionPath(user.rol)) : `${base}/login`
+  const cuenta = isAuthenticated && user ? (user.rol === 'CLIENTE' ? `${base}/tienda` : getSessionPath(user.rol, user.empresa?.slug)) : `${base}/login`
   const catalogo = `${base}/tienda`
 
   // La clave incluye el slug para no mezclar el catálogo de dos tiendas en la caché.

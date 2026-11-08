@@ -20,7 +20,7 @@ const steps = [
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth()
-  const destination = user && isAuthenticated ? getSessionPath(user.rol) : '/login'
+  const destination = user && isAuthenticated ? getSessionPath(user.rol, user.empresa?.slug) : '/login'
   return <div className={styles.page}>
     <nav className={styles.navbar} aria-label="Navegación principal">
       <Brand className={styles.logo} />

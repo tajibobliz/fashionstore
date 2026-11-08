@@ -26,8 +26,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect')
   const store = useStore()
-  // Una clienta que entra desde /t/:slug vuelve al catálogo de esa tienda.
-  const home = (rol: Role) => rol === 'CLIENTE' && store.slug ? `${store.base}/tienda` : getSessionPath(rol)
+  // La clienta vuelve al catálogo de SU tienda (la de la URL o, desde /login, la de su cuenta).
+  const home = (user: { rol: Role; empresa?: { slug: string } | null }) => user.rol === 'CLIENTE' && store.slug ? `${store.base}/tienda` : getSessionPath(user.rol, user.empresa?.slug)
   const [empresa, setEmpresa] = useState(searchParams.get('empresa') ?? '')
   const isSafeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
   const online = useOnline()
@@ -42,7 +42,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       const slug = store.slug ?? empresa.trim().toLowerCase()
       const credentials = { email: email.trim(), password, ...(slug ? { empresa: slug } : {}) }
       const user = isRegister ? await auth.register({ ...credentials, nombre: nombre.trim() }) : await auth.login(credentials)
-      const destination = user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : home(user.rol)
+      const destination = user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : home(user)
       navigate(destination, { replace: true })
     } catch (err) {
       setError(axios.isAxiosError(err) && err.response?.status === 401
@@ -56,9 +56,9 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   if (!online && !isRegister && !auth.isAuthenticated) return <AuthLayout>
     <h1>Acceso sin conexión</h1>
     {store.slug && <p className={styles.subtitle}><strong>{store.nombre}</strong></p>}
-    <AccesoOffline slug={store.slug} alEntrar={user => navigate(user.rol === 'CLIENTE' ? (isSafeRedirect ? redirect! : `/t/${user.empresa?.slug ?? store.slug}/tienda`) : home(user.rol), { replace: true })} />
+    <AccesoOffline slug={store.slug} alEntrar={user => navigate(user.rol === 'CLIENTE' ? (isSafeRedirect ? redirect! : `/t/${user.empresa?.slug ?? store.slug}/tienda`) : home(user), { replace: true })} />
   </AuthLayout>
-  if (auth.isAuthenticated && auth.user) return <Navigate to={auth.user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : home(auth.user.rol)} replace />
+  if (auth.isAuthenticated && auth.user) return <Navigate to={auth.user.rol === 'CLIENTE' && isSafeRedirect ? redirect! : home(auth.user)} replace />
   return <AuthLayout>
     <h1>{isRegister ? 'Crea tu cuenta' : 'Bienvenida de nuevo'}</h1>
     {store.slug && <p className={styles.subtitle}><strong>{store.nombre}</strong></p>}

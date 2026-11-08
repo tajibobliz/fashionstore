@@ -72,7 +72,7 @@ export default function ContratarPlan() {
       })
       // La empresa ya existe: ahora se paga el plan en la página de la pasarela (Stripe).
       if (irAPagar(checkout)) return
-      navigate(getSessionPath(user.rol), { replace: true })
+      navigate(getSessionPath(user.rol, user.empresa?.slug), { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err))
     }

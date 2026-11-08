@@ -25,7 +25,7 @@ const VestidorVirtual = lazy(() => import('./features/tryon/VestidorVirtual'))
 
 function DashboardRedirect() {
  const { user } = useAuth()
- return <Navigate to={user ? getSessionPath(user.rol) : '/login'} replace />
+ return <Navigate to={user ? getSessionPath(user.rol, user.empresa?.slug) : '/login'} replace />
 }
 export default function App() {
  const roles: DashboardRole[] = ['ADMIN', 'ENCARGADO', 'ENCARGADO_SUCURSAL', 'CAJERO']
