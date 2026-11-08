@@ -17,6 +17,31 @@ export interface DatosCheckout {
   email?: string;
 }
 
+/** Cobro de una venta de la tienda a su clienta (en la moneda de la tienda). */
+export interface DatosCheckoutVenta {
+  idPago: number;
+  idVenta: number;
+  idEmpresa: number;
+  tienda: string;
+  /** ISO 4217 de la tienda (BOB, USD, CLP…). */
+  moneda: string;
+  /** Monto en la unidad mínima que espera Stripe (ver `montoMinimo`). */
+  montoMinimo: number;
+  descripcion: string;
+  email?: string;
+  /** URLs de vuelta ya armadas (página /compra de la tienda). */
+  exito: string;
+  cancelado: string;
+}
+
+/** Monedas sin decimales en Stripe: el monto va en unidades, no en centavos. */
+const SIN_DECIMALES_STRIPE = new Set(['CLP', 'PYG']);
+export function montoMinimo(monto: number, moneda: string) {
+  return SIN_DECIMALES_STRIPE.has(moneda)
+    ? Math.round(monto)
+    : Math.round(monto * 100);
+}
+
 export interface Checkout {
   referencia: string;
   url: string;
@@ -33,6 +58,9 @@ export interface Pasarela {
   crearCheckout(d: DatosCheckout): Promise<Checkout>;
   /** Cierra la sesión de pago si el usuario canceló (no falla si ya no se puede). */
   expirar(referencia: string): Promise<void>;
+  crearCheckoutVenta(d: DatosCheckoutVenta): Promise<Checkout>;
+  /** Devuelve el dinero de un cobro (p. ej. la prenda se agotó mientras se pagaba). */
+  reembolsar(idCobro: string): Promise<void>;
 }
 
 export function urlsRetorno(appUrl: string) {
@@ -99,6 +127,46 @@ export class StripePasarela implements Pasarela {
       // Ya pagada, ya expirada o inexistente: no hay nada que cerrar.
     }
   }
+
+  async crearCheckoutVenta(d: DatosCheckoutVenta): Promise<Checkout> {
+    const metadata = {
+      app: APP_METADATA,
+      tipo: 'venta',
+      idPago: String(d.idPago),
+      idVenta: String(d.idVenta),
+      idEmpresa: String(d.idEmpresa),
+    };
+    const s = await this.stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: d.moneda.toLowerCase(),
+              unit_amount: d.montoMinimo,
+              product_data: { name: `${d.tienda} · ${d.descripcion}` },
+            },
+          },
+        ],
+        success_url: d.exito,
+        cancel_url: d.cancelado,
+        customer_email: d.email,
+        metadata,
+        payment_intent_data: {
+          description: `${d.tienda} · ${d.descripcion}`,
+          metadata,
+        },
+      },
+      { idempotencyKey: `fashionstore-venta-pago-${d.idPago}` },
+    );
+    if (!s.url) throw new Error('Stripe no devolvió la URL de pago');
+    return { referencia: s.id, url: s.url };
+  }
+
+  async reembolsar(idCobro: string) {
+    await this.stripe.refunds.create({ payment_intent: idCobro });
+  }
 }
 
 export class SimuladaPasarela implements Pasarela {
@@ -114,6 +182,20 @@ export class SimuladaPasarela implements Pasarela {
   }
 
   expirar() {
+    return Promise.resolve();
+  }
+
+  /** La pantalla de tarjeta simulada es la misma página /compra de la tienda. */
+  crearCheckoutVenta(d: DatosCheckoutVenta): Promise<Checkout> {
+    const url = new URL(d.cancelado);
+    url.search = `simulado=${d.idPago}`;
+    return Promise.resolve({
+      referencia: `sim_venta_${d.idPago}_${randomUUID()}`,
+      url: url.toString(),
+    });
+  }
+
+  reembolsar() {
     return Promise.resolve();
   }
 }

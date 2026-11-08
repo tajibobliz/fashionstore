@@ -7,6 +7,7 @@ import { PagoCancelado, PagoExito, PagoSimulado } from './pages/saas/PagoPages'
 import PlatformPanel from './pages/platform/PlatformPanel'
 import StoreScope from './features/store/StoreScope'
 import StoreHome from './pages/store/StoreHome'
+import CompraPage from './pages/store/CompraPage'
 import AuthForm from './features/auth/components/AuthForm'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import Workspace from './pages/Workspace'
@@ -44,6 +45,8 @@ export default function App() {
  <Route path="tienda" element={<Workspace key="store-slug" mode="store" />} />
  <Route path="login" element={<AuthForm key="store-login" mode="login" />} />
  <Route path="register" element={<AuthForm key="store-register" mode="register" />} />
+ {/* Vuelta de la pasarela de tarjeta y estado de una compra online. */}
+ <Route path="compra/:idVenta" element={<CompraPage />} />
  </Route>
  <Route path="/vestidor/:productoId" element={<Suspense fallback={<main className="session-loading">Cargando vestidor…</main>}><VestidorVirtual /></Suspense>} />
  {/* Panel del SUPER_ADMIN (administración de la plataforma SaaS). */}

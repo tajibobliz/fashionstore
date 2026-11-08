@@ -19,6 +19,8 @@ import MyPlanPage from '../plan/MyPlanPage'
 import { usePlan } from '../plan/usePlan'
 import SyncPanelPage from '../sync/SyncPanelPage'
 import TransfersPage from '../transfers/TransfersPage'
+import PaymentSettingsPage from '../payments/PaymentSettingsPage'
+import PaymentsToVerifyPage from '../payments/PaymentsToVerifyPage'
 import ExchangesPage from '../exchanges/ExchangesPage'
 import AiReportsPage from '../ai-reports/AiReportsPage'
 import AnalyticsPage from '../analytics/AnalyticsPage'
@@ -63,6 +65,8 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  if (section === 'sincronizacion' && role !== 'CAJERO') return <SyncPanelPage />
  if (section === 'cambios') return <ExchangesPage />
  if (section === 'traspasos' && role !== 'CAJERO') return <TransfersPage />
+ if (section === 'medios-pago' && role === 'ADMIN') return <PaymentSettingsPage />
+ if (section === 'pagos-por-verificar') return <PaymentsToVerifyPage />
  if (section === 'dashboard-analitico' && role !== 'CAJERO') return <AnalyticsPage base={base} secciones={new Set(config.sections.filter(s => !s.pending).map(s => s.id))} />
  if (section === 'reportes-ia' && role !== 'CAJERO') return <AiReportsPage planPath={config.sections.some(s => s.id === 'mi-plan') ? `/dashboard/${config.slug}/mi-plan` : null} />
  if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />

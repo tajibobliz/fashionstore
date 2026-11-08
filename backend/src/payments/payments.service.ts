@@ -137,7 +137,8 @@ export class PaymentsService {
     return this.findByVenta(idVenta);
   }
 
-  private async assertCanAccessSale(venta: Venta, actor: AuthenticatedUser, accion: string) {
+  /** Dueña de la compra o personal (encargado de sucursal y cajero, solo de sus sucursales). */
+  async assertCanAccessSale(venta: Venta, actor: AuthenticatedUser, accion: string) {
     const esPersonal = [Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(actor.rol);
     if (!esPersonal && venta.usuario?.idUsuario !== actor.idUsuario) {
       throw new ForbiddenException(`No puedes ${accion} esta venta`);

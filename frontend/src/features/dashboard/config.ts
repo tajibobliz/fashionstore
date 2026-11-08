@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart, ArrowLeftRight } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart, ArrowLeftRight, CreditCard, ReceiptText } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
@@ -14,6 +14,8 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'reservas', label: 'Reservas', icon: CalendarCheck },
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'medios-pago', label: 'Medios de pago', icon: CreditCard, description: 'Elige cómo te pagan tus clientas en la tienda online.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
@@ -38,6 +40,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'sucursales', label: 'Sucursales', icon: Store },
  { id: 'inventario', label: 'Inventario', icon: Package },
  { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
@@ -53,6 +56,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
  { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
  { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
@@ -66,6 +70,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Consultar prendas', icon: Shirt },
  { id: 'inventario', label: 'Consultar stock', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
 }

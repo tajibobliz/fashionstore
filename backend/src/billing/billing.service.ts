@@ -23,6 +23,12 @@ import {
   StripePasarela,
 } from './pasarela';
 
+export type ManejadorVenta = (
+  idPago: number,
+  idCobro: string | null,
+  montoMinimo: number | null,
+) => Promise<string>;
+
 interface Actor {
   idUsuario: number;
   idEmpresa: number | null;
@@ -45,6 +51,7 @@ export class BillingService {
   /** Cliente de Stripe solo para verificar firmas de webhooks (no hace llamadas de red). */
   private readonly verificador: Stripe;
   private readonly webhookSecret: string | undefined;
+  private readonly urlApp: string;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -61,6 +68,7 @@ export class BillingService {
       .replace(/\/$/, '');
     const forzarSimulado =
       config.get<string>('BILLING_PROVIDER') === 'simulado';
+    this.urlApp = appUrl;
     this.pasarela =
       clave && !forzarSimulado
         ? new StripePasarela(new Stripe(clave), appUrl)
@@ -75,6 +83,24 @@ export class BillingService {
 
   get proveedor() {
     return this.pasarela.nombre;
+  }
+
+  /** La misma pasarela cobra las ventas de las tiendas (módulo de pagos). */
+  get pasarelaActual(): Pasarela {
+    return this.pasarela;
+  }
+
+  get appUrl() {
+    return this.urlApp;
+  }
+
+  /**
+   * El módulo de pagos registra aquí quién procesa los cobros de VENTAS confirmados por
+   * Stripe (`metadata.tipo = 'venta'`); este servicio solo verifica la firma y despacha.
+   */
+  private manejadorVenta?: ManejadorVenta;
+  registrarManejadorVenta(fn: ManejadorVenta) {
+    this.manejadorVenta = fn;
   }
 
   // ------------------------------------------------------------ iniciar
@@ -93,11 +119,9 @@ export class BillingService {
     actor?: Actor,
   ): Promise<Checkout & { proveedor: string; activadoSinPago?: boolean }> {
     const repo = this.dataSource.getRepository(PagoSuscripcion);
-    const plan = await this.dataSource
-      .getRepository(Plan)
-      .findOne({
-        where: { codigo: codigoPlan as Plan['codigo'], activo: true },
-      });
+    const plan = await this.dataSource.getRepository(Plan).findOne({
+      where: { codigo: codigoPlan as Plan['codigo'], activo: true },
+    });
     if (!plan) throw new NotFoundException(`Plan ${codigoPlan} no disponible`);
     const empresa = await this.dataSource
       .getRepository(Empresa)
@@ -249,6 +273,23 @@ export class BillingService {
       return { recibido: true, accion: 'ignorado' as const };
 
     return TenantContext.runAsPlatform(async () => {
+      // Cobro de una venta de la tienda a su clienta (no de la suscripción).
+      if (sesion.metadata?.tipo === 'venta') {
+        const pagado =
+          (evento.type === 'checkout.session.completed' ||
+            evento.type === 'checkout.session.async_payment_succeeded') &&
+          sesion.payment_status === 'paid';
+        if (!pagado || !this.manejadorVenta)
+          return { recibido: true, accion: 'ignorado' as const };
+        const accion = await this.manejadorVenta(
+          Number(sesion.metadata.idPago),
+          typeof sesion.payment_intent === 'string'
+            ? sesion.payment_intent
+            : (sesion.payment_intent?.id ?? null),
+          sesion.amount_total,
+        );
+        return { recibido: true, accion };
+      }
       switch (evento.type) {
         case 'checkout.session.completed':
         case 'checkout.session.async_payment_succeeded': {
