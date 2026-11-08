@@ -4,7 +4,7 @@ import { paymentsApi } from '../../api/payments.api'
 import type { EstadoPago, PagoPorVerificar } from '../../types/payment'
 import { queryKeys } from '../../api/queryKeys'
 import { getApiErrorMessage } from '../../utils/apiError'
-import { nombreMetodo } from './metodos'
+import { nombreMetodo, numeroPedido } from './metodos'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './Payments.module.css'
 
@@ -25,7 +25,7 @@ export default function PaymentsToVerifyPage() {
   const decidir = useMutation({
     mutationFn: ({ pago, estado }: { pago: PagoPorVerificar; estado: EstadoPago }) => paymentsApi.updateStatus(pago.idPago, estado),
     onSuccess: (_, { pago, estado }) => {
-      setAviso({ ok: true, texto: estado === 'APROBADO' ? `Pago de ${pago.montoTexto} aprobado: la venta ${pago.venta.comprobante ?? `#${pago.venta.idVenta}`} quedó pagada y se descontó el stock.` : `Pago rechazado. La clienta podrá pagar ${pago.venta.comprobante ?? `la venta #${pago.venta.idVenta}`} con otro medio.` })
+      setAviso({ ok: true, texto: estado === 'APROBADO' ? `Pago de ${pago.montoTexto} aprobado: la venta ${numeroPedido(pago.venta)} quedó pagada y se descontó el stock.` : `Pago rechazado. La clienta podrá pagar ${numeroPedido(pago.venta) === `#${pago.venta.idVenta}` ? `el pedido #${pago.venta.idVenta}` : numeroPedido(pago.venta)} con otro medio.` })
       setConfirmar(null); setViendo(null)
       void Promise.all([client.invalidateQueries({ queryKey: ['payments'] }), client.invalidateQueries({ queryKey: queryKeys.inventory.all })])
     },
@@ -51,7 +51,7 @@ export default function PaymentsToVerifyPage() {
           return <tr key={p.idPago}>
             <td className={styles.num}>{fechaHora(p.fecha)}</td>
             <td>{p.cliente?.nombre ?? '—'}<span className={styles.sub}>{p.cliente?.email}</span></td>
-            <td>{p.venta.comprobante ?? `#${p.venta.idVenta}`}<span className={styles.sub}>{p.venta.sucursal}</span></td>
+            <td>{numeroPedido(p.venta)}<span className={styles.sub}>{p.venta.sucursal}</span></td>
             <td><span className={`${styles.metodoTag} ${styles[`tag${p.metodo}`] ?? ''}`}>{nombreMetodo(p.metodo)}</span></td>
             <td className={styles.num}><strong>{p.montoTexto}</strong></td>
             <td>{!conComprobante ? <span className={styles.sub}>Se cobra al entregar</span> : p.comprobante ? <button className={styles.ver} onClick={() => setViendo(p)}>Ver comprobante</button> : <span className={styles.sinComprobante}>Aún no lo sube</span>}</td>
@@ -94,7 +94,7 @@ function VisorComprobante({ pago, cerrar, decidir }: { pago: PagoPorVerificar; c
   return <div className={dashboardStyles.modalBackdrop} role="dialog" aria-modal="true" onClick={cerrar}>
     <section className={`confirmDialog ${styles.visor}`} onClick={e => e.stopPropagation()}>
       <h2>Comprobante · {pago.montoTexto}</h2>
-      <p>{pago.cliente?.nombre} · {nombreMetodo(pago.metodo)} · {pago.venta.comprobante ?? `#${pago.venta.idVenta}`}</p>
+      <p>{pago.cliente?.nombre} · {nombreMetodo(pago.metodo)} · {numeroPedido(pago.venta)}</p>
       {archivo.error ? <p className={styles.error} role="alert">{getApiErrorMessage(archivo.error)}</p>
         : !archivo.data ? <p role="status">Cargando comprobante…</p>
         : esPdf ? <p><button className={styles.ver} onClick={abrirPdf}>Abrir el PDF en otra pestaña</button></p>

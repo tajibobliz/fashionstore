@@ -9,7 +9,7 @@ import type { MetodoPago, MetodosTienda, Pago } from '../../types/payment'
 import type { Venta } from '../../types/sale'
 import { getApiErrorMessage } from '../../utils/apiError'
 import { formatMoney } from '../../utils/money'
-import { NOMBRE_METODO, nombreMetodo } from './metodos'
+import { NOMBRE_METODO, nombreMetodo, numeroPedido } from './metodos'
 import styles from './Payments.module.css'
 
 const MAX_COMPROBANTE = 3 * 1024 * 1024
@@ -79,7 +79,7 @@ export default function StorePayment({ sale, aviso }: { sale: Venta; aviso?: str
   const rechazado = !enCurso && [...lista].reverse().find(p => p.estado === 'RECHAZADO')
 
   const resumen = <article className={styles.resumen}>
-    <h2>Pedido {sale.numeroComprobante ?? `#${sale.idVenta}`}</h2>
+    <h2>Pedido {numeroPedido(sale)}</h2>
     {sale.sucursal?.nombre && <p>Retiro en {sale.sucursal.nombre}</p>}
     <div>{sale.detalles?.map(d => <div className={styles.linea} key={d.idDetalleVenta ?? d.variante?.idVariante}>
       <span>{d.cantidad} × {d.variante?.producto?.nombre ?? d.variante?.sku ?? 'Prenda'}<small>{[d.variante?.talla?.nombre, d.variante?.color?.nombre].filter(Boolean).join(' · ')}</small></span>

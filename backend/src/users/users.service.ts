@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Role } from '../auth/enums/role.enum';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +11,8 @@ import { Usuario } from './entities/user.entity';
 import { Rol } from './entities/rol.entity';
 import { UsuarioSucursal } from './entities/usuario-sucursal.entity';
 import { Sucursal } from '../branches/entities/sucursal.entity';
+import { RefreshSession } from '../auth/entities/refresh-session.entity';
+import { olvidarEstado } from './usuarios-activos';
 
 @Injectable()
 export class UsersService {
@@ -124,6 +126,29 @@ export class UsersService {
     });
 
     return this.usuarioRepo.save(nuevo);
+  }
+
+  /**
+   * Activa o desactiva a un usuario de la empresa (ADMIN). Al desactivarlo:
+   * - no puede iniciar sesión ni renovar su token (se borran sus sesiones de refresco);
+   * - su token actual deja de servir en segundos (JwtStrategy consulta el estado);
+   * - al volver la red, la app borra su acceso sin conexión con PIN (CU17).
+   * No se puede desactivar a uno mismo ni dejar a la empresa sin ningún ADMIN activo.
+   */
+  async cambiarEstado(idActor: number, idUsuario: number, estado: boolean) {
+    const usuario = await this.findById(idUsuario);
+    if (usuario.idUsuario === idActor) throw new BadRequestException('No puedes desactivar tu propio usuario');
+    if (usuario.rol?.nombre === Role.SUPER_ADMIN) throw new ForbiddenException('No puedes modificar a un usuario de la plataforma');
+    if (!estado && usuario.estado && usuario.rol?.nombre === Role.ADMIN) {
+      const admins = await this.usuarioRepo.count({ where: { estado: true, idEmpresa: usuario.idEmpresa ?? IsNull(), rol: { nombre: Role.ADMIN } } });
+      if (admins <= 1) throw new BadRequestException('La empresa debe tener al menos un administrador activo');
+    }
+    if (usuario.estado === estado) return usuario;
+    usuario.estado = estado;
+    const guardado = await this.usuarioRepo.save(usuario);
+    if (!estado) await this.usuarioRepo.manager.delete(RefreshSession, { userId: idUsuario });
+    olvidarEstado(idUsuario);
+    return guardado;
   }
 
   // Devuelve todos los usuarios (para el CRUD del admin)

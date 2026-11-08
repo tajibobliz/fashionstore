@@ -92,10 +92,45 @@ export default function PersonnelManagement({ adminView }: { adminView: boolean 
     <div className={styles.pageHeading}><div><p className={styles.kicker}>Administración</p><h1>{title}</h1><p>{isAdmin ? 'Consulta los usuarios y crea personal interno de Fashionstore.' : 'Crea personal operativo con los roles autorizados para el encargado nacional.'}</p></div>{canCreate && <button className="primary-button" onClick={openCreate}>Nuevo personal</button>}</div>
     {feedback && <p className={styles.successNotice} role="status">{feedback}</p>}
     {operationError && <p className={styles.errorNotice} role="alert">{operationError}</p>}
-    {canCreate && <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Nombre</th><th>Correo electrónico</th><th>Rol</th><th>Estado</th><th>Sucursales asignadas</th></tr></thead><tbody>{rows.length ? rows.map(person => <tr key={person.idUsuario}><td>{fullName(person)}</td><td>{person.email}</td><td>{roleName(person)}</td><td>{person.estado ? 'Activo' : 'Inactivo'}</td><td><BranchAssignments person={person} branches={branches.data ?? []} onFeedback={setFeedback} onError={setOperationError} /></td></tr>) : <tr><td colSpan={5}>No hay usuarios disponibles.</td></tr>}</tbody></table></div>}
+    {canCreate && <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Nombre</th><th>Correo electrónico</th><th>Rol</th><th>Estado</th><th>Sucursales asignadas</th></tr></thead><tbody>{rows.length ? rows.map(person => <tr key={person.idUsuario}><td>{fullName(person)}</td><td>{person.email}</td><td>{roleName(person)}</td><td><EstadoUsuario person={person} editable={isAdmin && person.idUsuario !== user?.idUsuario} onFeedback={setFeedback} onError={setOperationError} /></td><td><BranchAssignments person={person} branches={branches.data ?? []} onFeedback={setFeedback} onError={setOperationError} /></td></tr>) : <tr><td colSpan={5}>No hay usuarios disponibles.</td></tr>}</tbody></table></div>}
 
     {formOpen && <div className={styles.modalBackdrop} role="presentation"><section className={styles.formModal} role="dialog" aria-modal="true" aria-labelledby="personnel-form-title"><div className={styles.modalHeader}><h2 id="personnel-form-title">Nuevo personal</h2><button type="button" aria-label="Cerrar formulario" onClick={() => setFormOpen(false)}>×</button></div><form className={styles.registrationForm} onSubmit={form.handleSubmit(values => create.mutate(values))}><label>Nombre<input {...form.register('nombre')} maxLength={100} /><small>{form.formState.errors.nombre?.message}</small></label><label>Apellido<input {...form.register('apellido')} maxLength={100} /></label><label>Correo electrónico<input type="email" {...form.register('email')} /><small>{form.formState.errors.email?.message}</small></label><label>Teléfono<input {...form.register('telefono')} maxLength={30} /></label><label>Contraseña inicial<input type="password" {...form.register('password')} /><small>{form.formState.errors.password?.message}</small></label><label>Rol<select {...form.register('rolNombre')}>{allowedRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}</select></label>{requiresBranch && <label>Sucursal<select aria-label="Sucursal asignada" {...form.register('idSucursal', { valueAsNumber: true })}><option value={0}>Selecciona una sucursal</option>{(branches.data ?? []).filter(branch => branch.estado !== false).map(branch => <option key={branch.idSucursal} value={branch.idSucursal}>{branch.nombre}</option>)}</select><small>{form.formState.errors.idSucursal?.message}</small></label>}<div className={styles.modalActions}><button type="button" onClick={() => setFormOpen(false)}>Cancelar</button><button className="primary-button" disabled={create.isPending}>{create.isPending ? 'Guardando…' : 'Guardar'}</button></div></form></section></div>}
   </section>
+}
+
+/**
+ * Estado del usuario. El ADMIN puede desactivarlo (pierde el acceso en el momento: no inicia
+ * sesión, su token deja de servir y su acceso sin conexión se borra) o volver a activarlo.
+ */
+function EstadoUsuario({ person, editable, onFeedback, onError }: { person: User; editable: boolean; onFeedback: (message: string) => void; onError: (message: string) => void }) {
+  const queryClient = useQueryClient()
+  const [confirmar, setConfirmar] = useState(false)
+  const cambiar = useMutation({
+    mutationFn: () => usersApi.setStatus(person.idUsuario, !person.estado),
+    onSuccess: async actualizado => {
+      onFeedback(`${fullName(person)} quedó ${actualizado.estado ? 'activo' : 'desactivado'}.`)
+      onError('')
+      setConfirmar(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+    },
+    onError: error => { onError(getApiErrorMessage(error)); setConfirmar(false) },
+  })
+  const etiqueta = <span className={person.estado ? styles.statusActive : styles.statusInactive}>{person.estado ? 'Activo' : 'Inactivo'}</span>
+  if (!editable) return etiqueta
+  return <div className={styles.rowActions}>
+    {etiqueta}
+    <button type="button" className={person.estado ? styles.dangerButton : undefined} onClick={() => setConfirmar(true)}>{person.estado ? 'Desactivar' : 'Activar'}</button>
+    {confirmar && <div className={styles.modalBackdrop} role="presentation"><section className={styles.confirmDialog} role="alertdialog" aria-modal="true" aria-labelledby={`estado-title-${person.idUsuario}`}>
+      <h2 id={`estado-title-${person.idUsuario}`}>{person.estado ? 'Desactivar usuario' : 'Activar usuario'}</h2>
+      <p>{person.estado
+        ? `${fullName(person)} no podrá iniciar sesión y su sesión actual se cerrará en unos segundos. Si tenía acceso sin conexión con PIN, se borrará al volver la red. Sus ventas y registros se conservan.`
+        : `${fullName(person)} podrá volver a iniciar sesión con su contraseña.`}</p>
+      <div className={styles.modalActions}>
+        <button type="button" onClick={() => setConfirmar(false)}>Cancelar</button>
+        <button type="button" className={person.estado ? styles.dangerButton : 'primary-button'} disabled={cambiar.isPending} onClick={() => cambiar.mutate()}>{cambiar.isPending ? 'Guardando…' : person.estado ? 'Desactivar' : 'Activar'}</button>
+      </div>
+    </section></div>}
+  </div>
 }
 
 function BranchAssignments({ person, branches, onFeedback, onError }: { person: User; branches: Sucursal[]; onFeedback: (message: string) => void; onError: (message: string) => void }) {
