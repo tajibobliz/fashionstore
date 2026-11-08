@@ -33,6 +33,12 @@ let variante: number;
 let inventario: number;
 let stockOriginal: number;
 let precio: number;
+/** Segunda prenda, para el pedido del carrito offline (CU15). */
+let segunda: {
+  idVariante: number;
+  idInventario: number;
+  stockOriginal: number;
+};
 const stripe = new Stripe('sk_test_solo_para_firmar');
 
 const plan = (codigoPlan: string) =>
@@ -154,6 +160,16 @@ beforeAll(async () => {
   inventario = elegido.idInventario;
   stockOriginal = elegido.stockDisponible;
   await ponerStock(20);
+  const otra = inv[1];
+  segunda = {
+    idVariante: otra.variante.idVariante,
+    idInventario: otra.idInventario,
+    stockOriginal: otra.stockDisponible,
+  };
+  await c.api('PATCH', `/inventory/inventarios/${segunda.idInventario}`, {
+    who: 'B',
+    body: { stockDisponible: 5 },
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -165,6 +181,11 @@ afterAll(async () => {
     });
   }
   if (inventario) await ponerStock(stockOriginal);
+  if (segunda)
+    await c.api('PATCH', `/inventory/inventarios/${segunda.idInventario}`, {
+      who: 'B',
+      body: { stockDisponible: segunda.stockOriginal },
+    });
   backend?.stop();
 });
 
@@ -238,6 +259,47 @@ describe('Pago diferido de pedidos offline (e2e)', () => {
     expect(
       inv.find((i: any) => i.idInventario === inventario).stockDisponible,
     ).toBe(19);
+  });
+
+  it('carrito offline (CU15): un pedido con varias prendas se registra completo o no se registra', async () => {
+    const cat = (
+      await c.api('GET', `/sync/catalog?sucursal=${centro}`, { who: 'CLI' })
+    ).body;
+    const precio2 = cat.productos.find((p: any) =>
+      p.variantes.some((v: any) => v.idVariante === segunda.idVariante),
+    ).precioFinal;
+    const carrito = (cantidad2: number) => ({
+      ...pedido(),
+      payload: {
+        detalles: [
+          { idVariante: variante, cantidad: 2, precioUnitario: precio },
+          {
+            idVariante: segunda.idVariante,
+            cantidad: cantidad2,
+            precioUnitario: precio2,
+          },
+        ],
+      },
+    });
+
+    const [ok] = await sync('CLI', carrito(1));
+    expect(ok.status).toBe('CONFIRMADA');
+    const v = await venta(ok.serverId);
+    expect(v.detalles).toHaveLength(2);
+    expect(Number(v.total)).toBeCloseTo(2 * precio + precio2, 2);
+    expect(Number(v.totalEstimado)).toBeCloseTo(2 * precio + precio2, 2);
+    await c.api('PATCH', `/sales/${ok.serverId}/cancelar`, { who: 'CLI' });
+
+    // Falta stock de una sola prenda: no se registra nada (todo o nada).
+    const [mal] = await sync('CLI', carrito(6));
+    expect(mal).toMatchObject({
+      status: 'CONFLICTO',
+      serverId: null,
+      conflictos: ['SIN_STOCK'],
+    });
+    expect(mal.reason).toMatch(
+      new RegExp(`variante ${segunda.idVariante}: quedan 5`),
+    );
   });
 
   it('si ya no hay stock central el pedido no se crea y se ofrecen otras sucursales', async () => {

@@ -100,14 +100,15 @@ export async function invalidar(user: Pick<AuthUser, 'idEmpresa' | 'idUsuario'> 
 }
 
 /**
- * Al cerrar sesión se borran de este navegador la sesión offline y los datos de la empresa
- * (catálogos y operaciones ya resueltas). Las operaciones que aún no se enviaron NO se borran:
+ * Al cerrar sesión se borran de este navegador la sesión offline, el carrito offline y los datos
+ * de la empresa (catálogos y operaciones ya resueltas). Las operaciones que aún no se enviaron NO se borran:
  * son ventas o pedidos reales; se envían la próxima vez que ese usuario inicie sesión.
  */
 export async function borrarDatosLocales(user: AuthUser | null | undefined) {
   if (!user?.idEmpresa) return
-  await offlineDb.transaction('rw', offlineDb.sesiones, offlineDb.catalogos, offlineDb.operaciones, async () => {
+  await offlineDb.transaction('rw', [offlineDb.sesiones, offlineDb.catalogos, offlineDb.operaciones, offlineDb.carritos], async () => {
     await offlineDb.sesiones.delete(claveSesion(user))
+    await offlineDb.carritos.where('[idEmpresa+idUsuario]').equals([user.idEmpresa!, user.idUsuario]).delete()
     const otras = await offlineDb.sesiones.where('idEmpresa').equals(user.idEmpresa!).count()
     if (!otras) await offlineDb.catalogos.where('idEmpresa').equals(user.idEmpresa!).delete()
     const propias = await offlineDb.operaciones.where('[idEmpresa+idUsuario]').equals([user.idEmpresa!, user.idUsuario]).toArray()

@@ -62,10 +62,31 @@ export interface SesionOfflineLocal {
   creadaEn: string
 }
 
+/** Prenda en el carrito offline (CU15). El precio es el del catálogo guardado: estimado. */
+export interface ItemCarrito {
+  idVariante: number
+  nombre: string
+  detalle: string
+  precioUnitario: number
+  cantidad: number
+}
+
+/** Carrito sin conexión de un usuario en una sucursal; sobrevive a cerrar el navegador. */
+export interface CarritoLocal {
+  /** `${idEmpresa}:${idUsuario}:${idSucursal}` */
+  clave: string
+  idEmpresa: number
+  idUsuario: number
+  idSucursal: number
+  items: ItemCarrito[]
+  actualizadoEn: string
+}
+
 class OfflineDb extends Dexie {
   catalogos!: Table<CatalogoLocal, string>
   operaciones!: Table<OperacionLocal, string>
   sesiones!: Table<SesionOfflineLocal, string>
+  carritos!: Table<CarritoLocal, string>
 
   constructor() {
     super('fashionstore-offline')
@@ -78,6 +99,13 @@ class OfflineDb extends Dexie {
       catalogos: '&clave, idEmpresa',
       operaciones: '&operationId, [idEmpresa+idUsuario], estado, createdAtLocal',
       sesiones: '&clave, idEmpresa',
+    })
+    // v3: carrito offline (CU15).
+    this.version(3).stores({
+      catalogos: '&clave, idEmpresa',
+      operaciones: '&operationId, [idEmpresa+idUsuario], estado, createdAtLocal',
+      sesiones: '&clave, idEmpresa',
+      carritos: '&clave, [idEmpresa+idUsuario]',
     })
   }
 }

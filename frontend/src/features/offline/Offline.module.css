@@ -86,7 +86,7 @@
 .nota { margin: 0 0 12px; color: var(--text-secondary, #6b7280); font-size: .86rem; line-height: 1.5; }
 
 /* --- Sesión offline con PIN (CU17) --- */
-.pinOffer { position: fixed; left: 16px; bottom: 72px; z-index: 60; display: flex; gap: 12px; width: min(360px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid #f1d5df; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(17, 24, 39, .14); color: #1f2937; }
+.pinOffer { position: fixed; left: 16px; bottom: 72px; z-index: 39; display: flex; gap: 12px; width: min(360px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid #f1d5df; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(17, 24, 39, .14); color: #1f2937; }
 .pinOffer > svg { flex: none; margin-top: 2px; color: #ad3e68; }
 .pinOffer strong { display: block; font-size: .92rem; }
 .pinOffer p { margin: 4px 0 0; color: #6b7280; font-size: .83rem; line-height: 1.45; }
@@ -99,3 +99,26 @@
 .pinAccess { display: grid; gap: 14px; margin-top: 8px; }
 .pinWho { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; }
 .pinDialog .status, .pinAccess .status, .storeMain > .status { margin: 0 0 12px; }
+
+/* --- Carrito sin conexión (CU15) --- */
+.conCarrito { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.carrito { position: sticky; top: 16px; display: grid; gap: 12px; padding: 16px; border: 1px solid #eee5e9; border-radius: 14px; background: #fff; }
+.carrito h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.carrito h2 svg { color: #ad3e68; }
+.carritoVacio, .carritoNota { margin: 0; color: #756b73; font-size: .8rem; line-height: 1.5; }
+.carritoLista { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.carritoLista li { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid #f3ecef; }
+.carritoItem { display: flex; justify-content: space-between; gap: 10px; font-size: .85rem; }
+.carritoItem small { display: block; color: #756b73; font-size: .76rem; }
+.carritoControles { display: flex; align-items: center; gap: 6px; }
+.carritoControles button { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid #e5d9df; border-radius: 8px; background: #fff; color: #4b4049; cursor: pointer; }
+.carritoControles button:disabled { opacity: .45; cursor: not-allowed; }
+.carritoControles span { min-width: 24px; text-align: center; font-weight: 700; }
+.carritoQuitar { margin-left: auto; color: #b91c1c !important; }
+.carritoAviso { margin: 0; padding: 6px 8px; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: .74rem; line-height: 1.4; }
+.carritoTotal { display: flex; justify-content: space-between; font-size: .95rem; }
+.carritoTotal strong { color: #ad3e68; }
+.carritoConfirmar { min-height: 42px; border: 0; border-radius: 10px; background: #ad3e68; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.carritoConfirmar:disabled { opacity: .5; cursor: not-allowed; }
+.carritoVaciar { padding: 0; border: 0; background: none; color: #756b73; font: inherit; font-size: .8rem; text-decoration: underline; cursor: pointer; }
+@media (max-width: 860px) { .conCarrito { grid-template-columns: minmax(0, 1fr); } .carrito { position: static; order: -1; } }
