@@ -17,6 +17,17 @@ import { TenantResolverService } from '../tenancy/tenant-resolver.service';
 import { TenantContext } from '../tenancy/tenant-context';
 import { Empresa } from '../tenancy/entities/empresa.entity';
 import { Usuario } from '../users/entities/user.entity';
+import { Role } from './enums/role.enum';
+
+/**
+ * Solo el SUPER_ADMIN vive fuera de una empresa. Cualquier otro usuario sin empresa (p. ej. una
+ * cuenta creada con la versión de una sola tienda después de migrar) tendría un token sin `tid`
+ * y el RLS le mostraría los datos de TODAS las empresas: no se le deja entrar así.
+ */
+const sinEmpresaInvalido = (u: {
+  idEmpresa?: number | null;
+  rol?: { nombre?: string } | null;
+}) => u.idEmpresa == null && u.rol?.nombre !== Role.SUPER_ADMIN;
 
 const hashToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
@@ -52,12 +63,18 @@ export class AuthService {
         empresa.idEmpresa,
       );
     } else {
+      // Primero un usuario de plataforma (solo SUPER_ADMIN), si no el de la empresa por defecto.
+      const plataforma = await this.usersService.findByEmailWithPassword(
+        email,
+        null,
+      );
       user =
-        (await this.usersService.findByEmailWithPassword(email, null)) ??
-        (await this.usersService.findByEmailWithPassword(
-          email,
-          await this.tenants.defaultTenantId(),
-        ));
+        plataforma && !sinEmpresaInvalido(plataforma)
+          ? plataforma
+          : await this.usersService.findByEmailWithPassword(
+              email,
+              await this.tenants.defaultTenantId(),
+            );
     }
     if (!user || !user.estado) return null;
     if (user.empresa && user.empresa.estado !== 'ACTIVA') {
@@ -179,6 +196,10 @@ export class AuthService {
       }
       const user = await this.usersService.findById(session.userId);
       if (!user.estado) throw new UnauthorizedException('Usuario inactivo');
+      if (sinEmpresaInvalido(user))
+        throw new UnauthorizedException(
+          'Tu cuenta no pertenece a ninguna tienda',
+        );
       const nextToken = randomBytes(48).toString('hex');
       session.tokenHash = hashToken(nextToken);
       await repo.save(session);

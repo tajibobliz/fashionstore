@@ -14,6 +14,7 @@ describe('Refresh sessions', () => {
     estado: true,
     email: 'test@example.com',
     rol: { nombre: 'CLIENTE' },
+    idEmpresa: 1,
   };
   let service: AuthService;
   let repo: any;
@@ -100,6 +101,16 @@ describe('Refresh sessions', () => {
     users.findById.mockResolvedValue({ ...user, estado: false });
     await expect(service.refresh('a'.repeat(96))).rejects.toThrow(
       'Usuario inactivo',
+    );
+  });
+  it('does not renew a session of a user without company (except SUPER_ADMIN)', async () => {
+    repo.findOne.mockResolvedValue({
+      userId: 1,
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    users.findById.mockResolvedValue({ ...user, idEmpresa: null });
+    await expect(service.refresh('a'.repeat(96))).rejects.toThrow(
+      'no pertenece a ninguna tienda',
     );
   });
   it('revokes the session on logout', async () => {

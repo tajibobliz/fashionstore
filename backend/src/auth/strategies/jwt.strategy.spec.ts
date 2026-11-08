@@ -42,6 +42,11 @@ describe('JwtStrategy (multitenant)', () => {
         .idEmpresa,
     ).toBeNull();
   });
+  it('rejects a token without company for any role other than SUPER_ADMIN (it would see every company)', async () => {
+    await expect(
+      strategy.validate({ sub: 5, rol: 'CLIENTE', tid: null }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
   it('rejects tokens of deactivated or deleted users', async () => {
     await expect(
       strategy.validate({ sub: 7, rol: 'CAJERO', tid: 2 }),

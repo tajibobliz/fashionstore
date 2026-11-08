@@ -35,6 +35,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Un usuario desactivado no puede seguir usando su token (caché de 30 s; ver usuarios-activos).
     if (!(await this.estaActivo(payload.sub)))
       throw new UnauthorizedException('Tu usuario fue desactivado');
+    // Un token con `tid: null` solo es válido para el SUPER_ADMIN; para otro rol vería todas las
+    // empresas (RLS sin filtro). Pasaba con cuentas creadas sin empresa: debe volver a iniciar sesión.
+    if (payload.tid === null && payload.rol !== Role.SUPER_ADMIN)
+      throw new UnauthorizedException('Vuelve a iniciar sesión');
     let idEmpresa: number | null = payload.tid ?? null;
     if (payload.tid === undefined && payload.rol !== Role.SUPER_ADMIN) {
       idEmpresa = await this.tenants.defaultTenantId();
