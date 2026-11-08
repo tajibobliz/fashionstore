@@ -9,6 +9,7 @@ import { Producto } from '../catalog/entities/producto.entity';
 import { Usuario } from '../users/entities/user.entity';
 import { Pago } from '../payments/entities/pago.entity';
 import { TurnoCaja } from '../pos/entities/turno-caja.entity';
+import { FECHA_SIMPLE, finDelDia, inicioDelDia, zonaSql } from '../common/zona-horaria';
 import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDto, TurnReportFiltersDto } from './dto/report-filters.dto';
 
 export type ReportScope = { branchIds: number[] | null; cashierId?: number };
@@ -29,10 +30,10 @@ export class ReportsService {
   private readonly validStates = ['PAGADA', 'DEVUELTA_PARCIAL', 'DEVUELTA'];
   private readonly returnedQty = `COALESCE((SELECT SUM(dd.cantidad) FROM detalle_devolucion dd JOIN devolucion de ON de.id_devolucion=dd.id_devolucion WHERE dd.id_detalle_venta=dv.id_detalle_venta),0)`;
 
+  /** Rango de fechas: los días simples (AAAA-MM-DD) se toman completos en la zona de la tienda (APP_TIMEZONE). */
   private dateBounds(desde?: string, hasta?: string) {
-    const from = desde ? new Date(desde) : undefined;
-    const to = hasta ? new Date(hasta) : undefined;
-    if (to && /^\d{4}-\d{2}-\d{2}$/.test(hasta!)) to.setUTCHours(23, 59, 59, 999);
+    const from = !desde ? undefined : FECHA_SIMPLE.test(desde) ? inicioDelDia(desde) : new Date(desde);
+    const to = !hasta ? undefined : FECHA_SIMPLE.test(hasta) ? finDelDia(hasta) : new Date(hasta);
     return { from, to };
   }
 
@@ -100,8 +101,9 @@ export class ReportsService {
   }
 
   async salesByDay(f: ReportFiltersDto, scope: ReportScope) {
-    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select('DATE(v.fecha)', 'fecha').addSelect('COUNT(DISTINCT v.id_venta)', 'cantidad')
-      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'monto').groupBy('DATE(v.fecha)').orderBy('DATE(v.fecha)', 'ASC').limit(60).getRawMany();
+    const dia = `DATE(v.fecha AT TIME ZONE ${zonaSql()})`; // el día de la venta en la hora de la tienda
+    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select(dia, 'fecha').addSelect('COUNT(DISTINCT v.id_venta)', 'cantidad')
+      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'monto').groupBy(dia).orderBy(dia, 'ASC').limit(60).getRawMany();
     return rows.map((x) => ({ fecha: x.fecha, cantidad: Number(x.cantidad), monto: Number(x.monto) }));
   }
 
