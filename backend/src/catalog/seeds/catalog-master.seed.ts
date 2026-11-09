@@ -14,6 +14,8 @@ const CATEGORIAS = [
   'Poleras y polerones',
   'Zapatos',
   'Accesorios',
+  'Gafas o Lentes',
+  'Gorras',
 ];
 
 const TALLAS = ['XS', 'S', 'M', 'L', 'XL', '36', '37', '38', '39', '40', 'UNICA'];
