@@ -9,7 +9,7 @@
  * La página avisa a la app con `window.ReactNativeWebView.postMessage(JSON)`:
  *   { tipo: 'fase', fase: 'camara' | 'modelo' | 'listo' }
  *   { tipo: 'detectado', valor: boolean }
- *   { tipo: 'error', error: 'image' | 'denied' | 'no-camera' | 'camera' | 'model' }
+ *   { tipo: 'error', error: 'image' | 'denied' | 'no-camera' | 'camera' | 'model', detalle?: string }
  *   { tipo: 'foto', dataUrl }   (respuesta a window.vestidor.foto())
  */
 import { createDetectorWith, MEDIAPIPE_VERSION, type Detector } from './mediapipe'
@@ -48,6 +48,25 @@ function cargarImagen(url: string) {
   })
 }
 
+/** Rechaza la promesa si no termina a tiempo (para no quedarse cargando sin fin). */
+function conLimite<T>(promesa: Promise<T>, ms: number, motivo: string) {
+  return new Promise<T>((resolve, reject) => {
+    const reloj = setTimeout(() => reject(new Error(motivo)), ms)
+    promesa.then(
+      (valor) => (clearTimeout(reloj), resolve(valor)),
+      (error) => (clearTimeout(reloj), reject(error)),
+    )
+  })
+}
+
+/** Espera a que el video tenga imagen (readyState >= 2 y tamaño conocido). */
+function primerCuadro(video: HTMLVideoElement) {
+  return new Promise<void>((resolve) => {
+    const revisar = () => (video.readyState >= 2 && video.videoWidth ? resolve() : setTimeout(revisar, 100))
+    revisar()
+  })
+}
+
 function tipoDeError(causa: unknown) {
   const nombre = (causa as { name?: string })?.name
   if (nombre === 'NotAllowedError' || nombre === 'SecurityError') return 'denied'
@@ -73,23 +92,38 @@ export async function iniciar({ tipo, imagen }: Config) {
   }
   const aspecto = prenda.naturalHeight / prenda.naturalWidth || FALLBACK_IMAGE_ASPECT
 
-  // 2) Cámara frontal.
+  // 2) Cámara frontal. En el WebView de Android getUserMedia o play() pueden quedarse "colgados" sin
+  //    error, así que cada paso tiene tiempo límite y se avisa el motivo en lugar de cargar para siempre.
   avisar({ tipo: 'fase', fase: 'camara' })
+  if (!navigator.mediaDevices?.getUserMedia) return avisar({ tipo: 'error', error: 'camera', detalle: 'getUserMedia no disponible' })
   try {
-    video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
-    await video.play()
+    const stream = await conLimite(
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }),
+      15000,
+      'la cámara no respondió',
+    )
+    video.muted = true
+    video.setAttribute('playsinline', '')
+    video.setAttribute('autoplay', '')
+    video.srcObject = stream
+    // play() puede no resolverse nunca en Android: basta con que llegue el primer cuadro de video.
+    video.play().catch(() => {})
+    await conLimite(primerCuadro(video), 10000, 'el video de la cámara no arrancó')
   } catch (causa) {
-    return avisar({ tipo: 'error', error: tipoDeError(causa) })
+    return avisar({ tipo: 'error', error: tipoDeError(causa), detalle: String((causa as Error)?.message ?? causa) })
   }
 
   // 3) Modelo de MediaPipe (rostro o cuerpo según la prenda).
   avisar({ tipo: 'fase', fase: 'modelo' })
   let detector: Detector
   try {
-    const lib = await import(/* @vite-ignore */ LIB_URL)
-    detector = await createDetectorWith(lib, estrategia.model)
-  } catch {
-    return avisar({ tipo: 'error', error: 'model' })
+    detector = await conLimite(
+      import(/* @vite-ignore */ LIB_URL).then((lib) => createDetectorWith(lib, estrategia.model)),
+      60000,
+      'el detector tardó demasiado en descargarse',
+    )
+  } catch (causa) {
+    return avisar({ tipo: 'error', error: 'model', detalle: String((causa as Error)?.message ?? causa) })
   }
   avisar({ tipo: 'fase', fase: 'listo' })
 

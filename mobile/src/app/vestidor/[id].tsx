@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, ActivityIndicator, Pressable, PermissionsAndroid, Platform } from "react-native";
+import { View, Text, ActivityIndicator, Pressable } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -40,11 +41,12 @@ const html = (tipo: string, imagen: string) => `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
   html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
-  video { display: none; }
+  /* El video no puede ir con display:none: el WebView de Android no lo arranca. Queda invisible y diminuto. */
+  video { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   canvas { width: 100vw; height: 100vh; object-fit: cover; display: block; }
 </style>
 </head><body>
-<video id="video" playsinline muted></video>
+<video id="video" playsinline muted autoplay></video>
 <canvas id="lienzo"></canvas>
 <script>${VESTIDOR_SCRIPT}</script>
 <script>VestidorMovil.iniciar(${JSON.stringify({ tipo, imagen })});</script>
@@ -58,10 +60,11 @@ export default function VestidorCamaraScreen() {
 
   const [producto, setProducto] = useState<Producto | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [permiso, setPermiso] = useState<boolean | null>(Platform.OS === "android" ? null : true);
+  const [permiso, setPermiso] = useState<boolean | null>(null);
   const [fase, setFase] = useState<Fase>("imagen");
   const [detectado, setDetectado] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detalle, setDetalle] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
 
   useEffect(() => {
@@ -76,15 +79,13 @@ export default function VestidorCamaraScreen() {
       .finally(() => setCargando(false));
   }, [id]);
 
-  // Android: el WebView solo puede usar la cámara si la app tiene el permiso concedido.
+  // El WebView solo puede usar la cámara si la APP ya tiene el permiso. Se pide con el sistema de
+  // permisos de Expo (no con PermissionsAndroid): en Expo Go los permisos son por proyecto y los de
+  // PermissionsAndroid no le llegan al WebView, que se quedaba esperando sin abrir la cámara.
   useEffect(() => {
-    if (Platform.OS !== "android") return;
-    PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-      title: "Permiso de cámara",
-      message: "El vestidor virtual usa la cámara frontal para mostrarte la prenda puesta. La imagen no se guarda ni se envía.",
-      buttonPositive: "Permitir",
-      buttonNegative: "Ahora no",
-    }).then((r) => setPermiso(r === PermissionsAndroid.RESULTS.GRANTED));
+    ImagePicker.requestCameraPermissionsAsync()
+      .then((r) => setPermiso(r.granted))
+      .catch(() => setPermiso(false));
   }, [intento]);
 
   const pagina = useMemo(
@@ -97,7 +98,10 @@ export default function VestidorCamaraScreen() {
       const m = JSON.parse(e.nativeEvent.data);
       if (m.tipo === "fase") setFase(m.fase);
       else if (m.tipo === "detectado") setDetectado(Boolean(m.valor));
-      else if (m.tipo === "error") setError(m.error);
+      else if (m.tipo === "error") {
+        setError(m.error);
+        setDetalle(m.detalle ?? null);
+      }
     } catch {
       // Mensaje que no es del vestidor: se ignora.
     }
@@ -105,6 +109,7 @@ export default function VestidorCamaraScreen() {
 
   const reintentar = () => {
     setError(null);
+    setDetalle(null);
     setFase("imagen");
     setDetectado(true);
     setIntento((n) => n + 1);
@@ -144,6 +149,11 @@ export default function VestidorCamaraScreen() {
           mediaPlaybackRequiresUserAction={false}
           mediaCapturePermissionGrantType="grant"
           mixedContentMode="always"
+          webviewDebuggingEnabled={__DEV__}
+          onError={(e) => {
+            setError("camera");
+            setDetalle(e.nativeEvent.description);
+          }}
           onMessage={alMensaje}
         />
       )}
@@ -167,6 +177,7 @@ export default function VestidorCamaraScreen() {
           <View className="w-full rounded-3xl bg-white p-6">
             <Text className="text-lg font-bold text-gray-900">{errorVisible.titulo}</Text>
             <Text className="mt-2 text-gray-600">{errorVisible.texto}</Text>
+            {detalle && <Text className="mt-2 text-xs text-gray-400">Detalle: {detalle}</Text>}
             <View className="mt-5 gap-3">
               {error !== "sin-probador" && <Button title="Reintentar" onPress={reintentar} />}
               <Button title="Volver" variant="outline" onPress={() => router.back()} />
