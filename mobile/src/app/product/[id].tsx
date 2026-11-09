@@ -25,6 +25,7 @@ import { useOnline } from "@/offline/network";
 import { encolar } from "@/offline/queue";
 import { descontarStockLocal } from "@/offline/catalog";
 import { sincronizarPronto } from "@/offline/sync";
+import { useFormatMoney } from "@/lib/moneda";
 
 const PLACEHOLDER_IMAGE =
   "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
@@ -33,6 +34,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const addItem = useCartStore((state) => state.addItem);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
@@ -215,7 +217,6 @@ export default function ProductDetailScreen() {
   }
 
   // Datos derivados del producto
-  const precioFormateado = Number(producto.precio).toFixed(2);
   const tallas = getUnique(producto.variantes ?? [], (v) => v.talla);
   const colores = getUnique(producto.variantes ?? [], (v) => v.color);
 
@@ -256,7 +257,7 @@ export default function ProductDetailScreen() {
             {producto.nombre}
           </Text>
           <Text className="mt-2 text-2xl font-bold text-primary-500">
-            Bs {precioFormateado}
+            {fmt(producto.precio)}
           </Text>
 
           {/* Descripción */}
@@ -353,16 +354,27 @@ export default function ProductDetailScreen() {
           {/* Sucursal donde se reserva (cada tienda del SaaS tiene las suyas) */}
           <SucursalPicker titulo="Sucursal para reservar" />
 
-         {/* Botón probador virtual (solo si hay recursoRaUrl) */}
-           {producto.recursoRaUrl && (
-           <View className="mt-6  mb-8" >
-           <Button
-            title="👗 Probar en vestidor virtual"
-            onPress={() => router.push(`/virtual-fitting/${producto.idProducto}` as any)}
-            variant="outline"
-            />
-          </View>
-         )}
+          {/* Vestidor con la cámara (igual que la web): lentes, gorra o polera con su PNG sin fondo. */}
+          {producto.tipoTryOn && producto.imagenTryOn && (
+            <View className="mt-6">
+              <Button
+                title="📷 Probar con la cámara"
+                onPress={() => router.push(`/vestidor/${producto.idProducto}` as any)}
+              />
+            </View>
+          )}
+
+          {/* Vestidor 3D / AR (solo si la prenda tiene modelo 3D: recursoRaUrl) */}
+          {producto.recursoRaUrl && (
+            <View className="mt-4">
+              <Button
+                title="👗 Ver en 3D"
+                onPress={() => router.push(`/virtual-fitting/${producto.idProducto}` as any)}
+                variant="outline"
+              />
+            </View>
+          )}
+          <View className="mb-8" />
         </View>
       </ScrollView>
 
@@ -401,4 +413,4 @@ function getUnique<T, K extends { idTalla?: number; idColor?: number }>(
     if (!map.has(id)) map.set(id, key);
   }
   return Array.from(map.values());
-}
+}

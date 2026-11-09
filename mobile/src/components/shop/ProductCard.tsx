@@ -1,6 +1,7 @@
 import { View, Text, Image, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Producto } from "@/types/catalog.types";
+import { useFormatMoney } from "@/lib/moneda";
 
 // Imagen genérica cuando el producto no tiene foto
 const PLACEHOLDER_IMAGE =
@@ -11,10 +12,10 @@ interface Props {
 }
 
 export function ProductCard({ producto }: Props) {
+  const fmt = useFormatMoney();
   const router = useRouter();
 
   // Convertir precio string a número y formatearlo
-  const precioFormateado = Number(producto.precio).toFixed(2);
 
   const handlePress = () => {
     router.push(`/product/${producto.idProducto}` as any);
@@ -53,9 +54,9 @@ export function ProductCard({ producto }: Props) {
         )}
 
         <Text className="mt-2 text-base font-bold text-primary-500">
-          Bs {precioFormateado}
+          {fmt(producto.precio)}
         </Text>
       </View>
     </Pressable>
   );
-}
+}

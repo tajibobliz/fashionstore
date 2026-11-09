@@ -2,16 +2,17 @@ import { View, Text, Image, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CartItem } from "@/types/cart.types";
 import { useCartStore } from "@/stores/cartStore";
+import { useFormatMoney } from "@/lib/moneda";
 
 interface Props {
   item: CartItem;
 }
 
 export function CartItemCard({ item }: Props) {
+  const fmt = useFormatMoney();
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
 
-  const subtotal = (item.precio * item.cantidad).toFixed(2);
 
   return (
     <View className="mx-4 mb-3 flex-row rounded-2xl bg-white p-3">
@@ -63,7 +64,7 @@ export function CartItemCard({ item }: Props) {
         {/* Precio + controles de cantidad */}
         <View className="mt-2 flex-row items-center justify-between">
           <Text className="text-base font-bold text-primary-500">
-            Bs {subtotal}
+            {fmt(item.precio * item.cantidad)}
           </Text>
 
           <View className="flex-row items-center rounded-full border border-gray-200">
@@ -91,4 +92,4 @@ export function CartItemCard({ item }: Props) {
       </View>
     </View>
   );
-}
+}

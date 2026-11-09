@@ -9,6 +9,7 @@ import { catalogoGuardado, descontarStockLocal, prepararOffline, sucursalesGuard
 import type { PrendaLocal, SucursalLocal } from "@/offline/catalog";
 import { encolar, alCambiarLaCola } from "@/offline/queue";
 import { sincronizarPronto } from "@/offline/sync";
+import { useFormatMoney } from "@/lib/moneda";
 
 const fecha = (iso: string) =>
   new Date(iso).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -20,6 +21,7 @@ const fecha = (iso: string) =>
 export default function OfflineCatalogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const online = useOnline();
   const user = useAuthStore((s) => s.user);
   const [sucursales, setSucursales] = useState<SucursalLocal[] | null>(null);
@@ -138,7 +140,7 @@ export default function OfflineCatalogScreen() {
             <View key={p.idProducto} className="mb-3 rounded-2xl border border-gray-100 bg-white p-4">
               {p.categoria && <Text className="text-xs uppercase tracking-wider text-gray-500">{p.categoria}</Text>}
               <Text className="mt-0.5 text-base font-bold text-gray-900">{p.nombre}</Text>
-              <Text className="mt-1 font-bold text-primary-500">Bs {p.precioFinal.toFixed(2)}</Text>
+              <Text className="mt-1 font-bold text-primary-500">{fmt(p.precioFinal)}</Text>
               {p.variantes.map((v) => (
                 <View key={v.idVariante} className="mt-2 flex-row items-center border-t border-gray-100 pt-2">
                   <Text className="flex-1 text-sm text-gray-700">

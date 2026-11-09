@@ -8,7 +8,10 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "El vestidor virtual usa la cámara frontal para mostrarte la prenda puesta. La imagen no se guarda ni se envía."
+      }
     },
     "android": {
       "package": "com.henry.fashionstore",

@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Promocion } from "@/types/promotion.types";
+import { useFormatMoney } from "@/lib/moneda";
 
 const CARD_WIDTH = 220;
 
@@ -65,6 +66,7 @@ function PromotionProductsModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const fmt = useFormatMoney();
   const productos = promocion.productos ?? [];
 
   return (
@@ -110,7 +112,7 @@ function PromotionProductsModal({
                     <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
                       {item.nombre}
                     </Text>
-                    <Text className="mt-0.5 text-sm font-bold text-primary-500">Bs {Number(item.precio).toFixed(2)}</Text>
+                    <Text className="mt-0.5 text-sm font-bold text-primary-500">{fmt(item.precio)}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
                 </Pressable>

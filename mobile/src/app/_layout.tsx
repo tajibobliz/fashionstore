@@ -8,6 +8,7 @@ import { useSucursalStore } from "@/stores/sucursalStore";
 import { tienda } from "@/config/tienda";
 import { iniciarSincronizacion } from "@/offline/sync";
 import { prepararOffline } from "@/offline/catalog";
+import { useMonedaStore } from "@/lib/moneda";
 
 const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting", "chat", "offline"];
 
@@ -23,7 +24,8 @@ export default function RootLayout() {
   useEffect(() => {
     loadSession();
     // Fase 2 (offline): tienda y sucursal recordadas + motor de sincronización.
-    void tienda.cargar();
+    // Moneda de la tienda: primero la guardada (sirve sin conexión), luego la del backend.
+    void useMonedaStore.getState().cargar().then(async () => useMonedaStore.getState().actualizar(await tienda.cargar()));
     void useSucursalStore.getState().cargar();
     void iniciarSincronizacion();
   }, []);
@@ -60,4 +62,4 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }} />
     </SafeAreaProvider>
   );
-}
+}

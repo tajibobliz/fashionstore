@@ -21,6 +21,7 @@ import { generateUUID } from "@/lib/uuid";
 import { useSucursalStore } from "@/stores/sucursalStore";
 import { SucursalPicker } from "@/components/shop/SucursalPicker";
 import { MetodoPago } from "@/types/checkout.types";
+import { useFormatMoney } from "@/lib/moneda";
 
 // Métodos de pago disponibles.
 // Por ahora solo EFECTIVO está activo; los otros quedan visibles pero deshabilitados.
@@ -37,6 +38,7 @@ const PAYMENT_METHODS: {
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const router = useRouter();
 
   const user = useAuthStore((state) => state.user);
@@ -154,7 +156,7 @@ export default function CheckoutScreen() {
                 </Text>
               </View>
               <Text className="text-sm font-semibold text-gray-900">
-                Bs {(item.precio * item.cantidad).toFixed(2)}
+                {fmt(item.precio * item.cantidad)}
               </Text>
             </View>
           ))}
@@ -216,7 +218,7 @@ export default function CheckoutScreen() {
         <View className="mb-3 flex-row justify-between">
           <Text className="text-lg font-bold text-gray-900">Total a pagar</Text>
           <Text className="text-lg font-bold text-primary-500">
-            Bs {subtotal.toFixed(2)}
+            {fmt(subtotal)}
           </Text>
         </View>
         <Button
@@ -227,4 +229,4 @@ export default function CheckoutScreen() {
       </View>
     </View>
   );
-}
+}

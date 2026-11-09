@@ -5,6 +5,7 @@ import { authService } from "@/services/auth.service";
 import { usersService } from "@/services/users.service";
 import { isExpoGo, registerForPushNotificationsAsync } from "@/services/notifications";
 import { tienda } from "@/config/tienda";
+import { useMonedaStore } from "@/lib/moneda";
 import { useSucursalStore } from "@/stores/sucursalStore";
 import { prepararOffline } from "@/offline/catalog";
 import { sincronizarPronto } from "@/offline/sync";
@@ -19,6 +20,8 @@ async function despuesDeEntrar(user: User) {
   const nueva = user.empresa?.slug ?? null;
   if (anterior !== nueva) await useSucursalStore.getState().limpiar();
   await tienda.guardar(nueva);
+  // Moneda de la tienda de la cuenta (precios en Bs, US$, etc.).
+  void useMonedaStore.getState().actualizar(nueva);
   if (user.rol === "CLIENTE" && user.idEmpresa) void prepararOffline(user.idEmpresa);
   sincronizarPronto(1500);
 }
@@ -118,4 +121,4 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: false });
     }
   },
-}));
+}));

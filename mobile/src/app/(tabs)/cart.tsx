@@ -5,9 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { CartItemCard } from "@/components/shop/CartItemCard";
 import { useCartStore } from "@/stores/cartStore";
+import { useFormatMoney } from "@/lib/moneda";
 
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const router = useRouter();
 
   const items = useCartStore((state) => state.items);
@@ -92,17 +94,17 @@ export default function CartScreen() {
         <View className="mb-3 flex-row justify-between">
           <Text className="text-base text-gray-600">Subtotal</Text>
           <Text className="text-base font-semibold text-gray-900">
-            Bs {subtotal.toFixed(2)}
+            {fmt(subtotal)}
           </Text>
         </View>
         <View className="mb-4 flex-row justify-between">
           <Text className="text-lg font-bold text-gray-900">Total</Text>
           <Text className="text-lg font-bold text-primary-500">
-            Bs {subtotal.toFixed(2)}
+            {fmt(subtotal)}
           </Text>
         </View>
         <Button title="Ir a pagar" onPress={handleCheckout} />
       </View>
     </View>
   );
-}
+}

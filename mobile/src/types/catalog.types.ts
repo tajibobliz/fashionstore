@@ -54,9 +54,12 @@ export interface Producto {
   cantidadMinimaMayorista: number | null;
   imagenUrl: string | null;
   recursoRaUrl: string | null;
+  /** Vestidor con cámara (igual que la web): tipo de prenda y PNG sin fondo que se dibuja encima. */
+  tipoTryOn?: "lentes" | "gorra" | "polera" | null;
+  imagenTryOn?: string | null;
   estado: boolean;
   categoria: Categoria | null;
   proveedor: Proveedor | null;
   coleccion: Coleccion | null;
   variantes?: VarianteProducto[];  // Solo viene en el detalle, no en el listado
-}
+}

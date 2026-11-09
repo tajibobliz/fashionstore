@@ -14,6 +14,7 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { salesService } from "@/services/sales.service";
 import { Sale, EstadoVenta } from "@/types/checkout.types";
+import { useFormatMoney } from "@/lib/moneda";
 
 type EstadoConfig = {
   label: string;
@@ -57,6 +58,7 @@ const ESTADO_CONFIG: Record<EstadoVenta, EstadoConfig> = {
 
 export default function OrderDetailScreen() {
   const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -231,10 +233,10 @@ export default function OrderDetailScreen() {
                 </View>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-xs text-gray-500">
-                    Bs {Number(d.precioUnitario).toFixed(2)} c/u
+                    {fmt(d.precioUnitario)} c/u
                   </Text>
                   <Text className="text-sm font-bold text-gray-900">
-                    Bs {Number(d.subtotal).toFixed(2)}
+                    {fmt(d.subtotal)}
                   </Text>
                 </View>
               </View>
@@ -254,11 +256,11 @@ export default function OrderDetailScreen() {
           <View className="mt-2 flex-row justify-between border-t border-gray-100 pt-3">
             <Text className="text-lg font-bold text-gray-900">Total</Text>
             <Text className="text-lg font-bold text-primary-500">
-              Bs {Number(order.total).toFixed(2)}
+              {fmt(order.total)}
             </Text>
           </View>
         </View>
       </ScrollView>
     </View>
   );
-}
+}
