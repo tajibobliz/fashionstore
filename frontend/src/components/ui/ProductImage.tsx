@@ -7,7 +7,10 @@ export function ProductImage({ src, name }: { src?: string; name: string }) {
   let imageUrl: string | undefined
   try {
     if (src) {
-      const url = new URL(src, api.defaults.baseURL)
+      // Rutas relativas: /tryon/… son imágenes del propio frontend (public/tryon); el resto
+      // (p. ej. /uploads/…) las sirve el backend.
+      const base = src.startsWith('/tryon/') ? window.location.origin : api.defaults.baseURL
+      const url = new URL(src, base)
       if (url.protocol === 'https:' || url.protocol === 'http:') imageUrl = url.href
     }
   } catch { /* Usar el icono cuando la URL no sea válida. */ }

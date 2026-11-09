@@ -8,6 +8,7 @@ import dashboardStyles from '../dashboard/Dashboard.module.css'
 import payStyles from '../payments/Payments.module.css'
 import styles from './PortadaTienda.module.css'
 
+const LEMA_FASHIONSTORE = 'Vestidos, zapatos, blusas y accesorios elegidos para acompañarte en cada momento. Descúbrelos online y vívelos en nuestras tiendas.'
 const LEMA_DEFECTO = 'Descubre lo nuevo de la temporada, elige tu talla y color, y compra online o reserva para retirar en tu sucursal favorita.'
 
 /**
@@ -55,7 +56,7 @@ export default function PortadaTiendaPage() {
             <small className={payStyles.ayuda}>Pega el enlace de una foto (debe empezar con https://). Vertical u horizontal: se recorta para llenar el espacio.</small>
           </label>
           <label className={payStyles.campoAncho}>Frase de la portada
-            <textarea rows={3} maxLength={160} value={eslogan} onChange={e => cambiar({ eslogan: e.target.value })} placeholder={LEMA_DEFECTO} />
+            <textarea rows={3} maxLength={160} value={eslogan} onChange={e => cambiar({ eslogan: e.target.value })} placeholder={empresa.slug === 'fashionstore' ? LEMA_FASHIONSTORE : LEMA_DEFECTO} />
             <small className={payStyles.ayuda}>{eslogan.length}/160 · vacía = se usa el texto de ejemplo.</small>
           </label>
         </div>
@@ -66,8 +67,10 @@ export default function PortadaTiendaPage() {
         <h2>Vista previa</h2>
         <div className={styles.preview}>
           <div className={styles.previewText}>
-            <strong>Tu estilo, <em>a tu manera</em>, en {empresa.nombre}</strong>
-            <span>{eslogan.trim() || LEMA_DEFECTO}</span>
+            {empresa.slug === 'fashionstore'
+              ? <strong>La elegancia <em>se lleva</em> puesta.</strong>
+              : <strong>Tu estilo, <em>a tu manera</em>, en {empresa.nombre}</strong>}
+            <span>{eslogan.trim() || (empresa.slug === 'fashionstore' ? LEMA_FASHIONSTORE : LEMA_DEFECTO)}</span>
           </div>
           <div className={styles.previewImg}>
             {urlValida && fallaImagen !== portadaUrl
