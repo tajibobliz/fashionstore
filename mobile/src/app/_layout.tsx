@@ -10,7 +10,7 @@ import { iniciarSincronizacion } from "@/offline/sync";
 import { prepararOffline } from "@/offline/catalog";
 import { useMonedaStore } from "@/lib/moneda";
 
-const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting", "chat", "offline"];
+const PROTECTED_ROUTES = ["checkout", "order-success", "reservations", "orders", "virtual-fitting", "chat", "offline", "pagar"];
 
 // Que la app muestre las notificaciones que llegan mientras está abierta (foreground). Se hace una sola
 // vez al cargar el módulo, no en el componente, para que quede configurado antes de que llegue cualquiera.
@@ -36,10 +36,13 @@ export default function RootLayout() {
   }, [isAuthenticated, user?.idEmpresa, user?.rol]);
 
   // Listener global: el usuario toca una notificación (app en foreground, background o cerrada).
-  // Por ahora es genérico (solo loguea el payload); la navegación a la pantalla correspondiente según
-  // data.tipo/data.id (p. ej. {tipo: 'reserva', id: 123}) se agrega en una fase posterior.
   useEffect(() => {
-    const subscription = addNotificationResponseListener();
+    // Al tocar una notificación se abre lo que corresponde: un pedido (compra confirmada, pago
+    // rechazado, pedido vencido) o una reserva (lista para probar).
+    const subscription = addNotificationResponseListener((data) => {
+      if (data.tipo === "venta" && data.idVenta) router.push(`/orders/${data.idVenta}` as any);
+      else if (data.tipo === "reserva" && data.idReserva) router.push(`/reservations/${data.idReserva}` as any);
+    });
     return () => subscription.remove();
   }, []);
 

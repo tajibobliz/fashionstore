@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
 import { Sucursal } from '../branches/entities/sucursal.entity';
@@ -27,6 +27,7 @@ import { PosService } from '../pos/pos.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { toMoney } from '../common/utils/money.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { formatearMonto } from '../common/monedas';
 import { TurnoCaja } from '../pos/entities/turno-caja.entity';
 import { Pago } from '../payments/entities/pago.entity';
 import type { MetodoPago } from '../payments/entities/pago.entity';
@@ -235,7 +236,7 @@ export class SalesService {
    * llama en modo plataforma desde la tarea programada). Devuelve los ids cancelados.
    */
   async vencerPedidosDiferidos(idVenta?: number): Promise<number[]> {
-    return this.dataSource.transaction(async (m) => {
+    const ids = await this.dataSource.transaction(async (m) => {
       // En PostgreSQL, TypeORM devuelve [filas, cantidad] para un UPDATE ... RETURNING.
       const [filas]: [{ id_venta: number }[], number] = await m.query(
         `UPDATE venta SET estado = 'CANCELADA'
@@ -248,6 +249,11 @@ export class SalesService {
         await m.query(`UPDATE pago SET estado = 'ANULADO' WHERE estado = 'PENDIENTE' AND id_venta = ANY($1::int[])`, [ids]);
       return ids;
     });
+    // Push "tu pedido venció" a cada clienta (después del commit: solo si de verdad se canceló).
+    if (ids.length)
+      for (const venta of await this.ventaRepo.find({ where: { idVenta: In(ids) } }))
+        this.avisarClienta(venta, 'Tu pedido venció', () => `El plazo para pagar tu pedido Nº ${venta.idVenta} terminó y se canceló. Puedes volver a hacerlo cuando quieras.`);
+    return ids;
   }
 
   /** La clienta acepta el nuevo total de su pedido diferido (el precio cambió mientras estaba offline). */
@@ -562,18 +568,38 @@ const detalle = manager.create(DetalleVenta, {
   // punto que comparten ambos caminos. No se espera (fire-and-forget) y enviarPush() nunca lanza; el
   // try/catch cubre errores sincrónicos al construir el mensaje.
   private notificarVentaPagada(venta: Venta) {
-    try {
-      const token = venta.usuario?.pushToken;
-      if (!token) return;
-      void this.notificationsService.enviarPush(
-        token,
-        'Compra confirmada',
-        `Tu compra Nº ${venta.idVenta} fue procesada correctamente. Total: Bs ${Number(venta.total).toFixed(2)}`,
-        { tipo: 'venta', idVenta: venta.idVenta },
-      );
-    } catch (error) {
-      this.logger.error(`No se pudo notificar la venta ${venta.idVenta}: ${(error as Error).message}`);
-    }
+    this.avisarClienta(venta, 'Compra confirmada', (total) => `Tu compra Nº ${venta.idVenta} fue procesada correctamente. Total: ${total}`);
+  }
+
+  /** Push "pago no aprobado" (QR o transferencia rechazados por la tienda): la clienta puede pagar de otra forma. */
+  notificarPagoRechazado(venta: Venta) {
+    this.avisarClienta(venta, 'Tu pago no fue aprobado', (total) =>
+      `No pudimos confirmar el pago de tu pedido Nº ${venta.idVenta} (${total}). Entra a la app y elige otro medio de pago.`,
+    );
+  }
+
+  /**
+   * Envía un push a la clienta dueña de la venta, con el total en la moneda de SU tienda.
+   * No se espera (fire-and-forget) y nunca lanza: una notificación caída no frena la operación.
+   * `data` lleva { tipo: 'venta', idVenta } para que la app abra ese pedido al tocar la notificación.
+   */
+  private avisarClienta(venta: Venta, titulo: string, cuerpo: (total: string) => string) {
+    const token = venta.usuario?.pushToken;
+    if (!token) return;
+    void this.monedaDe(venta.idEmpresa)
+      .then((moneda) =>
+        this.notificationsService.enviarPush(token, titulo, cuerpo(formatearMonto(Number(venta.total), moneda)), {
+          tipo: 'venta',
+          idVenta: venta.idVenta,
+        }),
+      )
+      .catch((error) => this.logger.error(`No se pudo notificar la venta ${venta.idVenta}: ${(error as Error).message}`));
+  }
+
+  private async monedaDe(idEmpresa?: number | null): Promise<string | null> {
+    if (!idEmpresa) return null;
+    const [fila] = await this.dataSource.query(`SELECT moneda FROM empresa WHERE id_empresa = $1`, [idEmpresa]);
+    return fila?.moneda ?? null;
   }
 
   // Cancela una venta pendiente

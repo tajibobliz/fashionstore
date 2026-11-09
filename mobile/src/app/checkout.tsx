@@ -16,25 +16,10 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCartStore } from "@/stores/cartStore";
 import { cartService } from "@/services/cart.service";
 import { salesService } from "@/services/sales.service";
-import { paymentsService } from "@/services/payments.service";
 import { generateUUID } from "@/lib/uuid";
 import { useSucursalStore } from "@/stores/sucursalStore";
 import { SucursalPicker } from "@/components/shop/SucursalPicker";
-import { MetodoPago } from "@/types/checkout.types";
 import { useFormatMoney } from "@/lib/moneda";
-
-// Métodos de pago disponibles.
-// Por ahora solo EFECTIVO está activo; los otros quedan visibles pero deshabilitados.
-const PAYMENT_METHODS: {
-  id: MetodoPago;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  enabled: boolean;
-}[] = [
-  { id: "EFECTIVO", label: "Efectivo (en sucursal)", icon: "cash-outline", enabled: true },
-  { id: "QR", label: "QR (próximamente)", icon: "qr-code-outline", enabled: false },
-  { id: "TARJETA", label: "Tarjeta (próximamente)", icon: "card-outline", enabled: false },
-];
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -46,7 +31,6 @@ export default function CheckoutScreen() {
   const subtotal = useCartStore((state) => state.getSubtotal());
   const clearCart = useCartStore((state) => state.clearCart);
 
-  const [selectedMethod, setSelectedMethod] = useState<MetodoPago>("EFECTIVO");
   const [processing, setProcessing] = useState(false);
 
   const handleConfirmar = async () => {
@@ -87,16 +71,10 @@ export default function CheckoutScreen() {
         clientRequestId,
       });
 
-      // 4) Registrar el pago EFECTIVO (queda PENDIENTE de aprobación en caja)
-      await paymentsService.create({
-        idVenta: venta.idVenta,
-        metodo: selectedMethod,
-        monto: Number(venta.total),
-      });
-
-      // 5) Éxito: vaciar carrito local y navegar a la pantalla de confirmación
+      // 4) Éxito: vaciar carrito local y elegir cómo pagar (medios que activó la tienda: tarjeta,
+      //    QR, transferencia, efectivo…), igual que en la web.
       clearCart();
-      router.replace(`/order-success?idVenta=${venta.idVenta}` as any);
+      router.replace(`/pagar/${venta.idVenta}` as any);
     } catch (e) {
       const err = e as AxiosError<{ message?: string | string[] }>;
       let msg = "No se pudo procesar tu pedido.";
@@ -167,45 +145,10 @@ export default function CheckoutScreen() {
           <SucursalPicker titulo="Sucursal de retiro" />
         </View>
 
-        {/* Método de pago */}
-        <View className="mt-3 bg-white px-5 py-4">
-          <Text className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Método de pago
-          </Text>
-          {PAYMENT_METHODS.map((m) => {
-            const isSelected = selectedMethod === m.id;
-            return (
-              <Pressable
-                key={m.id}
-                onPress={() => m.enabled && setSelectedMethod(m.id)}
-                disabled={!m.enabled}
-                className={`mb-2 flex-row items-center rounded-xl border p-3 ${
-                  isSelected
-                    ? "border-primary-500 bg-primary-50"
-                    : "border-gray-200 bg-white"
-                } ${!m.enabled ? "opacity-40" : ""}`}
-              >
-                <Ionicons
-                  name={m.icon}
-                  size={22}
-                  color={isSelected ? "#e11d48" : "#6b7280"}
-                />
-                <Text
-                  className={`ml-3 flex-1 text-sm ${
-                    isSelected ? "font-semibold text-gray-900" : "text-gray-700"
-                  }`}
-                >
-                  {m.label}
-                </Text>
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={22} color="#e11d48" />
-                )}
-              </Pressable>
-            );
-          })}
-          <Text className="mt-2 text-xs text-gray-500">
-            Al confirmar, tu pedido queda registrado. Acércate a la sucursal
-            para completar el pago y retirar tu compra.
+        <View className="mx-5 mt-3">
+          <Text className="text-xs text-gray-500">
+            Al confirmar, tu pedido queda registrado y eliges cómo pagarlo: tarjeta, QR, transferencia o
+            efectivo al retirar, según los medios que ofrece la tienda.
           </Text>
         </View>
       </ScrollView>
@@ -222,7 +165,7 @@ export default function CheckoutScreen() {
           </Text>
         </View>
         <Button
-          title={processing ? "Procesando..." : "Confirmar pedido"}
+          title={processing ? "Procesando..." : "Confirmar y pagar"}
           onPress={handleConfirmar}
           loading={processing}
         />

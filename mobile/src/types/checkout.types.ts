@@ -16,7 +16,7 @@ export interface Cart {
 
 // ===== Enums =====
 
-export type MetodoPago = "EFECTIVO" | "TARJETA" | "QR" | "TRANSFERENCIA";
+export type MetodoPago = "EFECTIVO" | "TARJETA" | "QR" | "TRANSFERENCIA" | "CONTRAPAGO";
 export type ModalidadComercial = "MINORISTA" | "MAYORISTA";
 export type TipoVenta = "DIGITAL" | "PRESENCIAL";
 export type EstadoVenta =
@@ -94,6 +94,27 @@ export interface CreatePaymentDto {
   metodo: MetodoPago;
   monto: number;
   referenciaPasarela?: string;
+  /** Idempotencia: si la petición se reintenta, no se registra dos veces el mismo pago. */
+  clientRequestId?: string;
+}
+
+/** Medios de pago que la tienda activó en su panel (GET /payments/metodos), igual que en la web. */
+export interface MetodosTienda {
+  moneda: string;
+  proveedorTarjeta: "STRIPE" | "SIMULADO";
+  tarjeta: boolean;
+  qr: boolean;
+  transferencia: boolean;
+  efectivoRetiro: boolean;
+  contraentrega: boolean;
+  cuenta: {
+    banco: string | null;
+    titular: string | null;
+    numeroCuenta: string | null;
+    tipoCuenta: string | null;
+    documentoTitular: string | null;
+  } | null;
+  instrucciones: string | null;
 }
 
 export interface Payment {
@@ -103,4 +124,7 @@ export interface Payment {
   monto: string;
   estado: EstadoPago;
   referenciaPasarela?: string;
-}
+  fecha?: string;
+  /** Comprobante subido por la clienta (QR o transferencia). */
+  comprobante?: { mime: string; bytes: number; subidoEn: string } | null;
+}

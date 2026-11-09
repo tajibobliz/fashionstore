@@ -153,10 +153,14 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
           {order.estado === "PENDIENTE" && (
-            <Text className="mt-3 text-sm text-gray-600">
-              Acércate a la sucursal para completar el pago y retirar tu compra.
-              Muestra este número al cajero.
-            </Text>
+            <View className="mt-3">
+              <Text className="text-sm text-gray-600">
+                Tu pedido espera el pago. Elige cómo pagarlo o revisa el pago que ya registraste.
+              </Text>
+              <View className="mt-3">
+                <Button title="Pagar o ver mi pago" onPress={() => router.push(`/pagar/${order.idVenta}` as any)} />
+              </View>
+            </View>
           )}
         </View>
 

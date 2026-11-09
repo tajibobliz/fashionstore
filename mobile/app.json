@@ -30,6 +30,14 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La app usa tus fotos para subir el comprobante de pago de tus pedidos.",
+          "cameraPermission": "El vestidor virtual usa la cámara frontal para mostrarte la prenda puesta. La imagen no se guarda ni se envía.",
+          "microphonePermission": false
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

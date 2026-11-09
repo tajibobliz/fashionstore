@@ -58,4 +58,20 @@ describe('PaymentsService', () => {
     expect(result.estado).toBe('APROBADO');
     expect(sales.confirmarEnTransaccion).not.toHaveBeenCalled();
   });
+
+  it('avisa a la clienta (push) cuando la tienda rechaza su pago, una sola vez', async () => {
+    const venta = { idVenta: 31, tipoVenta: 'DIGITAL', estado: 'PENDIENTE', sucursal: { idSucursal: 4 } };
+    const pago = { idPago: 20, estado: 'PENDIENTE', metodo: 'QR', venta };
+    const manager = { createQueryBuilder: jest.fn(() => ({ setLock: jest.fn().mockReturnThis(), where: jest.fn().mockReturnThis(), getOne: jest.fn() })), findOne: jest.fn().mockResolvedValue(pago), save: jest.fn(async (value) => value) };
+    const sales = { confirmarEnTransaccion: jest.fn(), notificarPagoRechazado: jest.fn() };
+    const svc = new PaymentsService({} as never, {} as never, sales as never, { transaction: jest.fn(async (handler) => handler(manager)) } as never, { assertCanAccess: jest.fn() } as never);
+
+    const result = await svc.updateEstado(20, { estado: 'RECHAZADO' }, { idUsuario: 8, rol: Role.CAJERO });
+    expect(result.estado).toBe('RECHAZADO');
+    expect(sales.notificarPagoRechazado).toHaveBeenCalledWith(venta);
+
+    // Reintento idempotente (ya estaba RECHAZADO): no se vuelve a avisar.
+    await svc.updateEstado(20, { estado: 'RECHAZADO' }, { idUsuario: 8, rol: Role.CAJERO });
+    expect(sales.notificarPagoRechazado).toHaveBeenCalledTimes(1);
+  });
 });
