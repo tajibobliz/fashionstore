@@ -3,6 +3,7 @@ import type { CatalogoSync } from "@/services/sync.service";
 import { branchesService } from "@/services/branches.service";
 import { db } from "./db";
 import { hayConexion } from "./network";
+import { precargarFotos } from "@/lib/imagen";
 
 /** Sucursal guardada en el teléfono. */
 export interface SucursalLocal {
@@ -17,6 +18,8 @@ export interface PrendaLocal {
   idProducto: number;
   nombre: string;
   categoria: string | null;
+  /** Foto de la prenda: se descarga a la caché del teléfono al guardar el catálogo (ver precargarFotos). */
+  imagenUrl: string | null;
   precioFinal: number;
   variantes: { idVariante: number; sku: string; talla: string | null; color: string | null; stock: number }[];
 }
@@ -59,6 +62,8 @@ export async function guardarCatalogo(idEmpresa: number, data: CatalogoSync) {
       }
     }
   });
+  // Fotos a la caché de disco: así la pantalla sin conexión también muestra las imágenes.
+  precargarFotos(data.productos.map((p) => p.imagenUrl));
 }
 
 export async function descargarCatalogo(idEmpresa: number, idSucursal: number) {
@@ -97,10 +102,10 @@ export async function sucursalesGuardadas(idEmpresa: number): Promise<SucursalLo
 export async function catalogoGuardado(idEmpresa: number, idSucursal: number): Promise<PrendaLocal[]> {
   const base = await db();
   const filas = await base.getAllAsync<{
-    idProducto: number; nombre: string; categoria: string | null; precioFinal: number;
+    idProducto: number; nombre: string; categoria: string | null; imagenUrl: string | null; precioFinal: number;
     idVariante: number; sku: string; talla: string | null; color: string | null; stock: number;
   }>(
-    `SELECT p.id_producto AS idProducto, p.nombre, p.categoria, p.precio_final AS precioFinal,
+    `SELECT p.id_producto AS idProducto, p.nombre, p.categoria, p.imagen_url AS imagenUrl, p.precio_final AS precioFinal,
             v.id_variante AS idVariante, v.sku, v.talla, v.color, i.stock
      FROM inventario_local i
      JOIN variante v ON v.id_empresa = i.id_empresa AND v.id_variante = i.id_variante
@@ -112,7 +117,7 @@ export async function catalogoGuardado(idEmpresa: number, idSucursal: number): P
   const prendas = new Map<number, PrendaLocal>();
   for (const f of filas) {
     if (!prendas.has(f.idProducto)) {
-      prendas.set(f.idProducto, { idProducto: f.idProducto, nombre: f.nombre, categoria: f.categoria, precioFinal: f.precioFinal, variantes: [] });
+      prendas.set(f.idProducto, { idProducto: f.idProducto, nombre: f.nombre, categoria: f.categoria, imagenUrl: f.imagenUrl, precioFinal: f.precioFinal, variantes: [] });
     }
     prendas.get(f.idProducto)!.variantes.push({ idVariante: f.idVariante, sku: f.sku, talla: f.talla, color: f.color, stock: f.stock });
   }

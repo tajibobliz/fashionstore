@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Promocion } from './entities/promocion.entity';
 import { Producto } from '../catalog/entities/producto.entity';
+import { porcentajesPorPrenda } from './descuento-vigente';
 import { CreatePromocionDto } from './dto/create-promocion.dto';
 import { UpdatePromocionDto } from './dto/update-promocion.dto';
 import { Categoria } from '../catalog/entities/categoria.entity';
@@ -86,6 +87,26 @@ export class PromotionsService {
       .andWhere('(p.fecha_fin IS NULL OR p.fecha_fin >= :hoy)', { hoy })
       .orderBy('p.porcentaje', 'DESC')
       .getMany();
+  }
+
+  /**
+   * Mayor % de descuento vigente de VARIAS prendas con una sola consulta (misma regla que
+   * findByProducto: promoción del producto, de su categoría o de la temporada de su colección).
+   * La usa el catálogo offline: antes se consultaba prenda por prenda y tardaba ~9 s con 18 prendas.
+   * Los productos deben venir con `categoria` y `coleccion.temporada` cargados.
+   */
+  async porcentajesVigentes(productos: Producto[]): Promise<Map<number, number>> {
+    const hoy = new Date();
+    const promos = await this.promocionRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.productos', 'prod')
+      .leftJoinAndSelect('p.categorias', 'cat')
+      .leftJoinAndSelect('p.temporadas', 'temp')
+      .where('p.estado = :estado', { estado: true })
+      .andWhere('(p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy)', { hoy })
+      .andWhere('(p.fecha_fin IS NULL OR p.fecha_fin >= :hoy)', { hoy })
+      .getMany();
+    return porcentajesPorPrenda(productos, promos);
   }
 
   async update(id: number, dto: UpdatePromocionDto) {

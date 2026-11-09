@@ -10,6 +10,7 @@ import { useCatalogosEmpresa, descontarStockLocal } from '../../offline/catalog'
 import { encolar } from '../../offline/queue'
 import { MAX_POR_PRENDA, agregarAlCarrito, cambiarCantidad, totalCarrito, useCarrito, vaciarCarrito } from '../../offline/carrito'
 import styles from './Offline.module.css'
+import { ProductImage } from '../../components/ui/ProductImage'
 import { formatMoney } from '../../utils/money'
 
 const hora = (iso: string) => new Date(iso).toLocaleString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -105,6 +106,7 @@ export default function OfflineStore() {
             {mensaje && <p className={styles.feedback} role="status">{mensaje}</p>}
             <div className={tienda?.pagoDiferido ? styles.conCarrito : undefined}>
             <div className={styles.grid}>{catalogo.productos.map(p => <article className={styles.card} key={p.idProducto}>
+              <div className={styles.foto}><ProductImage src={p.imagenUrl ?? undefined} name={p.nombre} /></div>
               <div><p>{p.categoria ?? 'Moda'}</p><h2>{p.nombre}</h2></div>
               <span className={styles.price}>{dinero(p.precioFinal)}</span>
               <div className={styles.variants}>{p.variantes.map(v => {

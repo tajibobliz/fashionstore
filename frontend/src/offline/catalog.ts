@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { syncApi } from '../api/sync.api'
 import { offlineDb } from './db'
 import type { CatalogoLocal } from './db'
+import { precargarImagenes } from '../utils/imagenPrenda'
 
 const clave = (idEmpresa: number, idSucursal: number) => `${idEmpresa}:${idSucursal}`
 
@@ -10,6 +11,8 @@ export async function descargarCatalogo(idEmpresa: number, idSucursal: number) {
   const data = await syncApi.catalogo(idSucursal)
   const registro: CatalogoLocal = { ...data, clave: clave(idEmpresa, idSucursal), idEmpresa, guardadoEn: new Date().toISOString() }
   await offlineDb.catalogos.put(registro)
+  // Fotos de las prendas a la caché del service worker, para verlas también sin conexión.
+  precargarImagenes(data.productos.map(p => p.imagenUrl))
   return registro
 }
 

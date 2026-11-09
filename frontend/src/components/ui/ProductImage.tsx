@@ -1,19 +1,10 @@
 import { useState } from 'react'
 import { Shirt } from 'lucide-react'
-import { api } from '../../api/axios'
+import { urlImagenPrenda } from '../../utils/imagenPrenda'
 
 export function ProductImage({ src, name }: { src?: string; name: string }) {
   const [failed, setFailed] = useState(false)
-  let imageUrl: string | undefined
-  try {
-    if (src) {
-      // Rutas relativas: /tryon/… son imágenes del propio frontend (public/tryon); el resto
-      // (p. ej. /uploads/…) las sirve el backend.
-      const base = src.startsWith('/tryon/') ? window.location.origin : api.defaults.baseURL
-      const url = new URL(src, base)
-      if (url.protocol === 'https:' || url.protocol === 'http:') imageUrl = url.href
-    }
-  } catch { /* Usar el icono cuando la URL no sea válida. */ }
+  const imageUrl = urlImagenPrenda(src)
   return <div className="product-image">{imageUrl && !failed
     ? <img src={imageUrl} alt={name} loading="lazy" onError={() => setFailed(true)} />
     : <Shirt size={52} strokeWidth={1} aria-label="Imagen de prenda no disponible" />}</div>

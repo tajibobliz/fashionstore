@@ -501,6 +501,14 @@ const detalle = manager.create(DetalleVenta, {
     return this.resolverPrecio(producto, 1, 'MINORISTA');
   }
 
+  /** Precio minorista vigente de varias prendas con una sola consulta de promociones (catálogo offline). */
+  async preciosVigentes(productos: Producto[]): Promise<Map<number, number>> {
+    const porcentajes = this.promotionsService ? await this.promotionsService.porcentajesVigentes(productos) : new Map<number, number>();
+    return new Map(
+      productos.map((p) => [p.idProducto, Number((Number(p.precio) * (1 - (porcentajes.get(p.idProducto) ?? 0) / 100)).toFixed(2))]),
+    );
+  }
+
   /** Turno indicado por el dispositivo: debe ser del mismo cajero y de esa sucursal (puede estar cerrado). */
   private async turnoDelCajero(actor: AuthenticatedUser, idTurno: number, idSucursal: number) {
     const turno = await this.dataSource.getRepository(TurnoCaja).findOne({ where: { idTurno } });

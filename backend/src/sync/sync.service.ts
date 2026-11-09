@@ -95,6 +95,8 @@ export class SyncService {
       .createQueryBuilder('v')
       .innerJoinAndSelect('v.producto', 'p')
       .leftJoinAndSelect('p.categoria', 'cat')
+      .leftJoinAndSelect('p.coleccion', 'col')
+      .leftJoinAndSelect('col.temporada', 'temp')
       .leftJoinAndSelect('v.talla', 't')
       .leftJoinAndSelect('v.color', 'c')
       .where('p.estado = true')
@@ -110,6 +112,8 @@ export class SyncService {
         stock.set(f.variante.idVariante, f.stockDisponible);
     }
 
+    // Precios con promoción de todas las prendas de una vez (antes: una consulta por prenda).
+    const precios = await this.sales.preciosVigentes([...new Map(variantes.map((v) => [v.producto.idProducto, v.producto])).values()]);
     const productos = new Map<number, any>();
     for (const v of variantes) {
       const p = v.producto;
@@ -120,7 +124,7 @@ export class SyncService {
           categoria: p.categoria?.nombre ?? null,
           imagenUrl: p.imagenUrl ?? null,
           precio: Number(p.precio),
-          precioFinal: await this.sales.precioVigente(p),
+          precioFinal: precios.get(p.idProducto) ?? Number(p.precio),
           variantes: [],
         });
       }

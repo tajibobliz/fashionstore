@@ -36,6 +36,20 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
+        // Fotos de las prendas (dummyjson, i.ibb.co, /uploads del backend, de cualquier tienda):
+        // se guardan al verlas o al descargar el catálogo offline, y se muestran sin conexión.
+        // CacheFirst: si ya está guardada no se vuelve a pedir. Status 0 = imagen de otro dominio (opaca).
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.destination === 'image',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fotos-prendas',
+              expiration: { maxEntries: 400, maxAgeSeconds: 30 * 24 * 60 * 60, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

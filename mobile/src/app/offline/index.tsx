@@ -10,6 +10,8 @@ import type { PrendaLocal, SucursalLocal } from "@/offline/catalog";
 import { encolar, alCambiarLaCola } from "@/offline/queue";
 import { sincronizarPronto } from "@/offline/sync";
 import { useFormatMoney } from "@/lib/moneda";
+import { Image as ExpoImage } from "expo-image";
+import { urlImagen } from "@/lib/imagen";
 
 const fecha = (iso: string) =>
   new Date(iso).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -137,7 +139,8 @@ export default function OfflineCatalogScreen() {
           </ScrollView>
 
           {prendas.map((p) => (
-            <View key={p.idProducto} className="mb-3 rounded-2xl border border-gray-100 bg-white p-4">
+            <View key={p.idProducto} className="mb-3 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4">
+              <FotoOffline ruta={p.imagenUrl} nombre={p.nombre} />
               {p.categoria && <Text className="text-xs uppercase tracking-wider text-gray-500">{p.categoria}</Text>}
               <Text className="mt-0.5 text-base font-bold text-gray-900">{p.nombre}</Text>
               <Text className="mt-1 font-bold text-primary-500">{fmt(p.precioFinal)}</Text>
@@ -164,3 +167,22 @@ export default function OfflineCatalogScreen() {
     </View>
   );
 }
+
+/**
+ * Foto de la prenda sin conexión: se lee de la caché de disco de expo-image (se descargó al guardar
+ * el catálogo). Si no está o no hay foto, un recuadro con la inicial.
+ */
+function FotoOffline({ ruta, nombre }: { ruta: string | null; nombre: string }) {
+  const [falla, setFalla] = useState(false);
+  const uri = urlImagen(ruta);
+  return (
+    <View className="-mx-4 -mt-4 mb-3 h-44 items-center justify-center border-b border-gray-100 bg-white">
+      {uri && !falla ? (
+        <ExpoImage source={{ uri }} cachePolicy="disk" contentFit="contain" style={{ width: "100%", height: "100%" }} onError={() => setFalla(true)} accessibilityLabel={nombre} />
+      ) : (
+        <Text className="text-5xl font-bold italic text-primary-200">{nombre.charAt(0)}</Text>
+      )}
+    </View>
+  );
+}
+
