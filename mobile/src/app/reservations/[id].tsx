@@ -15,6 +15,7 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { reservationsService } from "@/services/reservations.service";
 import { Reservation, EstadoReserva } from "@/types/reservation.types";
+import { urlImagen } from "@/lib/imagen";
 
 type EstadoConfig = {
   label: string;
@@ -245,7 +246,7 @@ export default function ReservationDetailScreen() {
             >
               {d.variante.producto.imagenUrl ? (
                 <Image
-                  source={{ uri: d.variante.producto.imagenUrl }}
+                  source={{ uri: urlImagen(d.variante.producto.imagenUrl) }}
                   className="h-16 w-14 rounded-lg bg-gray-100"
                   resizeMode="cover"
                 />
@@ -284,4 +285,4 @@ export default function ReservationDetailScreen() {
       </ScrollView>
     </View>
   );
-}
+}

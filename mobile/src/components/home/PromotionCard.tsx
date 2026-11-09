@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Promocion } from "@/types/promotion.types";
 import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 const CARD_WIDTH = 220;
 
@@ -102,7 +103,7 @@ function PromotionProductsModal({
                   className="mb-3 flex-row items-center rounded-xl bg-gray-50 p-2"
                 >
                   {item.imagenUrl ? (
-                    <Image source={{ uri: item.imagenUrl }} className="h-14 w-14 rounded-lg bg-gray-100" resizeMode="cover" />
+                    <Image source={{ uri: urlImagen(item.imagenUrl) }} className="h-14 w-14 rounded-lg bg-gray-100" resizeMode="cover" />
                   ) : (
                     <View className="h-14 w-14 items-center justify-center rounded-lg bg-gray-100">
                       <Ionicons name="shirt-outline" size={22} color="#9ca3af" />

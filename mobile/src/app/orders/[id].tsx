@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { salesService } from "@/services/sales.service";
 import { Sale, EstadoVenta } from "@/types/checkout.types";
 import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 type EstadoConfig = {
   label: string;
@@ -212,7 +213,7 @@ export default function OrderDetailScreen() {
             >
               {d.variante.producto.imagenUrl ? (
                 <Image
-                  source={{ uri: d.variante.producto.imagenUrl }}
+                  source={{ uri: urlImagen(d.variante.producto.imagenUrl) }}
                   className="h-16 w-14 rounded-lg bg-gray-100"
                   resizeMode="cover"
                 />

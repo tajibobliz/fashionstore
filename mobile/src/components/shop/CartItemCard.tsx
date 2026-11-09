@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CartItem } from "@/types/cart.types";
 import { useCartStore } from "@/stores/cartStore";
 import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 interface Props {
   item: CartItem;
@@ -19,7 +20,7 @@ export function CartItemCard({ item }: Props) {
       {/* Imagen */}
       {item.imagenUrl ? (
         <Image
-          source={{ uri: item.imagenUrl }}
+          source={{ uri: urlImagen(item.imagenUrl) }}
           className="h-24 w-20 rounded-lg bg-gray-100"
           resizeMode="cover"
         />

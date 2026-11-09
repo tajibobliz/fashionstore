@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { aiService } from "@/services/ai.service";
+import { useMonedaStore } from "@/lib/moneda";
 
 interface Message {
   id: string;
@@ -24,18 +25,18 @@ interface Message {
 let messageCounter = 0;
 const nextId = () => `msg-${Date.now()}-${messageCounter++}`;
 
-const WELCOME: Message = {
+const bienvenida = (tienda: string): Message => ({
   id: "welcome",
   role: "assistant",
-  content:
-    "¡Hola! Soy el asistente de FashionStore. Puedo recomendarte productos y responder tus dudas. ¿En qué te ayudo?",
-};
+  content: `¡Hola! Soy el asistente de ${tienda}. Puedo recomendarte productos y responder tus dudas. ¿En qué te ayudo?`,
+});
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
+  const nombreTienda = useMonedaStore((s) => s.nombre) ?? "FashionStore";
   const router = useRouter();
   const listRef = useRef<FlatList<Message>>(null);
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
+  const [messages, setMessages] = useState<Message[]>(() => [bienvenida(nombreTienda)]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -79,7 +80,7 @@ export default function ChatScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} aria-label="Volver al catálogo">
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </Pressable>
-        <Text className="text-lg font-semibold text-gray-900">Asistente FashionStore</Text>
+        <Text className="text-lg font-semibold text-gray-900">Asistente {nombreTienda}</Text>
         <View style={{ width: 24 }} />
       </View>
 

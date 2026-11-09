@@ -7,9 +7,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { catalogService } from "@/services/catalog.service";
 import { arService } from "@/services/ar.service";
-import { API_URL } from "@/config/env";
 import { Producto } from "@/types/catalog.types";
-import { IMAGENES_TRYON, VESTIDOR_SCRIPT } from "@/features/tryon/vestidorWeb.generated";
+import { VESTIDOR_SCRIPT } from "@/features/tryon/vestidorWeb.generated";
+import { urlImagen } from "@/lib/imagen";
 
 /**
  * Vestidor virtual con la cámara (lentes, gorra o polera), igual al de la web: corre el MISMO código
@@ -34,12 +34,6 @@ const AYUDA: Record<string, string> = {
   polera: "Aléjate 1 a 2 metros para que se vean tus hombros y tu cintura.",
 };
 
-/** /tryon/… → imagen incluida en la app; https://… → tal cual; otra ruta (/uploads/…) → del backend. */
-function urlDeImagen(ruta: string) {
-  if (IMAGENES_TRYON[ruta]) return IMAGENES_TRYON[ruta];
-  if (/^(https?:|data:)/i.test(ruta)) return ruta;
-  return new URL(ruta, API_URL).toString();
-}
 
 const html = (tipo: string, imagen: string) => `<!DOCTYPE html>
 <html><head>
@@ -94,7 +88,7 @@ export default function VestidorCamaraScreen() {
   }, [intento]);
 
   const pagina = useMemo(
-    () => (producto?.tipoTryOn && producto.imagenTryOn ? html(producto.tipoTryOn, urlDeImagen(producto.imagenTryOn)) : null),
+    () => (producto?.tipoTryOn && producto.imagenTryOn ? html(producto.tipoTryOn, urlImagen(producto.imagenTryOn)!) : null),
     [producto],
   );
 

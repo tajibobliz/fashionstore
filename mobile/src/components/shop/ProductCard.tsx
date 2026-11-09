@@ -2,6 +2,7 @@ import { View, Text, Image, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Producto } from "@/types/catalog.types";
 import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 // Imagen genérica cuando el producto no tiene foto
 const PLACEHOLDER_IMAGE =
@@ -34,7 +35,7 @@ export function ProductCard({ producto }: Props) {
       }}
     >
       <Image
-        source={{ uri: producto.imagenUrl ?? PLACEHOLDER_IMAGE }}
+        source={{ uri: urlImagen(producto.imagenUrl) ?? PLACEHOLDER_IMAGE }}
         className="h-48 w-full bg-gray-100"
         resizeMode="cover"
       />

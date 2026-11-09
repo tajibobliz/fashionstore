@@ -26,6 +26,7 @@ import { encolar } from "@/offline/queue";
 import { descontarStockLocal } from "@/offline/catalog";
 import { sincronizarPronto } from "@/offline/sync";
 import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 const PLACEHOLDER_IMAGE =
   "https://placehold.co/600x800/f3f4f6/9ca3af?text=Sin+imagen";
@@ -227,7 +228,7 @@ export default function ProductDetailScreen() {
         <View className="relative">
           {producto.imagenUrl ? (
           <Image
-           source={{ uri: producto.imagenUrl }}
+           source={{ uri: urlImagen(producto.imagenUrl) }}
            className="h-96 w-full bg-gray-100"
            resizeMode="cover"
            />

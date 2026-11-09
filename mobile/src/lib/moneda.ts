@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { api } from "@/services/api";
 
 /**
- * Montos en la moneda de la TIENDA (empresa del SaaS), igual que la web
+ * Moneda y nombre de la TIENDA (empresa del SaaS). Montos en su moneda, igual que la web
  * (frontend/src/utils/money.ts): Urban Step puede vender en USD y FashionStore en Bs.
  *
  * La moneda se lee de `/saas/tiendas/:slug` al abrir la app y al iniciar sesión, y se guarda en el
@@ -30,10 +30,13 @@ export const MONEDAS: Moneda[] = [
 
 const POR_DEFECTO = "BOB";
 const KEY = "tienda_moneda";
+const KEY_NOMBRE = "tienda_nombre";
 const valida = (codigo?: string | null) => (MONEDAS.some((m) => m.codigo === codigo) ? codigo! : POR_DEFECTO);
 
 interface MonedaState {
   codigo: string;
+  /** Nombre de la tienda de la cuenta (p. ej. "Urban Step"); null = aún no se conoce. */
+  nombre: string | null;
   /** Lee la moneda guardada en el teléfono (sirve sin conexión). */
   cargar: () => Promise<void>;
   /** Consulta la moneda de la tienda en el backend; si no hay red, se queda la guardada. */
@@ -42,16 +45,23 @@ interface MonedaState {
 
 export const useMonedaStore = create<MonedaState>((set) => ({
   codigo: POR_DEFECTO,
+  nombre: null,
   cargar: async () => {
-    const guardada = await SecureStore.getItemAsync(KEY).catch(() => null);
+    const [guardada, nombre] = await Promise.all([
+      SecureStore.getItemAsync(KEY).catch(() => null),
+      SecureStore.getItemAsync(KEY_NOMBRE).catch(() => null),
+    ]);
     if (guardada) set({ codigo: valida(guardada) });
+    if (nombre) set({ nombre });
   },
   actualizar: async (slug) => {
     try {
-      const { data } = await api.get<{ moneda?: string }>(`/saas/tiendas/${slug || "fashionstore"}`);
+      const { data } = await api.get<{ moneda?: string; nombre?: string }>(`/saas/tiendas/${slug || "fashionstore"}`);
       const codigo = valida(data?.moneda);
-      set({ codigo });
+      const nombre = data?.nombre?.trim() || null;
+      set({ codigo, nombre });
       await SecureStore.setItemAsync(KEY, codigo);
+      if (nombre) await SecureStore.setItemAsync(KEY_NOMBRE, nombre);
     } catch {
       // Sin conexión o tienda no encontrada: se mantiene la última moneda conocida.
     }
