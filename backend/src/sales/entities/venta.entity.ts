@@ -1,5 +1,7 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -7,6 +9,7 @@ import {
   JoinColumn,
   OneToMany,
   CreateDateColumn,
+  Unique,
 } from 'typeorm';
 import { Usuario } from '../../users/entities/user.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
@@ -25,7 +28,11 @@ export type EstadoVenta =
   | 'DEVUELTA';
 
 @Entity('venta')
-export class Venta {
+@Index('IDX_venta_pago_diferido_vence', ['pagoVenceEn'], {
+  where: `"pago_diferido" AND "estado" = 'PENDIENTE'`,
+})
+@Unique('UQ_venta_empresa_comprobante', ['idEmpresa', 'numeroComprobante'])
+export class Venta extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_venta' })
   idVenta: number;
 
@@ -45,7 +52,7 @@ export class Venta {
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   total: number;
 
-  @Column({ name: 'numero_comprobante', length: 50, unique: true, nullable: true })
+  @Column({ name: 'numero_comprobante', length: 50, nullable: true })
   numeroComprobante: string;
 
   @Column({ length: 30, default: 'PENDIENTE' })
@@ -80,4 +87,27 @@ export class Venta {
   @ManyToOne(() => TurnoCaja, { eager: true, nullable: true })
   @JoinColumn({ name: 'id_turno' })
   turno: Relation<TurnoCaja> | null;
+
+  /**
+   * Pedido hecho sin conexión con pago diferido (CU16, plan Empresarial): la clienta lo paga
+   * al volver la red, antes de `pagoVenceEn`; si no, se cancela solo.
+   */
+  @Column({ name: 'pago_diferido', default: false })
+  pagoDiferido: boolean;
+
+  @Column({ name: 'pago_vence_en', type: 'timestamptz', nullable: true })
+  pagoVenceEn: Date | null;
+
+  /**
+   * Total que vio la clienta sin conexión. Si el servidor cobra otro (cambió el precio),
+   * debe aceptar el nuevo total antes de pagar; al aceptarlo se iguala a `total`.
+   */
+  @Column({
+    name: 'total_estimado',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  totalEstimado: number | null;
 }

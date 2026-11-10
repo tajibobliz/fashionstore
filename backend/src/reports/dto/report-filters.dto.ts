@@ -47,3 +47,14 @@ export class TurnReportFiltersDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 20;
 }
+
+/** Filtros del dashboard de KPIs (CU12). */
+export class KpisQueryDto {
+  @ApiPropertyOptional({ description: 'Una sucursal (debe estar asignada al usuario)' })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  idSucursal?: number;
+
+  @ApiPropertyOptional({ default: 30, minimum: 7, maximum: 365, description: 'Ventana en días para tendencia, devoluciones, cambios y top' })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(7) @Max(365)
+  dias = 30;
+}

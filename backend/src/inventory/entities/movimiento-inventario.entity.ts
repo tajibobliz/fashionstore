@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,10 +15,17 @@ export type TipoMovimiento =
   | 'LIBERACION_RESERVA'
   | 'VENTA'
   | 'DEVOLUCION'
-  | 'AJUSTE';
+  | 'AJUSTE'
+  /** Cambio de prendas: vuelve la prenda original / sale la prenda nueva. */
+  | 'CAMBIO_ENTRADA'
+  | 'CAMBIO_SALIDA'
+  /** Traspaso entre sucursales (CU14): sale del origen / entra al destino / vuelve al origen si se cancela. */
+  | 'TRASPASO_SALIDA'
+  | 'TRASPASO_ENTRADA'
+  | 'TRASPASO_REVERSA';
 
 @Entity('movimiento_inventario')
-export class MovimientoInventario {
+export class MovimientoInventario extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_movimiento' })
   idMovimiento: number;
 

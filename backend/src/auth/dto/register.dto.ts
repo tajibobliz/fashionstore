@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -30,4 +31,11 @@ export class RegisterDto {
   @IsString()
   @MaxLength(30)
   telefono?: string;
-}
+
+  /** Slug de la empresa en cuya tienda se registra el cliente. Si falta: header `X-Tenant` o empresa por defecto. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  @Matches(/^[a-z0-9-]+$/, { message: 'El identificador de empresa no es válido' })
+  empresa?: string;
+}

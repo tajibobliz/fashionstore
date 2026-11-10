@@ -70,6 +70,7 @@ export interface Producto {
   imagenCatalogoUrl?: string | null;
   imagenVestidorUrl?: string | null;
   tipoPrendaVestidor?: 'GORRA' | 'CAMISA' | 'BLUSA' | 'TOP' | 'VESTIDO' | 'FALDA' | 'PANTALON' | 'CARTERA' | 'OTRO' | null;
+  tipoTryOn?: "lentes" | "gorra" | "polera" | null;
   imagenTryOn?: string | null;
   recursoRaUrl: string | null;
   estado: boolean;

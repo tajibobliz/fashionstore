@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -21,6 +22,12 @@ import { WarehousesModule } from './warehouses/warehouses.module';
 import { PosModule } from './pos/pos.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { TenancyModule } from './tenancy/tenancy.module';
+import { SyncModule } from './sync/sync.module';
+import { ExchangesModule } from './exchanges/exchanges.module';
+import { MlModule } from './ml/ml.module';
+import { TransfersModule } from './transfers/transfers.module';
+import { BillingModule } from './billing/billing.module';
 import { databaseSsl, validateEnvironment } from './config/environment';
 
 @Module({
@@ -30,6 +37,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
       envFilePath: '.env',
       validate: validateEnvironment,
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -51,6 +59,7 @@ import { databaseSsl, validateEnvironment } from './config/environment';
             : false,
       }),
     }),
+    TenancyModule,
     UsersModule,
     AuthModule,
     BranchesModule,
@@ -69,6 +78,11 @@ import { databaseSsl, validateEnvironment } from './config/environment';
     PosModule,
     NotificationsModule,
     UploadsModule,
+    SyncModule,
+    ExchangesModule,
+    MlModule,
+    TransfersModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,13 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
+import { tienda, slugDeTienda } from "@/config/tienda";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const register = useAuthStore((state) => state.register);
 
+  const [codigoTienda, setCodigoTienda] = useState("");
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +31,11 @@ export default function RegisterScreen() {
     confirmPassword?: string;
   }>({});
   const [loading, setLoading] = useState(false);
+
+  // La cuenta se crea en la tienda elegida (SaaS: las clientas son de cada empresa).
+  useEffect(() => {
+    tienda.cargar().then((slug) => { if (slug && slug !== "fashionstore") setCodigoTienda(slug); });
+  }, []);
 
   // Validación en el cliente antes de llamar al backend
   const validate = () => {
@@ -70,6 +77,7 @@ export default function RegisterScreen() {
         nombre: nombre.trim(),
         email: email.trim().toLowerCase(),
         password,
+        ...(slugDeTienda(codigoTienda) ? { empresa: slugDeTienda(codigoTienda) } : {}),
       });
       // No navegamos: el _layout detecta isAuthenticated y redirige
     } catch (e) {
@@ -102,6 +110,15 @@ export default function RegisterScreen() {
         <Text className="mb-8 mt-2 text-base text-gray-500">
           Crea tu cuenta para comprar y guardar tus favoritos
         </Text>
+
+        <Input
+          label="Tienda (opcional)"
+          placeholder="Ej. urban-step · vacío = FashionStore"
+          value={codigoTienda}
+          onChangeText={setCodigoTienda}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
         <Input
           label="Nombre"
@@ -158,4 +175,4 @@ export default function RegisterScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+}

@@ -1,3 +1,4 @@
+import { unidadesProcesadas } from '../exchanges/unidades-procesadas';
 import {
   Injectable,
   NotFoundException,
@@ -72,6 +73,8 @@ export class ReturnsService {
         devueltoAnterior.map((item) => [Number(item.idDetalleVenta), Number(item.cantidad)]),
       );
       const totalAnterior = [...acumulados.values()].reduce((sum, value) => sum + value, 0);
+      // Las unidades ya cambiadas por otra prenda (Fase 2, cambios) tampoco se pueden devolver.
+      const { cambiadas } = await unidadesProcesadas(manager, venta.idVenta);
 
       // Procesar cada item a devolver
       for (const item of this.agruparDetalles(dto.detalles)) {
@@ -95,9 +98,11 @@ export class ReturnsService {
         }
 
         const yaDevuelto = acumulados.get(item.idDetalleVenta) ?? 0;
-        if (item.cantidad > detalleVenta.cantidad - yaDevuelto) {
+        const yaCambiado = cambiadas.get(item.idDetalleVenta) ?? 0;
+        if (item.cantidad > detalleVenta.cantidad - yaDevuelto - yaCambiado) {
           throw new BadRequestException(
-            `La cantidad supera las unidades pendientes de devolución para el detalle ${item.idDetalleVenta}`,
+            `La cantidad supera las unidades pendientes de devolución para el detalle ${item.idDetalleVenta}` +
+              (yaCambiado ? ` (${yaCambiado} ya se cambiaron por otra prenda)` : ''),
           );
         }
 

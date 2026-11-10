@@ -12,14 +12,16 @@ import { Talla } from './talla.entity';
 import { Color } from './color.entity';
 import { ImagenVariante } from './imagen-variante.entity';
 import { OneToMany } from 'typeorm';
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 
 @Entity('variante_producto')
+@Unique('UQ_variante_empresa_sku', ['idEmpresa', 'sku'])
 @Unique(['producto', 'talla', 'color'])
-export class VarianteProducto {
+export class VarianteProducto extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_variante' })
   idVariante: number;
 
-  @Column({ length: 80, unique: true })
+  @Column({ length: 80 })
   sku: string;
 
   @Column({ name: 'imagen_vestidor_url', type: 'varchar', length: 500, nullable: true })

@@ -1,12 +1,14 @@
 import { Image, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Producto } from "@/types/catalog.types";
+import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 const CARD_WIDTH = 160;
 
 export function ProductCardMini({ producto }: { producto: Producto }) {
+  const fmt = useFormatMoney();
   const router = useRouter();
-  const precio = Number(producto.precio).toFixed(2);
 
   return (
     <Pressable
@@ -22,7 +24,7 @@ export function ProductCardMini({ producto }: { producto: Producto }) {
       }}
     >
       <Image
-        source={{ uri: producto.imagenUrl! }}
+        source={{ uri: urlImagen(producto.imagenUrl) }}
         style={{ width: CARD_WIDTH, height: CARD_WIDTH }}
         className="bg-gray-100"
         resizeMode="cover"
@@ -31,7 +33,7 @@ export function ProductCardMini({ producto }: { producto: Producto }) {
         <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
           {producto.nombre}
         </Text>
-        <Text className="mt-1 text-base font-bold text-primary-500">Bs {precio}</Text>
+        <Text className="mt-1 text-base font-bold text-primary-500">{fmt(producto.precio)}</Text>
       </View>
     </Pressable>
   );

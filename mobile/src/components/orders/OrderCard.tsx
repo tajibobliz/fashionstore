@@ -2,6 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Sale, EstadoVenta } from "@/types/checkout.types";
+import { useFormatMoney } from "@/lib/moneda";
 
 interface Props {
   sale: Sale;
@@ -42,6 +43,7 @@ const ESTADO_CONFIG: Record<EstadoVenta, EstadoConfig> = {
 };
 
 export function OrderCard({ sale }: Props) {
+  const fmt = useFormatMoney();
   const router = useRouter();
   const config = ESTADO_CONFIG[sale.estado];
 
@@ -87,7 +89,7 @@ export function OrderCard({ sale }: Props) {
           </Text>
         </View>
         <Text className="text-lg font-bold text-primary-500">
-          Bs {Number(sale.total).toFixed(2)}
+          {fmt(sale.total)}
         </Text>
       </View>
 
@@ -106,4 +108,4 @@ export function OrderCard({ sale }: Props) {
       </View>
     </Pressable>
   );
-}
+}

@@ -15,6 +15,7 @@ import { getApiErrorMessage } from '../../utils/apiError'
 import { resolveImageUrl } from '../../utils/imageUrl'
 import dashboardStyles from '../dashboard/Dashboard.module.css'
 import styles from './CatalogManagement.module.css'
+import { formatMoney } from '../../utils/money'
 
 export default function CatalogManagement() {
   const { user } = useAuth()
@@ -221,7 +222,7 @@ function validImageUrl(value: string, format: 'catalog' | 'transparent') {
 }
 function optional(data: FormData, key: string) { const value = String(data.get(key) ?? '').trim(); return value || undefined }
 function optionalNumber(data: FormData, key: string) { const value = String(data.get(key) ?? '').trim(); return value ? Number(value) : undefined }
-function money(value: number | string | null | undefined) { const number = Number(value); return value !== null && value !== undefined && Number.isFinite(number) ? `Bs ${number.toFixed(2)}` : '—' }
+function money(value: number | string | null | undefined) { const number = Number(value); return value !== null && value !== undefined && Number.isFinite(number) ? formatMoney(number) : '—' }
 function matchesSearch(search: string, ...values: (string | null | undefined)[]) { const term = normalizeSearch(search); return !term || values.some(value => normalizeSearch(value ?? '').includes(term)) }
 function normalizeSearch(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim() }
 function uniqueBranches(items: import('../../types/branch').Sucursal[]) { return [...new Map(items.map(item => [item.idSucursal,item])).values()] }

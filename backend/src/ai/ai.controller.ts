@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { Public } from '../auth/decorators/public.decorator';
+import { RequiresFeature } from '../tenancy/plan.decorators';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -79,7 +80,8 @@ export class AiController {
   // Reporte por voz para admin/encargado (Claude)
 @Post('reporte-voz')
 @Roles(Role.ADMIN, Role.ENCARGADO)
+@RequiresFeature('aiReports') // reportes generativos con IA: solo planes que lo incluyen
 reporteVoz(@Body() dto: ConsultaChatDto) {
   return this.service.reporteVoz(dto.consulta);
 }
-}
+}

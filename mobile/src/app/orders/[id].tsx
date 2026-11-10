@@ -7,13 +7,15 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
-import { AuthenticatedHeader } from "@/components/layout/AuthenticatedHeader";
 import { salesService } from "@/services/sales.service";
 import { Sale, EstadoVenta } from "@/types/checkout.types";
+import { useFormatMoney } from "@/lib/moneda";
+import { urlImagen } from "@/lib/imagen";
 
 type EstadoConfig = {
   label: string;
@@ -56,6 +58,8 @@ const ESTADO_CONFIG: Record<EstadoVenta, EstadoConfig> = {
 };
 
 export default function OrderDetailScreen() {
+  const insets = useSafeAreaInsets();
+  const fmt = useFormatMoney();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -117,7 +121,17 @@ export default function OrderDetailScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <AuthenticatedHeader title={`Pedido #${order.idVenta}`} />
+      <View
+        className="flex-row items-center bg-white px-4 pb-3 pt-2"
+        style={{ paddingTop: insets.top + 8 }}
+      >
+        <Pressable onPress={() => router.back()} className="mr-3">
+          <Ionicons name="arrow-back" size={26} color="#111827" />
+        </Pressable>
+        <Text className="text-xl font-bold text-gray-900">
+          Pedido #{order.idVenta}
+        </Text>
+      </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="mt-3 bg-white px-5 py-4">
@@ -140,10 +154,14 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
           {order.estado === "PENDIENTE" && (
-            <Text className="mt-3 text-sm text-gray-600">
-              Acércate a la sucursal para completar el pago y retirar tu compra.
-              Muestra este número al cajero.
-            </Text>
+            <View className="mt-3">
+              <Text className="text-sm text-gray-600">
+                Tu pedido espera el pago. Elige cómo pagarlo o revisa el pago que ya registraste.
+              </Text>
+              <View className="mt-3">
+                <Button title="Pagar o ver mi pago" onPress={() => router.push(`/pagar/${order.idVenta}` as any)} />
+              </View>
+            </View>
           )}
         </View>
 
@@ -195,7 +213,7 @@ export default function OrderDetailScreen() {
             >
               {d.variante.producto.imagenUrl ? (
                 <Image
-                  source={{ uri: d.variante.producto.imagenUrl }}
+                  source={{ uri: urlImagen(d.variante.producto.imagenUrl) }}
                   className="h-16 w-14 rounded-lg bg-gray-100"
                   resizeMode="cover"
                 />
@@ -220,10 +238,10 @@ export default function OrderDetailScreen() {
                 </View>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-xs text-gray-500">
-                    Bs {Number(d.precioUnitario).toFixed(2)} c/u
+                    {fmt(d.precioUnitario)} c/u
                   </Text>
                   <Text className="text-sm font-bold text-gray-900">
-                    Bs {Number(d.subtotal).toFixed(2)}
+                    {fmt(d.subtotal)}
                   </Text>
                 </View>
               </View>
@@ -243,11 +261,11 @@ export default function OrderDetailScreen() {
           <View className="mt-2 flex-row justify-between border-t border-gray-100 pt-3">
             <Text className="text-lg font-bold text-gray-900">Total</Text>
             <Text className="text-lg font-bold text-primary-500">
-              Bs {Number(order.total).toFixed(2)}
+              {fmt(order.total)}
             </Text>
           </View>
         </View>
       </ScrollView>
     </View>
   );
-}
+}

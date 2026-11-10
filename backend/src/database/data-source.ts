@@ -3,5 +3,7 @@ import { DataSource } from 'typeorm';
 export default new DataSource({
   type: 'postgres', host: process.env.DB_HOST, port: Number(process.env.DB_PORT ?? 5432),
   username: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
+  // Igual que el backend (config/environment.ts → databaseSsl): Neon y otras nubes exigen SSL.
+  ssl: String(process.env.DB_SSL).toLowerCase() === 'true' ? { rejectUnauthorized: true } : false,
   entities: ['src/**/*.entity.ts'], migrations: ['src/migrations/*.ts'], synchronize: false,
 });

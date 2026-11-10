@@ -1,13 +1,18 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Role } from '../auth/enums/role.enum';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { TenantContext } from '../tenancy/tenant-context';
+import { TenantResolverService } from '../tenancy/tenant-resolver.service';
+import { PlanService } from '../tenancy/plan.service';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from './entities/user.entity';
 import { Rol } from './entities/rol.entity';
 import { UsuarioSucursal } from './entities/usuario-sucursal.entity';
 import { Sucursal } from '../branches/entities/sucursal.entity';
+import { RefreshSession } from '../auth/entities/refresh-session.entity';
+import { olvidarEstado } from './usuarios-activos';
 
 @Injectable()
 export class UsersService {
@@ -44,11 +49,13 @@ export class UsersService {
     private readonly rolRepo: Repository<Rol>,
     @InjectRepository(UsuarioSucursal) private readonly usuarioSucursalRepo: Repository<UsuarioSucursal>,
     @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
+    private readonly tenants?: TenantResolverService,
+    private readonly plans?: PlanService,
   ) {}
 
-  // Busca un usuario por email (usado para login)
-  async findByEmail(email: string): Promise<Usuario | null> {
-    return this.usuarioRepo.findOne({ where: { email } });
+  /** Busca un usuario por email dentro de una empresa (`null` = usuarios de plataforma). */
+  async findByEmail(email: string, idEmpresa: number | null): Promise<Usuario | null> {
+    return this.usuarioRepo.findOne({ where: { email, idEmpresa: idEmpresa ?? IsNull() } });
   }
 
   async updatePushToken(idUsuario: number, token: string) {
@@ -57,24 +64,29 @@ export class UsersService {
   }
 
   // Solo autenticación necesita cargar el hash, oculto por defecto en la entidad.
-  async findByEmailWithPassword(email: string): Promise<Usuario | null> {
-    return this.usuarioRepo
+  async findByEmailWithPassword(email: string, idEmpresa: number | null): Promise<Usuario | null> {
+    const qb = this.usuarioRepo
       .createQueryBuilder('usuario')
       .addSelect('usuario.passwordHash')
       .leftJoinAndSelect('usuario.rol', 'rol')
-      .where('usuario.email = :email', { email })
-      .getOne();
+      .leftJoinAndSelect('usuario.empresa', 'empresa')
+      .where('usuario.email = :email', { email });
+    if (idEmpresa == null) qb.andWhere('usuario.id_empresa IS NULL');
+    else qb.andWhere('usuario.id_empresa = :idEmpresa', { idEmpresa });
+    return qb.getOne();
   }
 
   // Busca un usuario por id
   async findById(id: number): Promise<Usuario> {
-    const user = await this.usuarioRepo.findOne({ where: { idUsuario: id } });
+    const user = await this.usuarioRepo.findOne({ where: { idUsuario: id }, relations: { empresa: true } });
     if (!user) throw new NotFoundException(`Usuario ${id} no encontrado`);
     return user;
   }
 
   // Crea un nuevo usuario con contraseña encriptada
   async create(data: {
+    /** Empresa del usuario. Si falta: la del request (TenantContext) o la empresa por defecto. */
+    idEmpresa?: number | null;
     nombre: string;
     apellido?: string;
     email: string;
@@ -82,14 +94,25 @@ export class UsersService {
     telefono?: string;
     rolNombre?: string;
   }): Promise<Usuario> {
-    // Verificar que el email no exista
-    const existe = await this.findByEmail(data.email);
-    if (existe) throw new ConflictException('El email ya está registrado');
-
     // Buscar el rol (por defecto CLIENTE)
     const rolNombre = data.rolNombre || 'CLIENTE';
+
+    // Empresa: la indicada, la del request o la por defecto. SUPER_ADMIN no tiene empresa.
+    const idEmpresa =
+      data.idEmpresa !== undefined
+        ? data.idEmpresa
+        : (TenantContext.currentTenantId() ??
+          (rolNombre === Role.SUPER_ADMIN ? null : ((await this.tenants?.defaultTenantId()) ?? null)));
+
+    // El email debe ser único dentro de la empresa.
+    const existe = await this.findByEmail(data.email, idEmpresa);
+    if (existe) throw new ConflictException('El email ya está registrado');
+
     const rol = await this.rolRepo.findOne({ where: { nombre: rolNombre } });
     if (!rol) throw new NotFoundException(`Rol ${rolNombre} no encontrado`);
+
+    // Los empleados (todo rol que no sea CLIENTE) cuentan para el límite del plan.
+    if (idEmpresa != null && rolNombre !== Role.CLIENTE) await this.plans?.asegurarCupo(idEmpresa, 'usuarios');
 
     // Encriptar la contraseña
     const passwordHash = await bcrypt.hash(data.password, 10);
@@ -102,9 +125,33 @@ export class UsersService {
       passwordHash,
       telefono: data.telefono,
       rol,
+      idEmpresa,
     });
 
     return this.usuarioRepo.save(nuevo);
+  }
+
+  /**
+   * Activa o desactiva a un usuario de la empresa (ADMIN). Al desactivarlo:
+   * - no puede iniciar sesión ni renovar su token (se borran sus sesiones de refresco);
+   * - su token actual deja de servir en segundos (JwtStrategy consulta el estado);
+   * - al volver la red, la app borra su acceso sin conexión con PIN (CU17).
+   * No se puede desactivar a uno mismo ni dejar a la empresa sin ningún ADMIN activo.
+   */
+  async cambiarEstado(idActor: number, idUsuario: number, estado: boolean) {
+    const usuario = await this.findById(idUsuario);
+    if (usuario.idUsuario === idActor) throw new BadRequestException('No puedes desactivar tu propio usuario');
+    if (usuario.rol?.nombre === Role.SUPER_ADMIN) throw new ForbiddenException('No puedes modificar a un usuario de la plataforma');
+    if (!estado && usuario.estado && usuario.rol?.nombre === Role.ADMIN) {
+      const admins = await this.usuarioRepo.count({ where: { estado: true, idEmpresa: usuario.idEmpresa ?? IsNull(), rol: { nombre: Role.ADMIN } } });
+      if (admins <= 1) throw new BadRequestException('La empresa debe tener al menos un administrador activo');
+    }
+    if (usuario.estado === estado) return usuario;
+    usuario.estado = estado;
+    const guardado = await this.usuarioRepo.save(usuario);
+    if (!estado) await this.usuarioRepo.manager.delete(RefreshSession, { userId: idUsuario });
+    olvidarEstado(idUsuario);
+    return guardado;
   }
 
   // Devuelve todos los usuarios (para el CRUD del admin)

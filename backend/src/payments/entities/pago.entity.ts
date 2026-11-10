@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -12,7 +13,7 @@ export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'QR' | 'TRANSFERENCIA' | 'CONT
 export type EstadoPago = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'ANULADO';
 
 @Entity('pago')
-export class Pago {
+export class Pago extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_pago' })
   idPago: number;
 

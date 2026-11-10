@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
   Entity,
@@ -15,7 +16,7 @@ import { Sucursal } from '../../branches/entities/sucursal.entity';
 export type EstadoCarrito = 'ACTIVO' | 'CONVERTIDO' | 'ABANDONADO' | 'CANCELADO';
 
 @Entity('carrito')
-export class Carrito {
+export class Carrito extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_carrito' })
   idCarrito: number;
 

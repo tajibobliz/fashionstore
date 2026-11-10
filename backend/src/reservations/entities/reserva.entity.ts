@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
   Entity,
@@ -7,6 +8,7 @@ import {
   JoinColumn,
   OneToMany,
   CreateDateColumn,
+  Unique,
 } from 'typeorm';
 import { Usuario } from '../../users/entities/user.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
@@ -16,11 +18,12 @@ import { Almacen } from '../../warehouses/entities/almacen.entity';
 export type EstadoReserva = 'PENDIENTE' | 'PREPARADA' | 'ATENDIDA' | 'CANCELADA';
 
 @Entity('reserva')
-export class Reserva {
+@Unique('UQ_reserva_empresa_codigo', ['idEmpresa', 'codigo'])
+export class Reserva extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_reserva' })
   idReserva: number;
 
-  @Column({ length: 50, unique: true })
+  @Column({ length: 50 })
   codigo: string;
 
   /** UUID generado por el cliente para reintentos seguros. */

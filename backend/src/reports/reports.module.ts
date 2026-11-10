@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReportsService } from './reports.service';
+import { KpisService } from './kpis.service';
 import { ReportsController } from './reports.controller';
 import { Venta } from '../sales/entities/venta.entity';
 import { DetalleVenta } from '../sales/entities/detalle-venta.entity';
@@ -27,7 +28,7 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService, KpisService],
   exports: [ReportsService],
 })
 export class ReportsModule {}

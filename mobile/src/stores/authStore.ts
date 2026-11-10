@@ -9,6 +9,21 @@ import { usersService } from "@/services/users.service";
 import { isExpoGo, registerForPushNotificationsAsync } from "@/services/notifications";
 import { isAxiosError } from "axios";
 import { onInvalidAuthSession } from "@/services/authSessionEvents";
+import { tienda } from "@/config/tienda";
+import { useMonedaStore } from "@/lib/moneda";
+import { useSucursalStore } from "@/stores/sucursalStore";
+import { prepararOffline } from "@/offline/catalog";
+import { sincronizarPronto } from "@/offline/sync";
+
+async function afterLogin(user: User) {
+  const previousStore = await tienda.cargar();
+  const nextStore = user.empresa?.slug ?? null;
+  if (previousStore !== nextStore) await useSucursalStore.getState().limpiar();
+  await tienda.guardar(nextStore);
+  void useMonedaStore.getState().actualizar(nextStore);
+  if (user.rol === "CLIENTE" && user.idEmpresa) void prepararOffline(user.idEmpresa);
+  sincronizarPronto(1500);
+}
 
 // Pide el permiso y registra el Expo Push Token en el backend. Nunca debe romper el login: si el
 // dispositivo no soporta push, el usuario niega el permiso, o falla la red, solo se registra en consola.
@@ -31,8 +46,8 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { nombre: string; apellido?: string; email: string; password: string; telefono?: string }) => Promise<void>;
+  login: (email: string, password: string, empresa?: string) => Promise<void>;
+  register: (data: { nombre: string; apellido?: string; email: string; password: string; telefono?: string; empresa?: string }) => Promise<void>;
   logout: () => Promise<void>;
   loadSession: () => Promise<void>;
 }
@@ -50,12 +65,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  login: async (email, password) => {
-    const response = await authService.login({ email, password });
+  login: async (email, password, empresa) => {
+    const response = await authService.login({ email, password, ...(empresa ? { empresa } : {}) });
     await setSessionItem("access_token", response.access_token);
     await setSessionItem("refresh_token", response.refresh_token);
     await setSessionItem("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
+    await afterLogin(response.user);
     mobileLog("Sesión iniciada", { userId: response.user.idUsuario, role: response.user.rol });
     void registerPushTokenSilently();
   },
@@ -66,6 +82,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await setSessionItem("refresh_token", response.refresh_token);
     await setSessionItem("user", JSON.stringify(response.user));
     set({ user: response.user, isAuthenticated: true });
+    await afterLogin(response.user);
     void registerPushTokenSilently();
   },
 
@@ -103,6 +120,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      await afterLogin(storedUser);
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
       if (storedUser && isAxiosError(error) && status !== 401 && status !== 403) {

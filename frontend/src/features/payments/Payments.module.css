@@ -1,0 +1,89 @@
+/* Medios de pago de la tienda online: pantalla de la clienta, configuración y verificación. */
+.stack { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+
+/* --- elegir medio (clienta) --- */
+.metodos { display: grid; gap: 10px; margin: 0; padding: 0; border: none; }
+.metodos legend { margin-bottom: 8px; font-weight: 700; }
+.metodo { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: white; cursor: pointer; text-align: left; }
+.metodo:hover { border-color: var(--app-primary); }
+.metodo input { margin-top: 4px; accent-color: var(--app-primary); }
+.metodo svg { flex: none; margin-top: 2px; color: var(--app-primary); }
+.metodo strong { display: block; font-size: .95rem; }
+.metodo small { color: var(--text-secondary); line-height: 1.4; }
+.metodoActivo { border-color: var(--app-primary); box-shadow: 0 0 0 2px rgba(173, 62, 104, .15); }
+
+.instrucciones { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #fafafa); }
+.instrucciones h3 { margin: 0; font-size: 1rem; }
+.instrucciones p { margin: 0; line-height: 1.5; }
+.qr { width: min(240px, 100%); aspect-ratio: 1; object-fit: contain; justify-self: center; border-radius: 10px; background: white; border: 1px solid var(--border); }
+.cuenta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: .92rem; }
+.cuenta dt { color: var(--text-secondary); }
+.cuenta dd { margin: 0; font-weight: 600; word-break: break-word; }
+
+.subir { display: grid; gap: 8px; font-size: .88rem; font-weight: 600; }
+.subir input[type='file'] { font: inherit; font-weight: 400; }
+.ayuda { color: var(--text-secondary); font-size: .8rem; font-weight: 400; }
+
+.notice { margin: 0; padding: 12px 14px; border-radius: 10px; background: #ecfdf3; color: #15803d; font-size: .9rem; line-height: 1.5; }
+.warning { margin: 0; padding: 12px 14px; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: .9rem; line-height: 1.5; }
+.error { margin: 0; padding: 12px 14px; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: .9rem; line-height: 1.5; }
+.linkButton { padding: 0; border: none; background: none; color: var(--app-primary); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+/* --- tarjeta simulada --- */
+.tarjetaSim { display: grid; gap: 10px; max-width: 380px; padding: 18px; border-radius: 14px; background: linear-gradient(135deg, #312e81, #7c3aed); color: white; }
+.tarjetaSim label { display: grid; gap: 4px; font-size: .78rem; opacity: .9; }
+.tarjetaSim input { padding: 8px 10px; border: none; border-radius: 8px; font: inherit; font-size: .95rem; letter-spacing: .04em; }
+.fila { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* --- configuración (ADMIN) --- */
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.card { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: white; }
+.card h2 { margin: 0; font-size: 1.05rem; }
+.card > p { margin: 0; color: var(--text-secondary); font-size: .88rem; line-height: 1.5; }
+.switch { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.switch:last-of-type { border-bottom: none; }
+.switch input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--app-primary); }
+.switch strong { display: block; font-size: .93rem; }
+.switch small { color: var(--text-secondary); }
+.campos { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.campos label, .campoAncho { display: grid; gap: 6px; font-size: .85rem; font-weight: 600; }
+.campoAncho { grid-column: 1 / -1; }
+.campos input, .campos textarea { min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-weight: 400; }
+.qrPreview { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.qrPreview img { width: 120px; height: 120px; object-fit: contain; border: 1px solid var(--border); border-radius: 10px; background: white; }
+.qrVacio { display: grid; place-items: center; width: 120px; height: 120px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-secondary); font-size: .8rem; text-align: center; }
+.acciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; background: #eef2ff; color: #3730a3; font-size: .72rem; font-weight: 700; }
+
+/* --- verificación (personal) --- */
+.metodoTag { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .74rem; font-weight: 700; white-space: nowrap; }
+.tagQR { background: #ede9fe; color: #5b21b6; }
+.tagTRANSFERENCIA { background: #e0f2fe; color: #075985; }
+.tagEFECTIVO, .tagCONTRAPAGO { background: #ecfdf3; color: #166534; }
+.sinComprobante { color: #b45309; font-size: .82rem; font-weight: 600; }
+.botones { display: flex; gap: 6px; flex-wrap: wrap; }
+.aprobar, .rechazar, .ver { padding: 6px 10px; border-radius: 8px; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.aprobar { border: 1px solid #16a34a; background: #16a34a; color: white; }
+.rechazar { border: 1px solid #dc2626; background: white; color: #dc2626; }
+.ver { border: 1px solid var(--border); background: white; color: var(--text-primary); }
+.aprobar:disabled, .rechazar:disabled { opacity: .5; cursor: default; }
+.num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sub { display: block; color: var(--text-secondary); font-size: .78rem; }
+.visor { width: min(720px, 92vw); max-height: 88vh; overflow: auto; }
+.visor img { display: block; max-width: 100%; margin: 0 auto; border-radius: 8px; }
+.spin { animation: girar 1s linear infinite; color: var(--app-primary); }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* --- página de pago de la clienta --- */
+.pagina { width: min(1040px, 100%); margin: 0 auto; display: grid; gap: 18px; }
+.pagina h1 { margin: 0; }
+.columnas { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); align-items: start; }
+.resumen, .panel { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: white; }
+.resumen h2 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.resumen p { margin: 0; color: var(--text-secondary); font-size: .9rem; }
+.linea { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .92rem; }
+.linea small { display: block; color: var(--text-secondary); }
+.total { display: flex; justify-content: space-between; font-size: 1.05rem; }
+.panel p { margin: 0; }
+.panel :global(.primary-button), .panel :global(.logout-button) { width: 100%; justify-content: center; }
+@media (max-width: 760px) { .columnas { grid-template-columns: minmax(0, 1fr); } .panel { order: -1; } }

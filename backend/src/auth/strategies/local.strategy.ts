@@ -6,12 +6,16 @@ import { AuthService } from '../auth.service';
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly authService: AuthService) {
-    // Le decimos a Passport que use "email" en lugar del default "username"
-    super({ usernameField: 'email' });
+    // "email" en lugar del default "username"; passReqToCallback para leer `empresa` del body.
+    super({ usernameField: 'email', passReqToCallback: true });
   }
 
-  async validate(email: string, password: string): Promise<any> {
-    const user = await this.authService.validateUser(email, password);
+  async validate(req: any, email: string, password: string): Promise<any> {
+    const user = await this.authService.validateUser(
+      email,
+      password,
+      req.body?.empresa,
+    );
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }

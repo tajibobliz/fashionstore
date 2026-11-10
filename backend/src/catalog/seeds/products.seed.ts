@@ -9,6 +9,7 @@ import { VarianteProducto } from '../entities/variante-producto.entity';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
 import { Almacen } from '../../warehouses/entities/almacen.entity';
 import { Inventario } from '../../inventory/entities/inventario.entity';
+import { TenantResolverService } from '../../tenancy/tenant-resolver.service';
 
 interface ProductSeedItem {
   nombre: string;
@@ -118,10 +119,15 @@ export class ProductsSeed implements OnApplicationBootstrap {
     @InjectRepository(Sucursal) private readonly sucursalRepo: Repository<Sucursal>,
     @InjectRepository(Almacen) private readonly almacenRepo: Repository<Almacen>,
     @InjectRepository(Inventario) private readonly inventarioRepo: Repository<Inventario>,
+    private readonly tenants: TenantResolverService,
   ) {}
 
   // Debe correr tras todos los onModuleInit: necesita categorías/tallas/colores creados por CatalogMasterSeed.
   async onApplicationBootstrap() {
+    return this.tenants.runInDefault(() => this.seed());
+  }
+
+  private async seed() {
     const sucursales = (await this.sucursalRepo.find()).sort((a, b) => a.idSucursal - b.idSucursal);
     if (!sucursales.length) {
       this.logger.warn('No hay sucursales registradas; los productos se crearán sin inventario.');
@@ -267,7 +273,7 @@ export class ProductsSeed implements OnApplicationBootstrap {
       const scopeByVariant = new Map<number, Set<number>>();
       for (const variant of variants) {
         const scopeWarehouseIds = new Set<number>();
-        for (const [branchId, scope] of branchScopes) {
+        for (const scope of branchScopes.values()) {
           const sizeMatches = !variant.talla || scope.item.tallas.includes(variant.talla.nombre);
           const colorMatches = !variant.color || scope.item.colores.includes(variant.color.nombre);
           if (sizeMatches && colorMatches) scopeWarehouseIds.add(scope.almacen.idAlmacen);

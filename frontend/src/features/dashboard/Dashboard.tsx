@@ -16,9 +16,20 @@ import ReturnsPage from '../returns/ReturnsPage'
 import BranchOperationsPage from '../branch-operations/BranchOperationsPage'
 import ReservationsManagement from '../reservations/ReservationsManagement'
 import ReportsPage from '../reports/ReportsPage'
+import MyPlanPage from '../plan/MyPlanPage'
+import { usePlan } from '../plan/usePlan'
+import SyncPanelPage from '../sync/SyncPanelPage'
+import TransfersPage from '../transfers/TransfersPage'
+import PaymentSettingsPage from '../payments/PaymentSettingsPage'
+import PortadaTiendaPage from '../storefront/PortadaTiendaPage'
+import PaymentsToVerifyPage from '../payments/PaymentsToVerifyPage'
+import ExchangesPage from '../exchanges/ExchangesPage'
+import AiReportsPage from '../ai-reports/AiReportsPage'
+import AnalyticsPage from '../analytics/AnalyticsPage'
+import { simboloMoneda } from '../../utils/money'
 
 const columns: Record<Resource, { title: string; path: string }[]> = {
- catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio (Bs)', path: 'precio' }, { title: 'Estado', path: 'estado' }],
+ catalogo: [{ title: 'Prenda', path: 'nombre' }, { title: 'Categoría', path: 'categoria.nombre' }, { title: 'Precio ({moneda})', path: 'precio' }, { title: 'Estado', path: 'estado' }],
  sucursales: [{ title: 'Sucursal', path: 'nombre' }, { title: 'Ciudad', path: 'ciudad.nombre' }, { title: 'Dirección', path: 'direccion' }, { title: 'Teléfono', path: 'telefono' }],
  inventario: [{ title: 'Prenda', path: 'variante.producto.nombre' }, { title: 'SKU', path: 'variante.sku' }, { title: 'Sucursal', path: 'sucursal.nombre' }, { title: 'Talla', path: 'variante.talla.nombre' }, { title: 'Color', path: 'variante.color.nombre' }, { title: 'Disponible', path: 'stockDisponible' }, { title: 'Reservado', path: 'stockReservado' }],
  usuarios: [{ title: 'Nombre', path: 'nombre' }, { title: 'Correo', path: 'email' }, { title: 'Rol', path: 'rol.nombre' }, { title: 'Estado', path: 'estado' }],
@@ -45,12 +56,22 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
  const registration = section === 'clientes' || section === 'cajeros'
  const { data, errors, loading, reload } = useDashboardData(role, current && !current.pending && !registration ? section : 'pending')
  const [search, setSearch] = useState('')
+ const empresa = usePlan().data?.empresa.nombre ?? 'Fashionstore'
  const resource = section as Resource
  const rows = data[resource] || []
- const tableColumns = columns[resource] || []
+ const tableColumns = (columns[resource] || []).map(c => ({ ...c, title: c.title.replace('{moneda}', simboloMoneda()) }))
  const filtered = rows.filter(row => tableColumns.some(column => read(row, column.path).toLocaleLowerCase().includes(search.toLocaleLowerCase())))
  const base = `/dashboard/${config.slug}`
  if (!current) return <section className={styles.panel}><h1>Sección no encontrada</h1><Link to={base}>Volver al dashboard</Link></section>
+ if (section === 'mi-plan') return <MyPlanPage />
+ if (section === 'sincronizacion' && role !== 'CAJERO') return <SyncPanelPage />
+ if (section === 'cambios') return <ExchangesPage />
+ if (section === 'traspasos' && role !== 'CAJERO') return <TransfersPage />
+ if (section === 'portada-tienda' && role === 'ADMIN') return <PortadaTiendaPage />
+ if (section === 'medios-pago' && role === 'ADMIN') return <PaymentSettingsPage />
+ if (section === 'pagos-por-verificar') return <PaymentsToVerifyPage />
+ if (section === 'dashboard-analitico' && role !== 'CAJERO') return <AnalyticsPage base={base} secciones={new Set(config.sections.filter(s => !s.pending).map(s => s.id))} />
+ if (section === 'reportes-ia' && role !== 'CAJERO') return <AiReportsPage planPath={config.sections.some(s => s.id === 'mi-plan') ? `/dashboard/${config.slug}/mi-plan` : null} />
  if (role === 'CAJERO' && section === 'punto-de-venta') return <PosPage />
  if (role === 'CAJERO' && section === 'caja') return <ShiftPage />
  if (section === 'devoluciones' && ['CAJERO', 'ENCARGADO', 'ADMIN'].includes(role)) return <ReturnsPage />
@@ -66,10 +87,10 @@ export default function Dashboard({ role }: { role: DashboardRole }) {
   <section className={styles.dashboardSection}><div className={styles.sectionHeading}><div><h2>Gestión de Sucursal</h2><p>Los módulos operativos se habilitarán progresivamente.</p></div></div><div className={styles.actionGrid}>{config.sections.filter(item => item.id).map(({ id, label, icon: Icon, description }) => <Link className={styles.actionCard} key={id} to={`${base}/${id}`}><Icon size={24} /><span>{label}</span><small>Próximamente</small>{description && <p>{description}</p>}<ArrowRight size={16} /></Link>)}</div></section>
  </div>
  return <div className={styles.content}>
- <div className={styles.pageHeading}><div><p className={styles.kicker}>{role === 'ADMIN' ? 'Control de la plataforma' : role === 'ENCARGADO' ? 'Operación nacional' : 'Tu espacio de atención'}</p><h1>{section ? current.label : `Dashboard ${role === 'ADMIN' ? 'ADMIN' : role === 'ENCARGADO' ? 'ENCARGADO' : 'CAJERO'}`}</h1><p>{role === 'ADMIN' ? 'Supervisa los usuarios, las prendas y las existencias del sistema.' : role === 'ENCARGADO' ? 'Coordina sucursales, inventario y equipo de Fashionstore desde un solo espacio.' : 'Encuentra las prendas y consulta las existencias para atender a tus clientas.'}</p></div><button className={styles.refreshButton} onClick={reload} disabled={loading}><RefreshCw size={16} />Actualizar</button></div>
+ <div className={styles.pageHeading}><div><p className={styles.kicker}>{role === 'ADMIN' ? 'Administración de la empresa' : role === 'ENCARGADO' ? 'Operación nacional' : 'Tu espacio de atención'}</p><h1>{section ? current.label : `Dashboard ${role === 'ADMIN' ? 'ADMIN' : role === 'ENCARGADO' ? 'ENCARGADO' : 'CAJERO'}`}</h1><p>{role === 'ADMIN' ? 'Supervisa los usuarios, las prendas y las existencias del sistema.' : role === 'ENCARGADO' ? 'Coordina sucursales, inventario y equipo de Fashionstore desde un solo espacio.' : 'Encuentra las prendas y consulta las existencias para atender a tus clientas.'}</p></div><button className={styles.refreshButton} onClick={reload} disabled={loading}><RefreshCw size={16} />Actualizar</button></div>
  {Object.entries(errors).map(([name, error]) => <p className={styles.errorNotice} role="alert" key={name}>{name}: {error}</p>)}
  {loading ? <div className={styles.chartLoading} role="status">Cargando tu dashboard…</div> : section ? <section className={styles.panel}><div className={styles.panelHeader}><h2>{current.label}</h2><span className={styles.panelCount}>{rows.length} registros</span></div><label className={styles.searchField}><Search size={16} /><input aria-label={`Buscar ${current.label}`} placeholder="Buscar…" value={search} onChange={event => setSearch(event.target.value)} /></label>{errors[resource] ? <p className={styles.emptyState}>No se pudo cargar esta sección. Usa Actualizar para reintentar.</p> : filtered.length ? <div className={styles.tableWrap}><table className={styles.table}><thead><tr>{tableColumns.map(column => <th key={column.path}>{column.title}</th>)}</tr></thead><tbody>{filtered.map((row, index) => <tr key={index}>{tableColumns.map(column => <td key={column.path}>{column.path === 'estado' ? row.estado ? 'Activo' : 'Inactivo' : read(row, column.path)}</td>)}</tr>)}</tbody></table></div> : <p className={styles.emptyState}>{search ? 'No se encontraron coincidencias.' : 'Todavía no hay registros disponibles.'}</p>}</section> : <>
- <section className={styles.dashboardSection}><div className={styles.sectionHeading}><div><h2>Resumen de Fashionstore</h2><p>Información actual del catálogo y el inventario registrado.</p></div></div><div className={styles.cards}><Metric title="Prendas en catálogo" value={data.catalogo?.length ?? '—'} icon={Shirt} /><Metric title={role === 'ADMIN' ? 'Usuarios registrados' : 'Registros de inventario'} value={role === 'ADMIN' ? data.usuarios?.length ?? '—' : data.inventario?.length ?? '—'} icon={role === 'ADMIN' ? Users : Package} /><Metric title="Unidades disponibles" value={sum(data.inventario, 'stockDisponible')} icon={Package} /><Metric title={role === 'ADMIN' ? 'Sucursales' : 'Unidades reservadas'} value={role === 'ADMIN' ? data.sucursales?.length ?? '—' : sum(data.inventario, 'stockReservado')} icon={Store} /></div></section>
+ <section className={styles.dashboardSection}><div className={styles.sectionHeading}><div><h2>Resumen de {empresa}</h2><p>Información actual del catálogo y el inventario registrado.</p></div></div><div className={styles.cards}><Metric title="Prendas en catálogo" value={data.catalogo?.length ?? '—'} icon={Shirt} /><Metric title={role === 'ADMIN' ? 'Usuarios registrados' : 'Registros de inventario'} value={role === 'ADMIN' ? data.usuarios?.length ?? '—' : data.inventario?.length ?? '—'} icon={role === 'ADMIN' ? Users : Package} /><Metric title="Unidades disponibles" value={sum(data.inventario, 'stockDisponible')} icon={Package} /><Metric title={role === 'ADMIN' ? 'Sucursales' : 'Unidades reservadas'} value={role === 'ADMIN' ? data.sucursales?.length ?? '—' : sum(data.inventario, 'stockReservado')} icon={Store} /></div></section>
  <section className={styles.dashboardSection}><div className={styles.sectionHeading}><div><h2>{role === 'ADMIN' ? 'Accesos de administración' : role === 'ENCARGADO' ? 'Operación nacional' : 'Atención y caja'}</h2><p>{role === 'ADMIN' ? 'Gestiona la información disponible en el sistema.' : 'Accede a las herramientas de tu rol y conoce lo que viene.'}</p></div></div><div className={styles.actionGrid}>{config.sections.filter(item => item.id).slice(0, role === 'ENCARGADO' ? 5 : 4).map(({ id, label, icon: Icon, pending, description }) => <Link className={styles.actionCard} key={id} to={`${base}/${id}`}><Icon size={24} /><span>{label}</span><small>{pending ? 'Próximamente' : 'Consultar información'}</small>{description && <p>{description}</p>}<ArrowRight size={16} /></Link>)}</div></section>
  <section className={styles.dashboardSection}><div className={styles.chartsGrid}><Chart title="Prendas por categoría" items={distribution(data.catalogo, 'categoria.nombre')} available={!!data.catalogo} /><Chart title="Stock disponible por sucursal" items={distribution(data.inventario, 'sucursal.nombre', 'stockDisponible')} available={!!data.inventario} /></div></section>
  <section className={styles.panel}><div className={styles.panelHeader}><div><h2>{role === 'ADMIN' ? 'Estado de la plataforma' : role === 'ENCARGADO' ? 'Prepara tu operación nacional' : 'Antes de empezar tu turno'}</h2><p>{role === 'ADMIN' ? 'Las herramientas de supervisión global se ampliarán progresivamente.' : role === 'ENCARGADO' ? 'La gestión de puntos de venta y cajas se habilitará próximamente.' : 'Asignación de caja y cobros: próximamente.'}</p></div><span className={styles.pendingBadge}>En desarrollo</span></div><Link to={`${base}/inventario`} className={styles.textLink}>Consultar inventario <ArrowRight size={16} /></Link></section>

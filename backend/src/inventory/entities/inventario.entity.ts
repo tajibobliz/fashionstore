@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -15,7 +16,7 @@ import { Almacen } from '../../warehouses/entities/almacen.entity';
 @Unique(['almacen', 'variante'])
 @Check('CHK_inventario_stock_disponible', 'stock_disponible >= 0')
 @Check('CHK_inventario_stock_reservado', 'stock_reservado >= 0')
-export class Inventario {
+export class Inventario extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_inventario' })
   idInventario: number;
 

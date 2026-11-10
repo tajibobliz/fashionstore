@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SalesService } from './sales.service';
+import { PagoDiferidoScheduler } from './pago-diferido.scheduler';
 import { SalesController } from './sales.controller';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
@@ -35,7 +36,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     NotificationsModule,
   ],
   controllers: [SalesController],
-  providers: [SalesService],
+  providers: [SalesService, PagoDiferidoScheduler],
   exports: [SalesService],
 })
 export class SalesModule {}

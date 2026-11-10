@@ -9,6 +9,7 @@ import { Producto } from '../catalog/entities/producto.entity';
 import { Usuario } from '../users/entities/user.entity';
 import { Pago } from '../payments/entities/pago.entity';
 import { TurnoCaja } from '../pos/entities/turno-caja.entity';
+import { FECHA_SIMPLE, finDelDia, inicioDelDia, zonaSql } from '../common/zona-horaria';
 import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDto, TurnReportFiltersDto } from './dto/report-filters.dto';
 
 export type ReportScope = { branchIds: number[] | null; cashierId?: number };
@@ -29,10 +30,10 @@ export class ReportsService {
   private readonly validStates = ['PAGADA', 'DEVUELTA_PARCIAL', 'DEVUELTA'];
   private readonly returnedQty = `COALESCE((SELECT SUM(dd.cantidad) FROM detalle_devolucion dd JOIN devolucion de ON de.id_devolucion=dd.id_devolucion WHERE dd.id_detalle_venta=dv.id_detalle_venta),0)`;
 
+  /** Rango de fechas: los días simples (AAAA-MM-DD) se toman completos en la zona de la tienda (APP_TIMEZONE). */
   private dateBounds(desde?: string, hasta?: string) {
-    const from = desde ? new Date(desde) : undefined;
-    const to = hasta ? new Date(hasta) : undefined;
-    if (to && /^\d{4}-\d{2}-\d{2}$/.test(hasta!)) to.setUTCHours(23, 59, 59, 999);
+    const from = !desde ? undefined : FECHA_SIMPLE.test(desde) ? inicioDelDia(desde) : new Date(desde);
+    const to = !hasta ? undefined : FECHA_SIMPLE.test(hasta) ? finDelDia(hasta) : new Date(hasta);
     return { from, to };
   }
 
@@ -100,8 +101,9 @@ export class ReportsService {
   }
 
   async salesByDay(f: ReportFiltersDto, scope: ReportScope) {
-    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select('DATE(v.fecha)', 'fecha').addSelect('COUNT(DISTINCT v.id_venta)', 'cantidad')
-      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'monto').groupBy('DATE(v.fecha)').orderBy('DATE(v.fecha)', 'ASC').limit(60).getRawMany();
+    const dia = `DATE(v.fecha AT TIME ZONE ${zonaSql()})`; // el día de la venta en la hora de la tienda
+    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select(dia, 'fecha').addSelect('COUNT(DISTINCT v.id_venta)', 'cantidad')
+      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'monto').groupBy(dia).orderBy(dia, 'ASC').limit(60).getRawMany();
     return rows.map((x) => ({ fecha: x.fecha, cantidad: Number(x.cantidad), monto: Number(x.monto) }));
   }
 
@@ -120,13 +122,116 @@ export class ReportsService {
     return rows.map(this.numericSalesRow);
   }
 
-  async topProducts(f: ReportFiltersDto, scope: ReportScope, limit = 20) {
+  async topProducts(f: ReportFiltersDto, scope: ReportScope, limit = 20, idCategoria?: number) {
     const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
       .leftJoin('p.categoria', 'cat').leftJoin('v.turno', 't').select('p.id_producto', 'idProducto').addSelect('p.nombre', 'nombre').addSelect('cat.nombre', 'categoria')
       .addSelect(`SUM(dv.cantidad-${this.returnedQty})`, 'cantidadVendida').addSelect(`SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty}))`, 'totalGenerado');
     this.applySalesFilters(qb, f, scope);
+    if (idCategoria) qb.andWhere('cat.id_categoria=:idCategoria', { idCategoria });
     return (await qb.groupBy('p.id_producto').addGroupBy('cat.id_categoria').having(`SUM(dv.cantidad-${this.returnedQty})>0`).orderBy('"cantidadVendida"', 'DESC').limit(Math.min(limit, 100)).getRawMany())
       .map((x) => ({ ...x, cantidadVendida: Number(x.cantidadVendida), totalGenerado: Number(x.totalGenerado) }));
+  }
+
+  /**
+   * Ventas agrupadas por día, semana o mes (reportes con IA, Fase 3).
+   * La granularidad viene de una lista cerrada, nunca del texto del usuario.
+   */
+  async salesByPeriod(f: ReportFiltersDto, scope: ReportScope, agrupar: 'dia' | 'semana' | 'mes' = 'dia') {
+    const unidad = ({ dia: 'day', semana: 'week', mes: 'month' } as const)[agrupar];
+    const periodo = `DATE_TRUNC('${unidad}', v.fecha)`;
+    const rows = await this.salesBase(f, scope).leftJoin('v.detalles', 'dv').select(`TO_CHAR(${periodo}, 'YYYY-MM-DD')`, 'periodo')
+      .addSelect('COUNT(DISTINCT v.id_venta)', 'cantidadVentas').addSelect(`COALESCE(SUM(dv.cantidad-${this.returnedQty}),0)`, 'unidadesVendidas')
+      .addSelect(`COALESCE(SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty})),0)`, 'totalVendido')
+      .groupBy(periodo).orderBy(periodo, 'ASC').limit(400).getRawMany();
+    return rows.map((x) => ({ periodo: x.periodo, ...this.numericSalesRow(x) }));
+  }
+
+  /** Ingresos y unidades por categoría de producto (reportes con IA, Fase 3). */
+  async salesByCategory(f: ReportFiltersDto, scope: ReportScope) {
+    const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
+      .leftJoin('p.categoria', 'cat').leftJoin('v.turno', 't').select(`COALESCE(cat.nombre, 'Sin categoría')`, 'categoria')
+      .addSelect('COUNT(DISTINCT v.id_venta)', 'cantidadVentas').addSelect(`SUM(dv.cantidad-${this.returnedQty})`, 'unidadesVendidas')
+      .addSelect(`SUM(dv.precio_unitario*(dv.cantidad-${this.returnedQty}))`, 'totalVendido');
+    this.applySalesFilters(qb, f, scope);
+    const rows = await qb.groupBy('cat.id_categoria').having(`SUM(dv.cantidad-${this.returnedQty})>0`).orderBy('"totalVendido"', 'DESC').getRawMany();
+    return rows.map(this.numericSalesRow);
+  }
+
+  /**
+   * Prendas devueltas y cambiadas por producto (reportes con IA, Fase 3 tarea 3.4c).
+   * Vendidas = unidades de ventas del periodo; devueltas y cambiadas = unidades de devoluciones
+   * y cambios REGISTRADOS en el periodo. Tasa = devueltas (o cambiadas) / vendidas.
+   */
+  async returnsAndExchangesByProduct(f: ReportFiltersDto, scope: ReportScope, limite = 15, idCategoria?: number) {
+    const { from, to } = this.dateBounds(f.desde, f.hasta);
+    const ids = f.idSucursal ? [f.idSucursal] : scope.branchIds;
+    const rows: Record<string, unknown>[] = await this.detalleVentaRepo.manager.query(
+      `WITH par AS (SELECT $1::timestamptz AS desde, $2::timestamptz AS hasta, $3::int[] AS ids, $4::int AS cat),
+       vendidas AS (
+         SELECT vp.id_producto, SUM(dv.cantidad) AS u FROM par, venta v
+           JOIN detalle_venta dv ON dv.id_venta = v.id_venta JOIN variante_producto vp ON vp.id_variante = dv.id_variante
+          WHERE v.estado IN ('PAGADA','DEVUELTA_PARCIAL','DEVUELTA')
+            AND (par.desde IS NULL OR v.fecha >= par.desde) AND (par.hasta IS NULL OR v.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1),
+       devueltas AS (
+         SELECT vp.id_producto, SUM(dd.cantidad) AS u, COUNT(DISTINCT d.id_devolucion) AS ops FROM par, devolucion d
+           JOIN detalle_devolucion dd ON dd.id_devolucion = d.id_devolucion JOIN detalle_venta dv ON dv.id_detalle_venta = dd.id_detalle_venta
+           JOIN variante_producto vp ON vp.id_variante = dv.id_variante JOIN venta v ON v.id_venta = d.id_venta
+          WHERE (par.desde IS NULL OR d.fecha >= par.desde) AND (par.hasta IS NULL OR d.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1),
+       cambiadas AS (
+         SELECT vp.id_producto, SUM(dc.cantidad) AS u, COUNT(DISTINCT c.id_cambio) AS ops FROM par, cambio c
+           JOIN detalle_cambio dc ON dc.id_cambio = c.id_cambio JOIN detalle_venta dv ON dv.id_detalle_venta = dc.id_detalle_venta
+           JOIN variante_producto vp ON vp.id_variante = dv.id_variante JOIN venta v ON v.id_venta = c.id_venta
+          WHERE (par.desde IS NULL OR c.fecha >= par.desde) AND (par.hasta IS NULL OR c.fecha <= par.hasta)
+            AND (par.ids IS NULL OR v.id_sucursal = ANY(par.ids))
+          GROUP BY 1)
+       SELECT p.id_producto AS "idProducto", p.nombre AS producto, COALESCE(cat.nombre, 'Sin categoría') AS categoria,
+              COALESCE(ve.u, 0)::int AS "unidadesVendidas", COALESCE(de.u, 0)::int AS "unidadesDevueltas", COALESCE(ca.u, 0)::int AS "unidadesCambiadas",
+              COALESCE(de.ops, 0)::int AS devoluciones, COALESCE(ca.ops, 0)::int AS cambios
+         FROM par, producto p LEFT JOIN categoria cat ON cat.id_categoria = p.id_categoria
+         LEFT JOIN vendidas ve ON ve.id_producto = p.id_producto LEFT JOIN devueltas de ON de.id_producto = p.id_producto
+         LEFT JOIN cambiadas ca ON ca.id_producto = p.id_producto
+        WHERE (COALESCE(de.u, 0) + COALESCE(ca.u, 0)) > 0 AND (par.cat IS NULL OR p.id_categoria = par.cat)
+        ORDER BY (COALESCE(de.u, 0) + COALESCE(ca.u, 0)) DESC, p.nombre LIMIT $5`,
+      [from ?? null, to ?? null, ids, idCategoria ?? null, limite],
+    );
+    const tasa = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : null);
+    return rows.map((r) => {
+      const vendidas = Number(r.unidadesVendidas), dev = Number(r.unidadesDevueltas), cam = Number(r.unidadesCambiadas);
+      return { ...r, tasaDevolucion: tasa(dev, vendidas), tasaCambio: tasa(cam, vendidas) } as {
+        idProducto: number; producto: string; categoria: string; unidadesVendidas: number; unidadesDevueltas: number; unidadesCambiadas: number;
+        devoluciones: number; cambios: number; tasaDevolucion: number | null; tasaCambio: number | null;
+      };
+    });
+  }
+
+  /** Motivos registrados al devolver o cambiar prendas (texto libre, agrupado sin mayúsculas ni espacios extra). */
+  async returnAndExchangeReasons(f: ReportFiltersDto, scope: ReportScope, tipo: 'devoluciones' | 'cambios' | 'ambos' = 'ambos') {
+    const { from, to } = this.dateBounds(f.desde, f.hasta);
+    const ids = f.idSucursal ? [f.idSucursal] : scope.branchIds;
+    const rows: { motivo: string; tipo: string; operaciones: number; unidades: number }[] = await this.detalleVentaRepo.manager.query(
+      `WITH par AS (SELECT $1::timestamptz AS desde, $2::timestamptz AS hasta, $3::int[] AS ids, $4::text AS tipo),
+       ops AS (
+         SELECT 'Devolución' AS tipo, d.motivo, d.id_devolucion AS id, d.fecha, v.id_sucursal,
+                (SELECT SUM(dd.cantidad) FROM detalle_devolucion dd WHERE dd.id_devolucion = d.id_devolucion) AS unidades
+           FROM devolucion d JOIN venta v ON v.id_venta = d.id_venta
+         UNION ALL
+         SELECT 'Cambio', c.motivo, c.id_cambio, c.fecha, v.id_sucursal,
+                (SELECT SUM(dc.cantidad) FROM detalle_cambio dc WHERE dc.id_cambio = c.id_cambio)
+           FROM cambio c JOIN venta v ON v.id_venta = c.id_venta)
+       SELECT INITCAP(LOWER(TRIM(COALESCE(NULLIF(TRIM(o.motivo), ''), 'sin motivo')))) AS motivo, o.tipo,
+              COUNT(*)::int AS operaciones, COALESCE(SUM(o.unidades), 0)::int AS unidades
+         FROM par, ops o
+        WHERE (par.desde IS NULL OR o.fecha >= par.desde) AND (par.hasta IS NULL OR o.fecha <= par.hasta)
+          AND (par.ids IS NULL OR o.id_sucursal = ANY(par.ids))
+          AND (par.tipo = 'ambos' OR (par.tipo = 'devoluciones' AND o.tipo = 'Devolución') OR (par.tipo = 'cambios' AND o.tipo = 'Cambio'))
+        GROUP BY 1, 2 ORDER BY operaciones DESC, unidades DESC, motivo LIMIT 30`,
+      [from ?? null, to ?? null, ids, tipo],
+    );
+    return rows;
   }
 
   async topVariants(f: ReportFiltersDto, scope: ReportScope) {

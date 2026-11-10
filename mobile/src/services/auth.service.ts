@@ -5,6 +5,7 @@ import { mobileLog } from "@/utils/mobileLogger";
 interface LoginData {
   email: string;
   password: string;
+  empresa?: string;
 }
 
 interface RegisterData {
@@ -13,6 +14,7 @@ interface RegisterData {
   email: string;
   password: string;
   telefono?: string;
+  empresa?: string;
 }
 
 export const authService = {

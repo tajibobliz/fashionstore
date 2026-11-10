@@ -17,7 +17,7 @@ export interface Cart {
 
 // ===== Enums =====
 
-export type MetodoPago = "EFECTIVO" | "TARJETA" | "QR" | "TRANSFERENCIA";
+export type MetodoPago = "EFECTIVO" | "TARJETA" | "QR" | "TRANSFERENCIA" | "CONTRAPAGO";
 export type ModalidadComercial = "MINORISTA" | "MAYORISTA";
 export type TipoVenta = "DIGITAL" | "PRESENCIAL";
 export type EstadoVenta =
@@ -95,6 +95,25 @@ export interface CreatePaymentDto {
   metodo: MetodoPago;
   monto: number;
   referenciaPasarela?: string;
+  clientRequestId?: string;
+}
+
+export interface MetodosTienda {
+  moneda: string;
+  proveedorTarjeta: "STRIPE" | "SIMULADO";
+  tarjeta: boolean;
+  qr: boolean;
+  transferencia: boolean;
+  efectivoRetiro: boolean;
+  contraentrega: boolean;
+  cuenta: {
+    banco: string | null;
+    titular: string | null;
+    numeroCuenta: string | null;
+    tipoCuenta: string | null;
+    documentoTitular: string | null;
+  } | null;
+  instrucciones: string | null;
 }
 
 export interface Payment {
@@ -104,4 +123,6 @@ export interface Payment {
   monto: string;
   estado: EstadoPago;
   referenciaPasarela?: string;
+  fecha?: string;
+  comprobante?: { mime: string; bytes: number; subidoEn: string } | null;
 }

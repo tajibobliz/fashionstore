@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -8,8 +13,24 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RefreshSession } from './entities/refresh-session.entity';
 import { ConfigService } from '@nestjs/config';
+import { TenantResolverService } from '../tenancy/tenant-resolver.service';
+import { TenantContext } from '../tenancy/tenant-context';
+import { Empresa } from '../tenancy/entities/empresa.entity';
+import { Usuario } from '../users/entities/user.entity';
+import { Role } from './enums/role.enum';
 
-const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+/**
+ * Solo el SUPER_ADMIN vive fuera de una empresa. Cualquier otro usuario sin empresa (p. ej. una
+ * cuenta creada con la versión de una sola tienda después de migrar) tendría un token sin `tid`
+ * y el RLS le mostraría los datos de TODAS las empresas: no se le deja entrar así.
+ */
+const sinEmpresaInvalido = (u: {
+  idEmpresa?: number | null;
+  rol?: { nombre?: string } | null;
+}) => u.idEmpresa == null && u.rol?.nombre !== Role.SUPER_ADMIN;
+
+const hashToken = (token: string) =>
+  createHash('sha256').update(token).digest('hex');
 
 @Injectable()
 export class AuthService {
@@ -19,12 +40,48 @@ export class AuthService {
     @InjectRepository(RefreshSession)
     private readonly sessions: Repository<RefreshSession>,
     private readonly config: ConfigService,
+    private readonly tenants: TenantResolverService,
   ) {}
 
-  // Valida email + password contra la BD. Devuelve el usuario (sin hash) o null.
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmailWithPassword(email);
+  /**
+   * Valida email + password dentro de una empresa. Devuelve el usuario (sin hash) o null.
+   * - Con `empresaSlug`: busca el usuario en esa empresa.
+   * - Sin slug: primero un usuario de plataforma (SUPER_ADMIN), luego la empresa por defecto.
+   *   Así el login actual de la web y la app sigue funcionando sin cambios.
+   */
+  async validateUser(
+    email: string,
+    password: string,
+    empresaSlug?: string,
+  ): Promise<any> {
+    let user;
+    if (empresaSlug) {
+      const empresa = await this.tenants.findBySlug(empresaSlug);
+      if (!empresa) return null;
+      user = await this.usersService.findByEmailWithPassword(
+        email,
+        empresa.idEmpresa,
+      );
+    } else {
+      // Primero un usuario de plataforma (solo SUPER_ADMIN), si no el de la empresa por defecto.
+      const plataforma = await this.usersService.findByEmailWithPassword(
+        email,
+        null,
+      );
+      user =
+        plataforma && !sinEmpresaInvalido(plataforma)
+          ? plataforma
+          : await this.usersService.findByEmailWithPassword(
+              email,
+              await this.tenants.defaultTenantId(),
+            );
+    }
     if (!user || !user.estado) return null;
+    if (user.empresa && user.empresa.estado !== 'ACTIVA') {
+      throw new ForbiddenException(
+        'La empresa está suspendida. Contacta al administrador de la plataforma.',
+      );
+    }
 
     const passwordValido = await bcrypt.compare(password, user.passwordHash);
     if (!passwordValido) return null;
@@ -41,11 +98,13 @@ export class AuthService {
       throw new Error('REFRESH_TOKEN_TTL_DAYS debe estar entre 0 y 90');
     }
     const refreshToken = randomBytes(48).toString('hex');
-    await this.sessions.save(this.sessions.create({
-      userId: user.idUsuario,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + days * 86400000),
-    }));
+    await this.sessions.save(
+      this.sessions.create({
+        userId: user.idUsuario,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + days * 86400000),
+      }),
+    );
     return this.tokens(user, refreshToken);
   }
 
@@ -54,6 +113,7 @@ export class AuthService {
       sub: user.idUsuario,
       email: user.email,
       rol: user.rol?.nombre,
+      tid: user.idEmpresa ?? null, // tenant: empresa del usuario (null = plataforma)
     };
 
     return {
@@ -64,13 +124,68 @@ export class AuthService {
         nombre: user.nombre,
         email: user.email,
         rol: user.rol?.nombre,
+        idEmpresa: user.idEmpresa ?? null,
+        empresa: user.empresa
+          ? {
+              idEmpresa: user.empresa.idEmpresa,
+              nombre: user.empresa.nombre,
+              slug: user.empresa.slug,
+              moneda: user.empresa.moneda,
+              horasSesionOffline: user.empresa.horasSesionOffline,
+            }
+          : null,
       },
     };
   }
 
+  /**
+   * Perfil para restaurar la sesión al recargar la página: los mismos datos del login,
+   * incluida la empresa (nombre, slug y moneda en la que vende).
+   */
+  async perfil(user: {
+    idUsuario: number;
+    email: string;
+    rol: string;
+    idEmpresa: number | null;
+  }) {
+    // Se consulta la base (no solo el token): si el usuario fue desactivado, el perfil falla y la
+    // app borra su sesión offline (CU17); `rol` es el vigente, por si cambió desde el login.
+    const usuario = await this.sessions.manager.findOne(Usuario, {
+      where: { idUsuario: user.idUsuario },
+    });
+    if (!usuario || !usuario.estado)
+      throw new UnauthorizedException('Tu usuario fue desactivado');
+    const empresa =
+      user.idEmpresa == null
+        ? null
+        : await this.sessions.manager.findOne(Empresa, {
+            where: { idEmpresa: user.idEmpresa },
+          });
+    return {
+      ...user,
+      nombre: usuario.nombre,
+      rol: usuario.rol?.nombre ?? user.rol,
+      empresa: empresa
+        ? {
+            idEmpresa: empresa.idEmpresa,
+            nombre: empresa.nombre,
+            slug: empresa.slug,
+            moneda: empresa.moneda,
+            horasSesionOffline: empresa.horasSesionOffline,
+          }
+        : null,
+    };
+  }
+
   async refresh(refreshToken: string) {
+    // Es público (no hay token de acceso): la empresa sale del propio usuario de la sesión,
+    // por eso se busca en modo plataforma (sin filtro por empresa).
+    return TenantContext.runAsPlatform(() => this.rotate(refreshToken));
+  }
+
+  private async rotate(refreshToken: string) {
     // Bloqueo para que un token solo pueda rotarse una vez, incluso en paralelo.
-    return this.sessions.manager.transaction(async manager => {
+    return this.sessions.manager.transaction(async (manager) => {
       const repo = manager.getRepository(RefreshSession);
       const session = await repo.findOne({
         where: { tokenHash: hashToken(refreshToken) },
@@ -81,6 +196,10 @@ export class AuthService {
       }
       const user = await this.usersService.findById(session.userId);
       if (!user.estado) throw new UnauthorizedException('Usuario inactivo');
+      if (sinEmpresaInvalido(user))
+        throw new UnauthorizedException(
+          'Tu cuenta no pertenece a ninguna tienda',
+        );
       const nextToken = randomBytes(48).toString('hex');
       session.tokenHash = hashToken(nextToken);
       await repo.save(session);
@@ -93,17 +212,31 @@ export class AuthService {
     return { message: 'Sesión cerrada' };
   }
 
- // Registro público: crea un cliente y devuelve los tokens de sesión.
+  // Registro público: crea un cliente y devuelve los tokens de sesión.
   async register(dto: RegisterDto) {
-    const nuevo = await this.usersService.create({
-      nombre: dto.nombre,
-      apellido: dto.apellido,
-      email: dto.email,
-      password: dto.password,
-      telefono: dto.telefono,
-      rolNombre: 'CLIENTE', // Registro público crea clientes finales.
-    });
+    // Empresa: la del body (`empresa`), si no la del header X-Tenant / por defecto.
+    let idEmpresa: number;
+    if (dto.empresa) {
+      const empresa = await this.tenants.findBySlug(dto.empresa);
+      if (!empresa || empresa.estado !== 'ACTIVA')
+        throw new NotFoundException('Tienda no encontrada');
+      idEmpresa = empresa.idEmpresa;
+    } else {
+      idEmpresa = await this.tenants.currentOrDefault();
+    }
+    // Todo el registro corre en el contexto de esa empresa (RLS permite escribir solo ahí).
+    return TenantContext.run({ idEmpresa }, async () => {
+      const creado = await this.usersService.create({
+        idEmpresa,
+        nombre: dto.nombre,
+        apellido: dto.apellido,
+        email: dto.email,
+        password: dto.password,
+        telefono: dto.telefono,
+        rolNombre: 'CLIENTE', // Registro público crea clientes finales.
+      });
 
-    return this.login(nuevo);
+      return this.login(await this.usersService.findById(creado.idUsuario));
+    });
   }
 }

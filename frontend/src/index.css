@@ -158,6 +158,9 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .status-badge--completed { background: #dcfce7; color: #166534; }
 .status-badge--cancelled { background: #fee2e2; color: #991b1b; }
 .status-badge--neutral { background: var(--orange-light); color: var(--muted); }
+/* Pie de la tarjeta de reserva: aviso y botón para cancelar */
+.reservation-footer { align-items: center; font-weight: 400; color: var(--muted); font-size: .85rem; }
+.reservation-footer .danger-link { padding: 7px 12px; border: 1px solid #fecdd3; border-radius: 9px; background: #fff1f2; color: #9f1239; font: inherit; font-weight: 600; cursor: pointer; }
 @media (max-width: 700px) { .purchase-header { flex-direction: column; } .purchase-item { flex-direction: column; align-items: flex-start; gap: 4px; } }
 .payment-result { margin-top: 10px; font-weight: 600; }
 .payment-result--success { color: #166534; }
@@ -175,3 +178,6 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .variant-gallery { min-width: 0; }
 .variant-thumbnails { display: flex; gap: 8px; padding: 8px 0; overflow-x: auto; }
 .variant-thumbnails img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+
+/* Aviso: sesión iniciada con una cuenta de otra tienda (/t/:slug). */
+.store-mismatch { padding: 10px 5%; background: #fffbeb; color: #92400e; border-bottom: 1px solid #fde68a; font-size: .88rem; }

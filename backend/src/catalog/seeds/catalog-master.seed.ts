@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../tenancy/tenant-resolver.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,8 @@ const CATEGORIAS = [
   'Poleras y polerones',
   'Calzado femenino',
   'Accesorios',
+  'Gafas o Lentes',
+  'Gorras',
 ];
 
 const TALLAS = ['XS', 'S', 'M', 'L', 'XL', '36', '37', '38', '39', '40', 'UNICA'];
@@ -38,9 +41,15 @@ export class CatalogMasterSeed implements OnModuleInit {
     @InjectRepository(Categoria) private readonly categoriaRepo: Repository<Categoria>,
     @InjectRepository(Talla) private readonly tallaRepo: Repository<Talla>,
     @InjectRepository(Color) private readonly colorRepo: Repository<Color>,
+    private readonly tenants: TenantResolverService,
   ) {}
 
+  // Los datos iniciales pertenecen a la empresa por defecto (FashionStore).
   async onModuleInit() {
+    return this.tenants.runInDefault(() => this.seed());
+  }
+
+  private async seed() {
     await this.seedCategorias();
     await this.seedTallas();
     await this.seedColores();

@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,7 +11,7 @@ import { Categoria } from '../../catalog/entities/categoria.entity';
 import { Temporada } from '../../catalog/entities/temporada.entity';
 
 @Entity('promocion')
-export class Promocion {
+export class Promocion extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_promocion' })
   idPromocion: number;
 

@@ -9,15 +9,18 @@ import {
   ParseIntPipe,
   UseGuards,
   Delete,
+  Patch,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AllowWithoutSubscription } from '../tenancy/plan.decorators';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignBranchDto } from './dto/assign-branch.dto';
 import { UpdatePushTokenDto } from './dto/update-push-token.dto';
+import { CambiarEstadoUsuarioDto } from './dto/cambiar-estado-usuario.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 
 @Controller('users')
@@ -47,7 +50,15 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
+  /** Activar o desactivar a un usuario de la empresa. */
+  @Patch(':id/estado')
+  @Roles(Role.ADMIN)
+  cambiarEstado(@Param('id', ParseIntPipe) id: number, @Body() dto: CambiarEstadoUsuarioDto, @Request() req: { user: AuthenticatedUser }) {
+    return this.usersService.cambiarEstado(req.user.idUsuario, id, dto.estado);
+  }
+
   @Post('me/push-token')
+  @AllowWithoutSubscription()
   updatePushToken(@Request() req: { user: AuthenticatedUser }, @Body() dto: UpdatePushTokenDto) {
     return this.usersService.updatePushToken(req.user.idUsuario, dto.token);
   }

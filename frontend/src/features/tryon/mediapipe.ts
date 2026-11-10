@@ -3,7 +3,7 @@ import type { TryOnModel } from './strategies'
 
 // Debe coincidir con la versión de @mediapipe/tasks-vision de package.json: el runtime WASM y la librería
 // JS son un par y mezclar versiones falla al inicializar.
-const MEDIAPIPE_VERSION = '1.0.1'
+export const MEDIAPIPE_VERSION = '1.0.1'
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`
 const FACE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 // "lite" es la variante más liviana de PoseLandmarker (frente a full/heavy). Alcanza para ubicar hombros
@@ -25,7 +25,15 @@ export interface Detector {
  * despliegue en Vercel no necesita servir esos binarios.
  */
 export async function createDetector(model: TryOnModel): Promise<Detector> {
-  const { FaceLandmarker, PoseLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision')
+  return createDetectorWith(await import('@mediapipe/tasks-vision'), model)
+}
+
+/**
+ * Igual que `createDetector`, pero con la librería ya cargada. La usa el vestidor de la app móvil
+ * (vestidorMovil.ts), que corre dentro de un WebView y trae la librería del CDN en vez del bundle.
+ */
+export async function createDetectorWith(lib: typeof import('@mediapipe/tasks-vision'), model: TryOnModel): Promise<Detector> {
+  const { FaceLandmarker, PoseLandmarker, FilesetResolver } = lib
   const fileset = await FilesetResolver.forVisionTasks(WASM_URL)
 
   if (model === 'face') {

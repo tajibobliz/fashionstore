@@ -81,7 +81,8 @@ export class PaymentsService {
 
   // Actualiza el estado del pago. Si es APROBADO, confirma la venta.
   async updateEstado(id: number, dto: UpdateEstadoPagoDto, actor?: AuthenticatedUser) {
-    return this.dataSource.transaction(async (manager) => {
+    let rechazado = false;
+    const resultado = await this.dataSource.transaction(async (manager) => {
       await manager
         .createQueryBuilder(Pago, 'pago')
         .setLock('pessimistic_write')
@@ -103,8 +104,13 @@ export class PaymentsService {
 
       pago.estado = dto.estado as EstadoPago;
       if (dto.referenciaPasarela) pago.referenciaPasarela = dto.referenciaPasarela;
+      rechazado = dto.estado === 'RECHAZADO';
       return manager.save(pago);
     });
+    // Push a la clienta cuando la tienda rechaza su pago (el aprobado ya avisa "Compra confirmada").
+    // Después del commit y solo si el estado cambió en esta llamada (no en reintentos idempotentes).
+    if (rechazado) this.salesService.notificarPagoRechazado(resultado.venta);
+    return resultado;
   }
 
   findAll() {
@@ -137,7 +143,8 @@ export class PaymentsService {
     return this.findByVenta(idVenta);
   }
 
-  private async assertCanAccessSale(venta: Venta, actor: AuthenticatedUser, accion: string) {
+  /** Dueña de la compra o personal (encargado de sucursal y cajero, solo de sus sucursales). */
+  async assertCanAccessSale(venta: Venta, actor: AuthenticatedUser, accion: string) {
     const esPersonal = [Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO].includes(actor.rol);
     if (!esPersonal && venta.usuario?.idUsuario !== actor.idUsuario) {
       throw new ForbiddenException(`No puedes ${accion} esta venta`);

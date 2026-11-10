@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
   Entity,
@@ -10,8 +11,8 @@ import {
 import { Ciudad } from './ciudad.entity';
 
 @Entity('sucursal')
-@Unique(['ciudad', 'nombre'])
-export class Sucursal {
+@Unique('UQ_sucursal_empresa_ciudad_nombre', ['idEmpresa', 'ciudad', 'nombre'])
+export class Sucursal extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_sucursal' })
   idSucursal: number;
 

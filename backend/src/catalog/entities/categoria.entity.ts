@@ -1,13 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne, Unique } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
 
 @Entity('categoria')
-export class Categoria {
+@Unique('UQ_categoria_empresa_sucursal_nombre', ['idEmpresa', 'sucursal', 'nombre'])
+export class Categoria extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_categoria' })
   idCategoria: number;
 
-  @Column({ length: 100, unique: true })
+  @Column({ length: 100 })
   nombre: string;
 
   @Column({ length: 250, nullable: true })

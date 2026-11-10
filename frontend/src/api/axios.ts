@@ -3,6 +3,8 @@ import { authSession } from '../features/auth/session'
 import { endpoints } from './endpoints'
 import type { AuthResponse } from '../features/auth/types'
 import type { InternalAxiosRequestConfig } from 'axios'
+import { publicarRestriccion } from '../features/plan/planEvents'
+import { storeScope } from '../features/store/currentStore'
 
 type RetryConfig = InternalAxiosRequestConfig & { authRetried?: boolean }
 let refreshPromise: Promise<void> | null = null
@@ -18,10 +20,15 @@ api.interceptors.request.use(config => {
   const isPublic = Object.values(endpoints.auth).filter(url => url !== endpoints.auth.profile).some(url => url === config.url)
   if (isPublic) config.headers.delete('Authorization')
   else if (token) config.headers.set('Authorization', `Bearer ${token}`)
+  // Tienda online /t/:slug: el backend la usa cuando no hay sesión (con sesión manda el token).
+  const slug = storeScope.get()
+  if (slug && !token && !config.url?.startsWith('/saas')) config.headers.set('X-Tenant', slug)
   return config
 })
 
 api.interceptors.response.use(response => response, async error => {
+  // Restricciones del plan (límite, funcionalidad, vencimiento): se avisan en el dashboard.
+  if (axios.isAxiosError(error) && error.response?.status === 403) publicarRestriccion(error.response.data)
   if (!axios.isAxiosError(error) || error.response?.status !== 401 || !error.config) {
     return Promise.reject(error)
   }

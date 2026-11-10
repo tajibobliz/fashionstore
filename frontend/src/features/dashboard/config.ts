@@ -1,24 +1,35 @@
-import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Store, Monitor, Wallet, Users, Shirt, Package, Truck, Contact, CalendarCheck, BarChart3, BadgeCheck, RefreshCw, Repeat, Sparkles, LineChart, ArrowLeftRight, CreditCard, ReceiptText, ImageIcon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 export type DashboardRole = 'ADMIN' | 'ENCARGADO' | 'ENCARGADO_SUCURSAL' | 'CAJERO'
 export interface DashboardSection { id: string; label: string; icon: LucideIcon; pending?: boolean; description?: string }
 export const dashboardConfig: Record<DashboardRole, { slug: string; title: string; subtitle: string; sections: DashboardSection[] }> = {
- ADMIN: { slug: 'admin', title: 'Administración del sistema', subtitle: 'Superusuario · Vista general', sections: [
+ ADMIN: { slug: 'admin', title: 'Administración de la empresa', subtitle: 'Administrador · Vista general', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
+ { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'usuarios', label: 'Usuarios y roles', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'sucursales', label: 'Sucursales', icon: Store },
  { id: 'reservas', label: 'Reservas', icon: CalendarCheck },
  { id: 'inventario', label: 'Inventario', icon: Package },
+ { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'portada-tienda', label: 'Portada de la tienda', icon: ImageIcon, description: 'Imagen y frase de la página de inicio de tu tienda online.' },
+ { id: 'medios-pago', label: 'Medios de pago', icon: CreditCard, description: 'Elige cómo te pagan tus clientas en la tienda online.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
  { id: 'proveedores', label: 'Proveedores', icon: Truck },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
  { id: 'reportes', label: 'Reportes', icon: BarChart3 },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
+ { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
  ENCARGADO: { slug: 'encargado', title: 'Gestión nacional', subtitle: 'Encargado · Operación nacional', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
+ { id: 'mi-plan', label: 'Mi plan', icon: BadgeCheck },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'gestion-nacional', label: 'Gestión nacional', icon: Store, pending: true, description: 'Coordina la operación nacional de Fashionstore.' },
  { id: 'personal', label: 'Personal', icon: Users },
  { id: 'ciudades', label: 'Ciudades', icon: Store },
@@ -29,17 +40,28 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'sucursales', label: 'Sucursales', icon: Store },
  { id: 'inventario', label: 'Inventario', icon: Package },
+ { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
+ { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
  ENCARGADO_SUCURSAL: { slug: 'encargado-sucursal', title: 'Panel de Sucursal', subtitle: 'Encargado de sucursal · Operación territorial', sections: [
  { id: '', label: 'Inicio', icon: LayoutDashboard },
+ { id: 'dashboard-analitico', label: 'Dashboard analítico', icon: LineChart, description: 'KPIs de ventas, inventario, reservas, devoluciones y cambios.' },
  { id: 'inventario', label: 'Inventario', icon: Package, description: 'Consulta y gestiona el inventario de tus sucursales autorizadas.' },
  { id: 'reservas', label: 'Reservas', icon: Store, description: 'Gestiona las reservas de las sucursales asignadas.' },
  { id: 'ventas', label: 'Ventas', icon: Monitor, description: 'Consulta las ventas del ámbito asignado.' },
  { id: 'catalogo', label: 'Catálogo', icon: Shirt },
  { id: 'almacenes', label: 'Almacenes', icon: Package },
+ { id: 'traspasos', label: 'Traspasos', icon: ArrowLeftRight, description: 'Mueve prendas entre sucursales y confirma su recepción.' },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
  { id: 'cajas', label: 'Cajas', icon: Wallet },
+ { id: 'reportes-ia', label: 'Reportes con IA', icon: Sparkles, description: 'Pregunta por texto o voz y recibe tabla, gráfico y resumen.' },
+ { id: 'sincronizacion', label: 'Sincronización offline', icon: RefreshCw, description: 'Ventas y reservas hechas sin conexión y sus conflictos.' },
+ { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
  CAJERO: { slug: 'cajero', title: 'Punto de venta', subtitle: 'Cajero · Atención en tienda', sections: [
  { id: '', label: 'Dashboard', icon: LayoutDashboard },
@@ -49,5 +71,7 @@ export const dashboardConfig: Record<DashboardRole, { slug: string; title: strin
  { id: 'catalogo', label: 'Consultar prendas', icon: Shirt },
  { id: 'inventario', label: 'Consultar stock', icon: Package },
  { id: 'devoluciones', label: 'Devoluciones', icon: Package },
+ { id: 'pagos-por-verificar', label: 'Pagos por verificar', icon: ReceiptText, description: 'Comprobantes de QR y transferencia, y cobros en efectivo de la tienda online.' },
+ { id: 'cambios', label: 'Cambios de prendas', icon: Repeat, description: 'Cambia prendas de una venta dentro del plazo de la tienda.' },
  ] },
 }

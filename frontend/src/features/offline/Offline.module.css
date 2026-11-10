@@ -1,0 +1,128 @@
+/* Estado de conexión y cola offline (se ve en el dashboard y en la tienda). */
+.chip {
+  position: fixed; left: 16px; bottom: 16px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid #e5d9df; background: #fff; color: #292129;
+  font: inherit; font-size: .84rem; font-weight: 600;
+  box-shadow: 0 8px 24px -10px rgba(41, 33, 41, .35); cursor: pointer;
+}
+.chip:focus-visible { outline: 3px solid #ad3e68; outline-offset: 3px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex: none; }
+.dotOffline { background: #9ca3af; }
+.dotWarn { background: #d97706; }
+.dotBusy { background: #2563eb; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.count { padding: 1px 7px; border-radius: 99px; background: #fbf0f3; color: #913154; font-size: .76rem; }
+
+.backdrop { position: fixed; inset: 0; z-index: 41; background: rgba(41, 33, 41, .28); border: 0; }
+.drawer {
+  position: fixed; left: 16px; bottom: 16px; z-index: 42;
+  width: min(420px, calc(100vw - 32px)); max-height: min(640px, calc(100vh - 32px));
+  display: grid; grid-template-rows: auto auto 1fr auto; overflow: hidden;
+  background: #fff; border: 1px solid #eee5e9; border-radius: 16px;
+  box-shadow: 0 24px 48px -16px rgba(41, 33, 41, .4);
+}
+.drawerHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 18px 10px; }
+.drawerHead h2 { margin: 0; font-size: 1.05rem; }
+.drawerHead p { margin: 4px 0 0; color: #756b73; font-size: .8rem; }
+.close { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #eee5e9; background: #fff; cursor: pointer; }
+.status { margin: 0 18px 10px; padding: 10px 12px; border-radius: 10px; background: #f6f3f5; font-size: .8rem; color: #4b4049; }
+.statusError { background: #fff7ed; color: #9a3412; }
+.list { list-style: none; margin: 0; padding: 0 18px; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+.item { padding: 12px; border: 1px solid #eee5e9; border-radius: 12px; display: grid; gap: 6px; font-size: .82rem; }
+.itemTop { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.itemTop strong { font-size: .86rem; color: #292129; }
+.meta { color: #756b73; font-size: .76rem; }
+.reason { color: #4b4049; line-height: 1.45; }
+.badge { flex: none; font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em; }
+.badgePendiente, .badgeEnviando { background: #eff6ff; color: #1d4ed8; }
+.badgeConfirmada { background: #ecfdf3; color: #15803d; }
+.badgeConflicto { background: #fffbeb; color: #b45309; }
+.badgeRechazada { background: #fef2f2; color: #b91c1c; }
+.linkBtn { justify-self: start; background: none; border: 0; padding: 2px 0; color: #ad3e68; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.empty { margin: 0; padding: 18px 0; text-align: center; color: #756b73; font-size: .84rem; }
+.foot { display: flex; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid #eee5e9; }
+.primary, .ghost { flex: 1; min-height: 40px; border-radius: 10px; font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; }
+.primary { border: 0; background: #ad3e68; color: #fff; }
+.primary:disabled { opacity: .55; cursor: not-allowed; }
+.ghost { border: 1px solid #eee5e9; background: #fff; color: #292129; }
+
+/* Aviso "sin conexión" dentro de las pantallas offline */
+.banner { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; margin-bottom: 18px; border-radius: 12px; background: #f6f3f5; border: 1px solid #eee5e9; font-size: .86rem; color: #4b4049; line-height: 1.5; }
+.banner svg { flex: none; margin-top: 2px; color: #756b73; }
+.banner strong { color: #292129; }
+.readyNote { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .78rem; color: #756b73; }
+.lowStock { color: #b45309 !important; font-weight: 600; }
+
+/* Tienda offline (clienta) */
+.store { min-height: 100vh; background: var(--bg, #fcf9fa); }
+.storeMain { display: block; justify-items: stretch; text-align: left; width: min(1080px, 100% - 32px); margin: 0 auto; padding: 28px 0 96px; }
+.storeHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 18px; }
+.storeHead h1 { margin: 0; font-size: 1.6rem; }
+.storeHead label { display: grid; gap: 6px; font-size: .8rem; font-weight: 700; }
+.storeHead select { min-height: 40px; padding: 8px 10px; border: 1px solid #eee5e9; border-radius: 9px; font: inherit; background: #fff; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.card { background: #fff; border: 1px solid #eee5e9; border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.card h2 { margin: 0; font-size: 1rem; }
+/* Foto de la prenda (también sin conexión: la guarda el service worker al descargar el catálogo). */
+.foto { margin: -16px -16px 0; border-radius: 14px 14px 0 0; overflow: hidden; background: #fff; border-bottom: 1px solid #eee5e9; }
+.foto :global(.product-image) { aspect-ratio: 4 / 3; height: auto; border-radius: 0; background: #fff; }
+.foto :global(.product-image img) { width: 100%; height: 100%; object-fit: contain; }
+.card p { margin: 0; color: #756b73; font-size: .8rem; }
+.price { color: #ad3e68; font-weight: 700; }
+.variants { display: grid; gap: 8px; }
+.variant { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid #f3ecef; font-size: .8rem; }
+.variant button { min-height: 34px; padding: 6px 12px; border-radius: 8px; border: 1px solid #ad3e68; background: #fff; color: #ad3e68; font: inherit; font-weight: 600; cursor: pointer; }
+.variant button:disabled { border-color: #eee5e9; color: #9ca3af; cursor: not-allowed; }
+.feedback { margin: 0 0 16px; padding: 12px 14px; border-radius: 10px; background: #ecfdf3; color: #15803d; font-size: .86rem; }
+
+@media (max-width: 640px) {
+  .chip { left: 12px; bottom: 12px; }
+  .drawer { left: 8px; right: 8px; bottom: 8px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .dotBusy { animation: none; } }
+
+/* Pedido con pago diferido: enlace para pagarlo una vez registrado (CU16). */
+.payLink { display: inline-flex; align-self: flex-start; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 10px; background: #ad3e68; color: #fff; font-size: .82rem; font-weight: 700; text-decoration: none; }
+.variantActions { display: flex; gap: 6px; }
+.pedir { background: #ad3e68 !important; color: #fff !important; border-color: #ad3e68 !important; }
+.nota { margin: 0 0 12px; color: var(--text-secondary, #6b7280); font-size: .86rem; line-height: 1.5; }
+
+/* --- Sesión offline con PIN (CU17) --- */
+.pinOffer { position: fixed; left: 16px; bottom: 72px; z-index: 39; display: flex; gap: 12px; width: min(360px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid #f1d5df; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(17, 24, 39, .14); color: #1f2937; }
+.pinOffer > svg { flex: none; margin-top: 2px; color: #ad3e68; }
+.pinOffer strong { display: block; font-size: .92rem; }
+.pinOffer p { margin: 4px 0 0; color: #6b7280; font-size: .83rem; line-height: 1.45; }
+.pinOfferActions { display: flex; gap: 8px; margin-top: 10px; }
+.pinDialog { position: fixed; left: 50%; top: 50%; z-index: 71; display: grid; gap: 14px; width: min(400px, calc(100vw - 32px)); padding: 20px; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(17, 24, 39, .25); transform: translate(-50%, -50%); }
+.pinField { display: grid; gap: 6px; font-size: .86rem; font-weight: 600; color: #374151; }
+.pinField input, .pinField select { min-height: 46px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; font-size: 1.25rem; letter-spacing: .4em; text-align: center; }
+.pinField select { font-size: .95rem; letter-spacing: normal; text-align: left; }
+.pinHelp { margin: 0; color: #6b7280; font-size: .8rem; line-height: 1.45; }
+.pinAccess { display: grid; gap: 14px; margin-top: 8px; }
+.pinWho { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; }
+.pinDialog .status, .pinAccess .status, .storeMain > .status { margin: 0 0 12px; }
+
+/* --- Carrito sin conexión (CU15) --- */
+.conCarrito { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.carrito { position: sticky; top: 16px; display: grid; gap: 12px; padding: 16px; border: 1px solid #eee5e9; border-radius: 14px; background: #fff; }
+.carrito h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.carrito h2 svg { color: #ad3e68; }
+.carritoVacio, .carritoNota { margin: 0; color: #756b73; font-size: .8rem; line-height: 1.5; }
+.carritoLista { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.carritoLista li { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid #f3ecef; }
+.carritoItem { display: flex; justify-content: space-between; gap: 10px; font-size: .85rem; }
+.carritoItem small { display: block; color: #756b73; font-size: .76rem; }
+.carritoControles { display: flex; align-items: center; gap: 6px; }
+.carritoControles button { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid #e5d9df; border-radius: 8px; background: #fff; color: #4b4049; cursor: pointer; }
+.carritoControles button:disabled { opacity: .45; cursor: not-allowed; }
+.carritoControles span { min-width: 24px; text-align: center; font-weight: 700; }
+.carritoQuitar { margin-left: auto; color: #b91c1c !important; }
+.carritoAviso { margin: 0; padding: 6px 8px; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: .74rem; line-height: 1.4; }
+.carritoTotal { display: flex; justify-content: space-between; font-size: .95rem; }
+.carritoTotal strong { color: #ad3e68; }
+.carritoConfirmar { min-height: 42px; border: 0; border-radius: 10px; background: #ad3e68; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.carritoConfirmar:disabled { opacity: .5; cursor: not-allowed; }
+.carritoVaciar { padding: 0; border: 0; background: none; color: #756b73; font: inherit; font-size: .8rem; text-decoration: underline; cursor: pointer; }
+@media (max-width: 860px) { .conCarrito { grid-template-columns: minmax(0, 1fr); } .carrito { position: static; order: -1; } }

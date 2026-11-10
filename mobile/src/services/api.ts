@@ -1,12 +1,13 @@
-import axios, { AxiosError, isAxiosError } from "axios";
+import axios, { AxiosError, create, isAxiosError } from "axios";
 import { API_URL, API_TIMEOUT } from "@/config/env";
 import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
 import { getSessionItem, removeSessionItem, setSessionItem } from "@/services/sessionStorage";
 import { getRuntimeApiUrl } from "@/services/apiUrl.service";
 import { emitInvalidAuthSession } from "@/services/authSessionEvents";
+import { tienda } from "@/config/tienda";
 
 // Cliente axios configurado
-export const api = axios.create({
+export const api = create({
   baseURL: API_URL,
   timeout: API_TIMEOUT,
   headers: {
@@ -21,6 +22,9 @@ api.interceptors.request.use(async (config) => {
   const token = await getSessionItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    const slug = tienda.get() ?? await tienda.cargar();
+    if (slug) config.headers["X-Tenant"] = slug;
   }
   mobileLog("API solicitud", {
     method: config.method?.toUpperCase(),

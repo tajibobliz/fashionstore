@@ -70,7 +70,8 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -7,7 +7,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { BranchAccessService } from '../users/branch-access.service';
-import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDto, TurnReportFiltersDto } from './dto/report-filters.dto';
+import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDto, TurnReportFiltersDto, KpisQueryDto } from './dto/report-filters.dto';
+import { KpisService } from './kpis.service';
 
 @ApiTags('Reportes')
 @ApiBearerAuth()
@@ -15,12 +16,15 @@ import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDt
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL, Role.CAJERO)
 export class ReportsController {
-  constructor(private readonly service: ReportsService, private readonly access: BranchAccessService) {}
+  constructor(private readonly service: ReportsService, private readonly access: BranchAccessService, private readonly kpisService: KpisService) {}
 
   private async scope(user: any): Promise<ReportScope> {
     return { branchIds: await this.access.accessibleBranchIds(user), cashierId: user.rol === Role.CAJERO ? user.idUsuario : undefined };
   }
 
+  /** KPIs del dashboard analítico (CU12): ventas del día y del mes, stock crítico, reservas, devoluciones, cambios y top por sucursal. */
+  @Get('kpis') @Roles(Role.ADMIN, Role.ENCARGADO, Role.ENCARGADO_SUCURSAL)
+  async kpis(@Query() q: KpisQueryDto, @Request() req: any) { return this.kpisService.kpis(req.user.idEmpresa, await this.scope(req.user), q.idSucursal, q.dias); }
   @Get('dashboard') async dashboard(@Query() f: ReportFiltersDto, @Request() req: any) { return this.service.dashboard(f, await this.scope(req.user)); }
   @Get('sales') async sales(@Query() f: ReportFiltersDto, @Request() req: any) { return this.service.sales(f, await this.scope(req.user)); }
   @Get('sales/by-branch') async byBranch(@Query() f: ReportFiltersDto, @Request() req: any) { return this.service.salesByBranch(f, await this.scope(req.user)); }

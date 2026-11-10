@@ -1,9 +1,10 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { Sucursal } from '../../branches/entities/sucursal.entity';
 
 @Entity('color')
-export class Color {
+export class Color extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_color' })
   idColor: number;
 

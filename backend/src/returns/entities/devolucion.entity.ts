@@ -1,3 +1,4 @@
+import { TenantOwned } from '../../tenancy/tenant-owned.entity';
 import type { Relation } from 'typeorm';
 import {
   Entity,
@@ -13,7 +14,7 @@ import { Usuario } from '../../users/entities/user.entity';
 import { DetalleDevolucion } from './detalle-devolucion.entity';
 
 @Entity('devolucion')
-export class Devolucion {
+export class Devolucion extends TenantOwned {
   @PrimaryGeneratedColumn({ name: 'id_devolucion' })
   idDevolucion: number;
 

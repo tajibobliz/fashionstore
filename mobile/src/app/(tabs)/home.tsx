@@ -12,6 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { homeService } from "@/services/home.service";
 import { Categoria, Producto } from "@/types/catalog.types";
 import { Promocion } from "@/types/promotion.types";
+import { useMonedaStore } from "@/lib/moneda";
 
 // Props de rendimiento comunes a las listas horizontales de este home (evitan renderizar/mantener
 // montadas más celdas de las necesarias mientras el usuario desliza).
@@ -21,6 +22,8 @@ export default function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
+  // Nombre de la tienda de la cuenta (Urban Step, FashionStore…), no uno fijo.
+  const nombreTienda = useMonedaStore((s) => s.nombre) ?? "FashionStore";
 
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriasLoading, setCategoriasLoading] = useState(true);
@@ -80,7 +83,7 @@ export default function HomeScreen() {
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="px-6 pt-16 pb-6">
-        <Text className="text-4xl font-bold text-primary-500">FashionStore</Text>
+        <Text className="text-4xl font-bold text-primary-500">{nombreTienda}</Text>
 
         {isAuthenticated ? (
           <Text className="mt-2 text-base text-gray-500">Hola, {user?.nombre} 👋</Text>

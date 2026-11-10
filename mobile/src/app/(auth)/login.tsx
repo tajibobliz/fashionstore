@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,16 +13,21 @@ import { AxiosError } from "axios";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
-import { API_URL } from "@/config/env";
-import { mobileLog, mobileWarn } from "@/utils/mobileLogger";
+import { tienda, slugDeTienda } from "@/config/tienda";
 
 export default function LoginScreen() {
   const login = useAuthStore((state) => state.login);
   const router = useRouter();
+  const [codigoTienda, setCodigoTienda] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+
+  // Recordar la última tienda usada (SaaS: cada empresa tiene su tienda).
+  useEffect(() => {
+    tienda.cargar().then((slug) => { if (slug && slug !== "fashionstore") setCodigoTienda(slug); });
+  }, []);
 
   // Validación en el cliente antes de llamar al backend
   const validate = () => {
@@ -38,24 +43,15 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      mobileLog("Pantalla login: enviando credenciales", { apiUrl: API_URL, emailProvided: Boolean(email.trim()) });
-      await login(email.trim().toLowerCase(), password);
-      router.replace("/dashboard" as any);
-      mobileLog("Pantalla login: autenticación correcta");
+      await login(email.trim().toLowerCase(), password, slugDeTienda(codigoTienda) || undefined);
       // No navegamos aquí: _layout.tsx detecta isAuthenticated y redirige
     } catch (e) {
       const err = e as AxiosError<{ message?: string | string[] }>;
-      mobileWarn("Pantalla login: autenticación rechazada", {
-        apiUrl: API_URL,
-        status: err.response?.status ?? null,
-        code: err.code ?? null,
-        backendMessage: err.response?.data?.message ?? null,
-      });
       let msg = "No se pudo iniciar sesión";
       if (!err.response) {
         msg = "Sin conexión con el servidor. Revisa la WiFi y que el backend esté corriendo.";
       } else if (err.response.status === 401) {
-        msg = "Correo o contraseña incorrectos";
+        msg = "Correo, contraseña o tienda incorrectos";
       } else if (err.response.data?.message) {
         const m = err.response.data.message;
         msg = Array.isArray(m) ? m.join("\n") : m;
@@ -81,6 +77,15 @@ export default function LoginScreen() {
         </Text>
 
         <Input
+          label="Tienda (opcional)"
+          placeholder="Ej. urban-step · vacío = FashionStore"
+          value={codigoTienda}
+          onChangeText={setCodigoTienda}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        <Input
           label="Correo electrónico"
           placeholder="tucorreo@ejemplo.com"
           value={email}
@@ -104,9 +109,6 @@ export default function LoginScreen() {
         <View className="mt-2">
           <Button title="Iniciar sesión" onPress={handleLogin} loading={loading} />
         </View>
-        <Pressable onPress={() => router.push("/server" as any)} className="mt-4 items-center py-2">
-          <Text className="text-sm font-semibold text-primary-500">Configurar servidor</Text>
-        </Pressable>
         <View className="mt-6 flex-row justify-center">
         <Text className="text-sm text-gray-600">¿No tienes cuenta? </Text>
         <Pressable onPress={() => router.replace("/register" as any)}>
@@ -118,4 +120,4 @@ export default function LoginScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+}

@@ -1,5 +1,5 @@
 // Roles del sistema (deben coincidir con el enum del backend)
-export type Role = "CLIENTE" | "ADMIN" | "ENCARGADO" | "CAJERO" | "PROVEEDOR";
+export type Role = "CLIENTE" | "ADMIN" | "ENCARGADO" | "ENCARGADO_SUCURSAL" | "CAJERO" | "PROVEEDOR" | "SUPER_ADMIN";
 
 // Usuario que devuelve el backend
 export interface User {
@@ -9,6 +9,9 @@ export interface User {
   email: string;
   telefono?: string;
   rol: Role;
+  /** Empresa (tienda del SaaS) a la que pertenece la cuenta. */
+  idEmpresa?: number | null;
+  empresa?: { idEmpresa: number; nombre: string; slug: string } | null;
 }
 
 // Respuesta del login/register
@@ -31,4 +34,4 @@ export interface Producto {
     idCategoria: number;
     nombre: string;
   };
-}
+}

@@ -25,9 +25,15 @@ const serviceWith = (qb: any) => new ReportsService(
 );
 
 describe('reportes y producción', () => {
-  it('hasta con fecha simple incluye el fin completo del día UTC', () => {
-    const { to } = (serviceWith(fluent()) as any).dateBounds(undefined, '2026-09-16');
-    expect(to.toISOString()).toBe('2026-09-16T23:59:59.999Z');
+  it('los días simples se toman completos en la zona de la tienda (La Paz = UTC-4)', () => {
+    const antes = process.env.APP_TIMEZONE;
+    process.env.APP_TIMEZONE = 'America/La_Paz';
+    const { from, to } = (serviceWith(fluent()) as any).dateBounds('2026-09-01', '2026-09-16');
+    expect(from.toISOString()).toBe('2026-09-01T04:00:00.000Z');
+    expect(to.toISOString()).toBe('2026-09-17T03:59:59.999Z'); // una venta a las 22:00 del 16 entra
+    process.env.APP_TIMEZONE = 'UTC';
+    expect((serviceWith(fluent()) as any).dateBounds(undefined, '2026-09-16').to.toISOString()).toBe('2026-09-16T23:59:59.999Z');
+    if (antes === undefined) delete process.env.APP_TIMEZONE; else process.env.APP_TIMEZONE = antes;
   });
 
   it('combina rango, sucursal, canal, modalidad, cajero, caja, turno y pago', () => {

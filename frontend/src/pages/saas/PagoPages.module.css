@@ -1,0 +1,17 @@
+.main { max-width: 560px; display: grid; gap: 16px; justify-items: start; }
+.main > a { justify-self: stretch; text-decoration: none; }
+.icono { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: #e8eefc; color: #074ce0; }
+.ok { background: #e7f6ed; color: #13703a; }
+.bad { background: #fdecec; color: #a8261b; }
+.estado { display: flex; align-items: center; gap: 10px; color: #454c58; }
+.resumen { width: 100%; gap: 6px; }
+.resumen p { margin: 0; }
+.aviso { padding: 6px 12px; border-radius: 99px; background: #fff4d6; color: #7a5200; font-size: 13px; font-weight: 600; }
+.tarjeta { width: 100%; }
+.total { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 1px solid #dde0e6; }
+.total strong { font-size: 1.6rem; letter-spacing: -.02em; }
+.conIcono { display: flex; align-items: center; gap: 8px; padding-left: 12px; border: 1px solid #dde0e6; border-radius: 8px; background: #fff; color: #454c58; }
+.conIcono input { flex: 1; border: 0 !important; min-height: 42px; }
+.cancelar { justify-self: center; font-size: 14px; color: #454c58; }
+.cancelar:hover { color: #16191f; }
+@media (max-width: 560px) { .main { padding-top: 32px; } }
