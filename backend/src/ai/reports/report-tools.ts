@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -109,6 +110,10 @@ class TopProductos extends ConSucursal {
   @IsOptional() @IsInt() @Min(1) @Max(50)
   limite?: number;
 
+  /** true = un ranking por cada sucursal (los N más vendidos de cada una), en una sola tabla. */
+  @IsOptional() @IsBoolean()
+  porSucursal?: boolean;
+
   @IsOptional() @IsString() @Length(1, 100)
   categoria?: string;
 }
@@ -174,11 +179,14 @@ export const HERRAMIENTAS: DefinicionHerramienta[] = [
   },
   {
     nombre: 'top_productos',
-    descripcion: 'Productos más vendidos (por unidades) con el ingreso que generaron. Se puede filtrar por nombre de categoría.',
+    descripcion:
+      'Productos más vendidos (por unidades) con el ingreso que generaron. Se puede filtrar por nombre de categoría. ' +
+      'Si piden el ranking "por sucursal" o "agrupado por sucursal", usa porSucursal=true en UNA sola llamada (no una llamada por sucursal).',
     parametros: objeto({
       ...rango,
       ...sucursal,
-      limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Cuántos productos. Por defecto 10.' },
+      limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Cuántos productos (por sucursal si porSucursal=true). Por defecto 10.' },
+      porSucursal: { type: 'boolean', description: 'true = los más vendidos de CADA sucursal, en una tabla con la columna Sucursal.' },
       categoria: { type: 'string', description: 'Nombre de la categoría (p. ej. "Vestidos").' },
     }),
   },
@@ -348,6 +356,7 @@ export class ReportToolsService {
     const cat = p.categoria ? await this.categoria(p.categoria) : undefined;
     if (cat) filtros['Categoría'] = cat.nombre;
     filtros['Límite'] = String(limite);
+    if (p.porSucursal) return this.topProductosPorSucursal(f, filtros, limite, cat?.idCategoria, ctx);
     const filas = (await this.reports.topProducts(f, ctx.scope, limite, cat?.idCategoria)).map((x) => ({
       producto: x.nombre, categoria: x.categoria ?? 'Sin categoría', cantidadVendida: x.cantidadVendida, totalGenerado: x.totalGenerado,
     }));
@@ -357,6 +366,40 @@ export class ReportToolsService {
       { clave: 'cantidadVendida', etiqueta: 'Unidades', formato: 'numero' },
       { clave: 'totalGenerado', etiqueta: 'Ingreso', formato: 'moneda' },
     ], filas, { tipo: 'barras', x: 'producto', y: ['cantidadVendida'] }, filtros, this.sumas(filas, ['cantidadVendida', 'totalGenerado']));
+  }
+
+  /**
+   * Ranking de cada sucursal permitida (o solo la pedida), con la MISMA consulta de /reports
+   * filtrada por sucursal: las cifras coinciden con el reporte de cada sucursal.
+   */
+  private async topProductosPorSucursal(
+    f: ReportFiltersDto,
+    filtros: Record<string, string>,
+    limite: number,
+    idCategoria: number | undefined,
+    ctx: ContextoHerramientas,
+  ) {
+    filtros['Agrupado por'] = 'sucursal';
+    filtros['Límite'] = `${limite} por sucursal`;
+    const sucursales = f.idSucursal ? ctx.sucursales.filter((s) => s.idSucursal === f.idSucursal) : ctx.sucursales;
+    const filas: Record<string, string | number>[] = [];
+    for (const s of sucursales) {
+      const ranking = await this.reports.topProducts(Object.assign(new ReportFiltersDto(), f, { idSucursal: s.idSucursal }), ctx.scope, limite, idCategoria);
+      ranking.forEach((x, i) =>
+        filas.push({
+          sucursal: s.nombre, puesto: i + 1, producto: x.nombre, categoria: x.categoria ?? 'Sin categoría',
+          cantidadVendida: x.cantidadVendida, totalGenerado: x.totalGenerado,
+        }),
+      );
+    }
+    return this.reporte('top_productos', 'Productos más vendidos por sucursal', [
+      { clave: 'sucursal', etiqueta: 'Sucursal', formato: 'texto' },
+      { clave: 'puesto', etiqueta: 'N.º', formato: 'numero' },
+      { clave: 'producto', etiqueta: 'Producto', formato: 'texto' },
+      { clave: 'categoria', etiqueta: 'Categoría', formato: 'texto' },
+      { clave: 'cantidadVendida', etiqueta: 'Unidades', formato: 'numero' },
+      { clave: 'totalGenerado', etiqueta: 'Ingreso', formato: 'moneda' },
+    ], filas, null, filtros, { ...this.sumas(filas, ['cantidadVendida', 'totalGenerado']), sucursales: sucursales.length });
   }
 
   private async ingresosPorCategoria(p: ConSucursal, ctx: ContextoHerramientas) {

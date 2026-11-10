@@ -60,7 +60,12 @@ export class SimuladoProveedor implements ProveedorLlm {
     if (/reserva/.test(t)) return llamada('reservas_por_estado', fechas);
     if (/metodo|pago|qr|efectivo|tarjeta|transferencia/.test(t)) return llamada('ventas_por_metodo_pago', fechas);
     if (/categor/.test(t)) return llamada('ingresos_por_categoria', fechas);
-    if (/producto|mas vendid|top|ranking/.test(t)) return llamada('top_productos', { ...fechas, ...numero(t, /(?:top|los)\s+(\d+)/, 'limite') });
+    if (/producto|mas vendid|top|ranking/.test(t))
+      return llamada('top_productos', {
+        ...fechas,
+        ...numero(t, /(?:top|los)\s+(\d+)/, 'limite'),
+        ...(/sucursal/.test(t) ? { porSucursal: true } : {}),
+      });
     if (/sucursal/.test(t)) return llamada('ventas_por_sucursal', fechas);
     if (/venta|vendi|ingreso|factur/.test(t)) {
       const agrupar = /por mes|mensual|meses/.test(t) ? 'mes' : /por semana|semanal|semanas/.test(t) ? 'semana' : 'dia';
@@ -78,6 +83,8 @@ export class SimuladoProveedor implements ProveedorLlm {
     if (/\bayer\b/.test(t)) { const a = sumarDias(hoy, -1); return { desde: a, hasta: a }; }
     const n = /ultim[oa]s?\s+(\d+)\s+dias/.exec(t);
     if (n) return { desde: sumarDias(hoy, -(Number(n[1]) - 1)), hasta: hoy };
+    const m = /ultim[oa]s?\s+(\d+)\s+meses/.exec(t);
+    if (m) return { desde: restarMeses(hoy, Number(m[1])), hasta: hoy };
     if (/esta semana/.test(t)) return { desde: sumarDias(hoy, -((new Date(`${hoy}T00:00:00Z`).getUTCDay() + 6) % 7)), hasta: hoy };
     if (/este mes/.test(t)) return { desde: `${hoy.slice(0, 8)}01`, hasta: hoy };
     if (/mes pasado|mes anterior/.test(t)) {
@@ -87,6 +94,16 @@ export class SimuladoProveedor implements ProveedorLlm {
     if (/este ano/.test(t)) return { desde: `${hoy.slice(0, 4)}-01-01`, hasta: hoy };
     return {};
   }
+}
+
+/** Misma fecha N meses antes (si ese día no existe, el último día de ese mes). */
+function restarMeses(fecha: string, meses: number) {
+  const [a, m, d] = fecha.split('-').map(Number);
+  const total = a * 12 + (m - 1) - meses;
+  const anio = Math.floor(total / 12);
+  const mes = total % 12;
+  const ultimo = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  return `${anio}-${String(mes + 1).padStart(2, '0')}-${String(Math.min(d, ultimo)).padStart(2, '0')}`;
 }
 
 function ultimaPregunta(mensajes: MensajeLlm[]) {

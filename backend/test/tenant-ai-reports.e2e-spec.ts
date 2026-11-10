@@ -145,6 +145,43 @@ describe('Reportes con IA: tipos de reporte con datos reales', () => {
     );
   });
 
+  it('top por sucursal: un ranking por cada sucursal, con las cifras de /reports de esa sucursal', async () => {
+    const r = await herramienta('B', 'top_productos', { ...RANGO, limite: 3, porSucursal: true });
+    expect(r.status).toBe(200);
+    const rep = r.body.reportes[0];
+    expect(rep.columnas[0].clave).toBe('sucursal');
+    expect(rep.filtros['Agrupado por']).toBe('sucursal');
+    for (const s of sucursalesB) {
+      const ref = await c.api(
+        'GET',
+        `/reports/products/top?desde=${RANGO.desde}&hasta=${RANGO.hasta}&idSucursal=${s.idSucursal}`,
+        { who: 'B' },
+      );
+      const propias = rep.filas.filter((x: any) => x.sucursal === s.nombre);
+      expect(propias.map((x: any) => x.producto)).toEqual(ref.body.slice(0, 3).map((x: any) => x.nombre));
+      expect(propias.map((x: any) => x.puesto)).toEqual(propias.map((_: any, i: number) => i + 1));
+    }
+  });
+
+  it('"los 10 productos más vendidos de los últimos 3 meses por sucursal" → una sola tabla agrupada', async () => {
+    const r = await preguntar('B', 'Muéstrame los 10 productos más vendidos durante los últimos 3 meses agrupados por sucursal');
+    expect(r.status).toBe(200);
+    expect(r.body.tipo).toBe('reporte');
+    const rep = r.body.reportes[0];
+    expect(rep.herramienta).toBe('top_productos');
+    expect(rep.titulo).toBe('Productos más vendidos por sucursal');
+    expect(rep.filtros['Límite']).toBe('10 por sucursal');
+    // "últimos 3 meses" = desde la misma fecha 3 meses atrás hasta hoy.
+    const [a, m, d] = hoy.split('-').map(Number);
+    const tres = new Date(Date.UTC(a, m - 1 - 3, 1));
+    const ultimo = new Date(Date.UTC(tres.getUTCFullYear(), tres.getUTCMonth() + 1, 0)).getUTCDate();
+    const desde = `${tres.getUTCFullYear()}-${String(tres.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(d, ultimo)).padStart(2, '0')}`;
+    expect(rep.filtros['Desde']).toBe(desde);
+    expect(rep.filtros['Hasta']).toBe(hoy);
+    const sucursales = new Set(rep.filas.map((x: any) => x.sucursal));
+    for (const s of sucursales) expect(sucursalesB.map((b) => b.nombre)).toContain(s);
+  });
+
   it('devoluciones y cambios por producto: mismas cifras que el dashboard de KPIs', async () => {
     const r = await herramienta('B', 'devoluciones_y_cambios_por_producto', { ...RANGO, limite: 50 });
     expect(r.status).toBe(200);
@@ -254,6 +291,13 @@ describe('Reportes con IA: alcance por sucursal y por empresa', () => {
       ref.body.reduce((s: number, x: any) => s + Number(x.totalVendido), 0),
       2,
     );
+  });
+
+  it('top por sucursal: el encargado solo recibe el ranking de su sucursal', async () => {
+    const r = await herramienta('ENC', 'top_productos', { ...RANGO, porSucursal: true });
+    expect(r.status).toBe(200);
+    const nombres = new Set(r.body.reportes[0].filas.map((x: any) => x.sucursal));
+    expect([...nombres]).toEqual(['Urban Step Centro']);
   });
 
   it('el encargado no puede pedir otra sucursal de su empresa', async () => {
