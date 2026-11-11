@@ -30,7 +30,7 @@ export default function PlatformPanel() {
 
   return <div className={styles.page}>
     <header className={styles.top}>
-      <Link to="/" className={styles.brand} aria-label="FashionStore SaaS, inicio"><LayoutGrid size={20} aria-hidden="true" />FashionStore<span>SaaS</span></Link>
+      <Link to="/" className={styles.brand} aria-label="FashionCloud, inicio"><LayoutGrid size={20} aria-hidden="true" />Fashion<span>Cloud</span></Link>
       <nav className={styles.tabs} aria-label="Secciones de la plataforma">
         <NavLink to="/plataforma/empresas" className={({ isActive }) => isActive ? styles.tabActive : ''}><Building2 size={16} aria-hidden="true" /> Empresas</NavLink>
         <NavLink to="/plataforma/planes" className={({ isActive }) => isActive ? styles.tabActive : ''}><Layers size={16} aria-hidden="true" /> Planes</NavLink>

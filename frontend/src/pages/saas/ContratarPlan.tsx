@@ -89,7 +89,7 @@ export default function ContratarPlan() {
 
   return <div className={styles.page}>
     <header className={styles.top}>
-      <Link to="/" className={styles.brand} aria-label="FashionStore SaaS, inicio"><LayoutGrid size={20} aria-hidden="true" />FashionStore<span>SaaS</span></Link>
+      <Link to="/" className={styles.brand} aria-label="FashionCloud, inicio"><LayoutGrid size={20} aria-hidden="true" />Fashion<span>Cloud</span></Link>
       <Link to="/#planes" className={styles.back}><ArrowLeft size={16} aria-hidden="true" /> Volver a los planes</Link>
     </header>
 

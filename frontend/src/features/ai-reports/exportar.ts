@@ -111,7 +111,7 @@ export function exportarPdf({ reporte, consulta, narrativa, meta, grafico }: Con
     doc.setFontSize(7.5)
     doc.setTextColor(130)
     const alto = doc.internal.pageSize.getHeight()
-    doc.text(`FashionStore SaaS · ${meta.empresa} · ${generado}`, margen, alto - 8)
+    doc.text(`FashionCloud · ${meta.empresa} · ${generado}`, margen, alto - 8)
     doc.text(`Página ${i} de ${paginas}`, ancho - margen, alto - 8, { align: 'right' })
   }
   doc.save(nombreArchivo(reporte, 'pdf'))

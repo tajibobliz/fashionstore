@@ -20,7 +20,7 @@ const detalle = (p: PagoSuscripcion) => `Plan ${p.nombrePlan} · ${p.meses} ${p.
 function Marco({ children }: { children: ReactNode }) {
   return <div className={base.page}>
     <header className={base.top}>
-      <Link to="/" className={base.brand} aria-label="FashionStore SaaS, inicio"><LayoutGrid size={20} aria-hidden="true" />FashionStore<span>SaaS</span></Link>
+      <Link to="/" className={base.brand} aria-label="FashionCloud, inicio"><LayoutGrid size={20} aria-hidden="true" />Fashion<span>Cloud</span></Link>
     </header>
     <main className={`${base.main} ${styles.main}`}>{children}</main>
   </div>
@@ -133,7 +133,7 @@ export function PagoSimulado() {
   return <Marco>
     <p className={styles.aviso}>Pasarela simulada · modo de prueba, no se cobra nada</p>
     <h1>Pagar suscripción</h1>
-    <p className={base.lead}>FashionStore SaaS · {detalle(p)}</p>
+    <p className={base.lead}>FashionCloud · {detalle(p)}</p>
     <form className={`${base.block} ${styles.tarjeta}`} onSubmit={e => { e.preventDefault(); if (!rechazada) pagar.mutate() }}>
       <div className={styles.total}><span>Total a pagar</span><strong>{usd(p.monto)}</strong></div>
       <label className={base.field}>Número de tarjeta

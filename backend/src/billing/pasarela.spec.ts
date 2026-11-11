@@ -54,7 +54,7 @@ describe('StripePasarela', () => {
       price_data: {
         currency: 'usd',
         unit_amount: 14700,
-        product_data: { name: 'FashionStore SaaS · Plan Profesional' },
+        product_data: { name: 'FashionCloud · Plan Profesional' },
       },
     });
     // El cobro también lleva la marca (el panel de Stripe muestra de qué app es).

@@ -178,7 +178,7 @@ export default function StoreHome() {
       </nav>
       <div className={styles.footerBottom}>
         <p>© {new Date().getFullYear()} {nombre}</p>
-        <p>Tienda creada con <Link to="/">FashionStore SaaS</Link></p>
+        <p>Tienda creada con <Link to="/">FashionCloud</Link></p>
       </div>
     </footer>
   </div>

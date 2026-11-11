@@ -96,7 +96,7 @@ export class StripePasarela implements Pasarela {
               currency: 'usd',
               unit_amount: d.montoCentavos,
               product_data: {
-                name: `FashionStore SaaS · Plan ${d.nombrePlan}`,
+                name: `FashionCloud · Plan ${d.nombrePlan}`,
                 description: `${d.empresa} · ${d.meses} ${d.meses === 1 ? 'mes' : 'meses'}`,
               },
             },
@@ -109,7 +109,7 @@ export class StripePasarela implements Pasarela {
         customer_email: d.email,
         metadata,
         payment_intent_data: {
-          description: `FashionStore SaaS · Plan ${d.nombrePlan} · ${d.empresa}`,
+          description: `FashionCloud · Plan ${d.nombrePlan} · ${d.empresa}`,
           metadata,
         },
       },

@@ -72,7 +72,7 @@ function HeroDiagram() {
   const cx = 260
   const cy = 220
   return <svg className={styles.diagram} viewBox="0 0 520 440" role="img" aria-labelledby="diagram-title">
-    <title id="diagram-title">Sucursales, catálogo, punto de venta, tienda online, inventario y reportes conectados a FashionStore</title>
+    <title id="diagram-title">Sucursales, catálogo, punto de venta, tienda online, inventario y reportes conectados a FashionCloud</title>
     <defs>
       <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stopColor="#2f6bf0" /><stop offset="1" stopColor="#0539b0" />
@@ -83,7 +83,7 @@ function HeroDiagram() {
     {nodes.map(n => <line key={`l-${n.label}`} x1={n.x + w / 2} y1={n.y + 18} x2={cx} y2={cy} className={styles.link} />)}
     <rect x={cx - 62} y={cy - 62} width="124" height="124" rx="26" fill="url(#core)" />
     <text x={cx} y={cy - 4} textAnchor="middle" className={styles.coreText}>Fashion</text>
-    <text x={cx} y={cy + 20} textAnchor="middle" className={styles.coreText}>Store</text>
+    <text x={cx} y={cy + 20} textAnchor="middle" className={styles.coreText}>Cloud</text>
     {nodes.map(n => <g key={n.label}>
       <rect x={n.x} y={n.y} width={w} height="36" rx="9" className={styles.tile} />
       <text x={n.x + w / 2} y={n.y + 23} textAnchor="middle" className={styles.tileText}>{n.label}</text>
@@ -99,7 +99,7 @@ export default function SaasLanding() {
   return <div className={styles.page}>
     <header className={styles.nav}>
       <div className={styles.container}>
-        <Link to="/" className={styles.brand} aria-label="FashionStore SaaS, inicio"><LayoutGrid size={22} aria-hidden="true" />FashionStore<span>SaaS</span></Link>
+        <Link to="/" className={styles.brand} aria-label="FashionCloud, inicio"><LayoutGrid size={22} aria-hidden="true" />Fashion<span>Cloud</span></Link>
         <nav aria-label="Secciones" className={styles.navLinks}>
           <a href="#funcionalidades">Funcionalidades</a><a href="#como-funciona">Cómo funciona</a><a href="#planes">Planes</a><a href="#preguntas">Preguntas</a>
         </nav>
@@ -216,12 +216,12 @@ export default function SaasLanding() {
 
     <footer className={styles.footer}>
       <div className={`${styles.container} ${styles.footerGrid}`}>
-        <div><p className={styles.footerBrand}>FashionStore SaaS</p><p>Plataforma para negocios de moda con una o varias tiendas.</p></div>
+        <div><p className={styles.footerBrand}>FashionCloud</p><p>Plataforma para negocios de moda con una o varias tiendas.</p></div>
         <div><h3>Producto</h3><ul><li><a href="#funcionalidades">Funcionalidades</a></li><li><a href="#planes">Planes</a></li><li><a href="#preguntas">Preguntas</a></li></ul></div>
         <div><h3>Cuenta</h3><ul><li><Link to="/contratar">Registrar mi empresa</Link></li><li><Link to="/login">Iniciar sesión</Link></li></ul></div>
         <div><h3>Ejemplo</h3><ul><li><Link to="/t/fashionstore">Tienda FashionStore</Link></li></ul></div>
       </div>
-      <div className={styles.container}><p className={styles.copy}>© {new Date().getFullYear()} FashionStore SaaS</p></div>
+      <div className={styles.container}><p className={styles.copy}>© {new Date().getFullYear()} FashionCloud</p></div>
     </footer>
   </div>
 }

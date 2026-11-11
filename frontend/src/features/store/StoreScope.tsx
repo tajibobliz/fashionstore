@@ -43,7 +43,7 @@ export default function StoreScope() {
   if (!slug) return <StoreContext.Provider value={DEFAULT_STORE}><Outlet /></StoreContext.Provider>
   if (tienda.isLoading) return <main className="session-loading" role="status">Cargando tienda…</main>
   if (tienda.isError || !tienda.data) return <main className="session-loading">
-    <h1>Tienda no encontrada</h1><p>La dirección /t/{slug} no corresponde a ninguna tienda activa.</p><Link to="/">Ir a FashionStore SaaS</Link>
+    <h1>Tienda no encontrada</h1><p>La dirección /t/{slug} no corresponde a ninguna tienda activa.</p><Link to="/">Ir a FashionCloud</Link>
   </main>
 
   const info = { slug: tienda.data.slug, nombre: tienda.data.nombre, base: `/t/${tienda.data.slug}`, portadaUrl: tienda.data.portadaUrl, eslogan: tienda.data.eslogan }
