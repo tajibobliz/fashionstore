@@ -1,0 +1,72 @@
+/*
+ * Tema "urbano" del catálogo (/t/:slug/tienda) para las tiendas de otras empresas, por ejemplo Urban Step.
+ * FashionStore mantiene su diseño boutique (rosado). Solo cambia el aspecto: la estructura y las
+ * funciones son las mismas. Las variables (--orange, --bg…) se redefinen dentro de .workspace--urbano,
+ * así el carrito, el detalle de la prenda y los pagos de esa tienda también toman los nuevos colores.
+ */
+.workspace--urbano {
+  --orange: #0f766e;
+  --orange-hover: #0b5f59;
+  --orange-light: #e6f2f0;
+  --bg: #f2f3ef;
+  --border: #dfe3dd;
+  --muted: #5d6560;
+  --urbano-ink: #16181b;
+  --urbano-neon: #5eead4;
+  background: var(--bg);
+}
+
+/* Encabezado oscuro */
+.workspace--urbano .workspace-header { background: var(--urbano-ink); border-bottom: 0; color: #fff; }
+.workspace--urbano .workspace-header .brand { color: #fff; letter-spacing: .02em; text-transform: uppercase; }
+.workspace--urbano .workspace-header .brand svg { color: var(--urbano-neon); }
+.workspace--urbano .workspace-user > span { color: #cfd5d1; }
+.workspace--urbano .workspace-header .cart-link,
+.workspace--urbano .workspace-header .logout-button { background: transparent; border-color: rgba(255, 255, 255, .24); color: #fff; border-radius: 4px; }
+.workspace--urbano .workspace-header .cart-link:hover,
+.workspace--urbano .workspace-header .logout-button:hover { border-color: var(--urbano-neon); color: var(--urbano-neon); }
+.workspace--urbano .workspace-header .cart-link span { background: var(--urbano-neon); color: #0b2b28; }
+.workspace--urbano .workspace-header .primary-button { background: var(--urbano-neon); color: #0b2b28; }
+
+/* Presentación del catálogo: banda oscura con degradado */
+.workspace--urbano .workspace-intro {
+  padding: 34px 38px;
+  border-radius: 6px;
+  background: linear-gradient(115deg, var(--urbano-ink) 55%, #0f766e 135%);
+  color: #fff;
+}
+.workspace--urbano .workspace-intro .eyebrow { color: var(--urbano-neon); }
+.workspace--urbano .workspace-intro h1 { color: #fff; text-transform: uppercase; letter-spacing: -.01em; margin-bottom: 0; }
+.workspace--urbano .workspace-intro .back-link { margin-bottom: 0; color: #cfd5d1; }
+.workspace--urbano .workspace-intro .back-link:hover { color: var(--urbano-neon); }
+
+/* Filtros y búsqueda con esquinas rectas */
+.workspace--urbano .collection-heading h2 { text-transform: uppercase; letter-spacing: .04em; font-size: 1.1rem; }
+.workspace--urbano .branch-selector select,
+.workspace--urbano .search-field,
+.workspace--urbano .workspace-tabs select { border-radius: 4px; border: 1px solid var(--border); background: #fff; }
+.workspace--urbano .workspace-tabs select { padding: 8px 12px; font: inherit; font-size: .85rem; }
+
+/* Tarjetas de prenda */
+.workspace--urbano .product-card { border-radius: 4px; transition: transform .2s, box-shadow .2s; }
+.workspace--urbano .product-grid .product-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(22, 24, 27, .12); }
+.workspace--urbano .product-image { background: #e9ebe6; }
+.workspace--urbano .product-info .eyebrow { color: var(--orange); }
+.workspace--urbano .product-info strong { color: var(--urbano-ink); }
+.workspace--urbano .product-grid .product-info small {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: var(--orange-light);
+  color: var(--orange);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+/* Botones */
+.workspace--urbano .primary-button { border-radius: 4px; }
+
+@media (max-width: 700px) {
+  .workspace--urbano .workspace-intro { padding: 24px 20px; }
+}
