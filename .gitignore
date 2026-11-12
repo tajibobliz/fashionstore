@@ -30,3 +30,6 @@ npm-debug.log*
 mobile/android/build/
 mobile/ios/build/
 mobile/android/.gradle/
+
+__pycache__/
+*.pyc
