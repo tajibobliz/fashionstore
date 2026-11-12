@@ -234,7 +234,7 @@ export class AiReportsService {
   private instrucciones(empresa: string, ctx: ContextoHerramientas) {
     const m = moneda(ctx.moneda);
     const lista = ctx.sucursales.map((s) => `- ${s.idSucursal}: ${s.nombre}`).join('\n') || '- (ninguna)';
-    return `Eres el analista de reportes de "${empresa}", una tienda de moda que usa el sistema FashionStore.
+    return `Eres el analista de reportes de "${empresa}", una tienda de moda que usa la plataforma FashionCloud.
 Hoy es ${ctx.hoy} (zona horaria ${this.zona}). Las semanas empiezan el lunes.
 
 Respondes preguntas sobre el negocio usando EXCLUSIVAMENTE las herramientas disponibles.
@@ -246,7 +246,8 @@ Reglas:
 5. Puedes usar hasta ${LLAMADAS_POR_TURNO} herramientas si la pregunta compara cosas distintas.
 6. Si una herramienta responde con error, corrige los parámetros una sola vez.
 7. Si la pregunta no trata de reportes del negocio, responde en una frase que solo generas reportes de ventas, productos, sucursales, stock, reservas, pagos, devoluciones y cambios (sin usar herramientas).
-8. Al terminar escribe un resumen de 2 a 4 oraciones en español, apto para leerse en voz alta: sin tablas, viñetas ni markdown. Cita solo cifras que aparezcan en "resumen" o "filas" de los resultados. Los montos están en ${m.nombre} (${m.codigo}); escríbelos con el símbolo ${m.simbolo}.
+8. Si el usuario pide columnas concretas, filtros por talla, color, categoría o producto, o un orden (ascendente/descendente), usa consulta_ventas (ventas) o consulta_inventario (stock actual) y elige SOLO las columnas que pidió, en el orden pedido.
+9. Al terminar escribe un resumen de 2 a 4 oraciones en español, apto para leerse en voz alta: sin tablas, viñetas ni markdown. Cita solo cifras que aparezcan en "resumen" o "filas" de los resultados. Los montos están en ${m.nombre} (${m.codigo}); escríbelos con el símbolo ${m.simbolo}.
 
 Sucursales que este usuario puede consultar (usa el número en idSucursal):
 ${lista}`;

@@ -28,7 +28,8 @@ const MARCA: [number, number, number] = [173, 62, 104]
 const ahora = () => new Date().toLocaleString('es-BO', { dateStyle: 'long', timeStyle: 'short' })
 
 export function exportarPdf({ reporte, consulta, narrativa, meta, grafico }: Contenido) {
-  const doc = new jsPDF()
+  // Con muchas columnas (reportes a medida) la hoja va en horizontal para que no se aprieten.
+  const doc = new jsPDF({ orientation: reporte.columnas.length > 6 ? 'landscape' : 'portrait' })
   const ancho = doc.internal.pageSize.getWidth()
   const margen = 14
   const util = ancho - margen * 2

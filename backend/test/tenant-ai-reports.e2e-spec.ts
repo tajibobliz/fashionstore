@@ -293,6 +293,101 @@ describe('Reportes con IA: alcance por sucursal y por empresa', () => {
     );
   });
 
+  describe('reportes a medida (consulta_ventas / consulta_inventario)', () => {
+    const consulta = (who: string, params: object) => herramienta(who, 'consulta_ventas', { ...RANGO, ...params });
+    const claves = (rep: any) => rep.columnas.map((x: any) => x.clave);
+
+    it('muestra SOLO las columnas pedidas, en ese orden, y los totales cuadran con los reportes fijos', async () => {
+      const r = await consulta('B', { agrupar: ['talla', 'color'], metricas: ['unidades'] });
+      expect(r.status).toBe(200);
+      expect(r.body.tipo).toBe('reporte');
+      const rep = r.body.reportes[0];
+      expect(claves(rep)).toEqual(['talla', 'color', 'unidades']);
+      expect(rep.titulo).toBe('Ventas por talla y color');
+      for (const f of rep.filas) expect(Object.keys(f)).toEqual(['talla', 'color', 'unidades']);
+      const totales = await consulta('B', { metricas: ['unidades', 'ingreso'] });
+      const fila = totales.body.reportes[0].filas[0];
+      expect(rep.resumen.unidades).toBe(fila.unidades);
+      const cat = (await herramienta('B', 'ingresos_por_categoria', RANGO)).body.reportes[0].resumen;
+      expect(fila.unidades).toBe(cat.unidadesVendidas);
+      expect(fila.ingreso).toBeCloseTo(cat.totalVendido, 2);
+    });
+
+    it('filtra por color y talla (sin importar mayúsculas ni tildes) y respeta el orden ascendente', async () => {
+      const base = (await consulta('B', { agrupar: ['talla', 'color'], metricas: ['unidades'] })).body.reportes[0].filas;
+      expect(base.length).toBeGreaterThan(0);
+      const { talla, color, unidades } = base[0];
+      const r = await consulta('B', { agrupar: ['producto', 'talla', 'color'], metricas: ['unidades'], tallas: [talla.toLowerCase()], colores: [color.toUpperCase()] });
+      const rep = r.body.reportes[0];
+      expect(rep.filtros['Tallas']).toBe(talla);
+      expect(rep.filtros['Colores']).toBe(color);
+      for (const f of rep.filas) { expect(f.talla).toBe(talla); expect(f.color).toBe(color); }
+      expect(rep.resumen.unidades).toBe(unidades);
+
+      const asc = (await consulta('B', { agrupar: ['producto'], metricas: ['unidades'], ordenarPor: 'unidades', direccion: 'asc' })).body.reportes[0];
+      const valores = asc.filas.map((f: any) => f.unidades);
+      expect(valores).toEqual([...valores].sort((a: number, b: number) => a - b));
+      expect(asc.filtros['Orden']).toBe('Unidades vendidas (ascendente)');
+    });
+
+    it('con un límite menor que el resultado, recorta y lo avisa', async () => {
+      const todo = (await consulta('B', { agrupar: ['producto'], metricas: ['unidades'] })).body.reportes[0];
+      expect(todo.filas.length).toBeGreaterThan(1);
+      const r = (await consulta('B', { agrupar: ['producto'], metricas: ['unidades'], limite: 1 })).body.reportes[0];
+      expect(r.filas).toHaveLength(1);
+      expect(r.resumen.recortado).toBe(1);
+      expect(r.filtros['Aviso']).toMatch(/primeras 1 filas/);
+    });
+
+    it.each([
+      ['ordenar por una columna no elegida', { agrupar: ['producto'], metricas: ['unidades'], ordenarPor: 'ingreso' }, /columnas elegidas/],
+      ['columna fuera del menú (SQL)', { agrupar: ['p.password_hash'] }, /inválidos/],
+      ['color inexistente', { colores: ['Arcoíris'] }, /No existe el color/],
+      ['dos periodos a la vez', { agrupar: ['dia', 'mes'] }, /un solo periodo/],
+      ['límite fuera de rango', { limite: 5000 }, /inválidos/],
+    ])('%s → se rechaza sin datos', async (_caso, params, mensaje) => {
+      const r = await consulta('B', params);
+      expect(r.body.tipo).toBe('sin_reporte');
+      expect(r.body.narrativa).toMatch(mensaje);
+    });
+
+    it('lenguaje natural: "talla …, colores …, solo la cantidad, de menor a mayor"', async () => {
+      const base = (await consulta('B', { agrupar: ['talla', 'color'], metricas: ['unidades'] })).body.reportes[0].filas[0];
+      const r = await preguntar('B', `Dame las ventas de talla ${base.talla} y color ${base.color.toLowerCase()} desde 2025-01-01 hasta ${hoy}, solo la cantidad, de menor a mayor`);
+      expect(r.body.reportes[0].filtros['Desde']).toBe('2025-01-01');
+      expect(r.body.reportes[0].resumen.unidades).toBe(base.unidades);
+      expect(r.body.tipo).toBe('reporte');
+      const rep = r.body.reportes[0];
+      expect(rep.herramienta).toBe('consulta_ventas');
+      expect(claves(rep)).toEqual(['talla', 'color', 'unidades']);
+      expect(rep.filtros['Orden']).toBe('Unidades vendidas (ascendente)');
+      for (const f of rep.filas) { expect(f.talla).toBe(base.talla); expect(f.color).toBe(base.color); }
+    });
+
+    it('inventario a medida: stock por talla, con totales iguales al reporte de inventario', async () => {
+      const r = await herramienta('B', 'consulta_inventario', { agrupar: ['talla'], metricas: ['stockDisponible'], ordenarPor: 'stockDisponible', direccion: 'asc' });
+      expect(r.body.tipo).toBe('reporte');
+      const rep = r.body.reportes[0];
+      expect(claves(rep)).toEqual(['talla', 'stockDisponible']);
+      const inv = await c.api('GET', '/reports/inventory?limit=100&page=1', { who: 'B' });
+      expect(inv.status).toBe(200);
+      let suma = 0;
+      for (let page = 1; page <= Math.ceil(inv.body.total / 100); page++) {
+        const pg = await c.api('GET', `/reports/inventory?limit=100&page=${page}`, { who: 'B' });
+        suma += pg.body.items.reduce((s: number, x: any) => s + x.stockDisponible, 0);
+      }
+      expect(rep.resumen.stockDisponible).toBe(suma);
+    });
+
+    it('el encargado solo ve su sucursal también en los reportes a medida', async () => {
+      const r = await herramienta('ENC', 'consulta_ventas', { ...RANGO, agrupar: ['sucursal'], metricas: ['unidades'] });
+      const sucursales = r.body.reportes[0]?.filas.map((f: any) => f.sucursal) ?? [];
+      for (const s of sucursales) expect(s).toBe('Urban Step Centro');
+      const inv = await herramienta('ENC', 'consulta_inventario', { agrupar: ['sucursal'] });
+      for (const f of inv.body.reportes[0].filas) expect(f.sucursal).toBe('Urban Step Centro');
+    });
+  });
+
   it('top por sucursal: el encargado solo recibe el ranking de su sucursal', async () => {
     const r = await herramienta('ENC', 'top_productos', { ...RANGO, porSucursal: true });
     expect(r.status).toBe(200);

@@ -10,6 +10,10 @@ import { Usuario } from '../users/entities/user.entity';
 import { Pago } from '../payments/entities/pago.entity';
 import { TurnoCaja } from '../pos/entities/turno-caja.entity';
 import { FECHA_SIMPLE, finDelDia, inicioDelDia, zonaSql } from '../common/zona-horaria';
+import {
+  DIMENSIONES_INVENTARIO, DIMENSIONES_VENTAS, FECHA_TIENDA, METRICAS_INVENTARIO, METRICAS_VENTAS,
+  type DefinicionColumna, type OpcionesInventarioFlexible, type OpcionesVentasFlexibles,
+} from './consulta-flexible';
 import { ReportFiltersDto, InventoryReportFiltersDto, ReservationReportFiltersDto, TurnReportFiltersDto } from './dto/report-filters.dto';
 
 export type ReportScope = { branchIds: number[] | null; cashierId?: number };
@@ -243,6 +247,69 @@ export class ReportsService {
     return (await qb.groupBy('vr.id_variante').addGroupBy('p.id_producto').addGroupBy('ta.id_talla').addGroupBy('co.id_color')
       .having(`SUM(dv.cantidad-${this.returnedQty})>0`).orderBy('"cantidadVendida"', 'DESC').limit(100).getRawMany())
       .map((x) => ({ ...x, cantidadVendida: Number(x.cantidadVendida), totalGenerado: Number(x.totalGenerado) }));
+  }
+
+  /**
+   * Reporte de ventas "a medida" (reportes con IA): columnas, métricas, filtros y orden elegidos
+   * de un menú cerrado (consulta-flexible.ts). Usa las mismas reglas que el resto de los reportes:
+   * ventas válidas, unidades netas de devoluciones, alcance de sucursal/cajero y RLS por empresa.
+   * Pide una fila de más para saber si el resultado se recortó.
+   */
+  async ventasFlexibles(f: ReportFiltersDto, scope: ReportScope, o: OpcionesVentasFlexibles) {
+    const qb = this.detalleVentaRepo.createQueryBuilder('dv').innerJoin('dv.venta', 'v').innerJoin('dv.variante', 'vr').innerJoin('vr.producto', 'p')
+      .leftJoin('p.categoria', 'cat').leftJoin('vr.talla', 'ta').leftJoin('vr.color', 'co').leftJoin('v.sucursal', 's').leftJoin('v.turno', 't');
+    this.applySalesFilters(qb, f, scope);
+    if (o.canal) qb.andWhere('v.tipo_venta=:canalFlex', { canalFlex: o.canal });
+    this.filtrosFlexibles(qb, o, 'vr');
+    qb.having(`SUM(dv.cantidad-${this.returnedQty})>0`);
+    return this.ejecutarFlexible(qb, DIMENSIONES_VENTAS, METRICAS_VENTAS, o);
+  }
+
+  /** Inventario "a medida": stock por las columnas elegidas, con filtros de talla, color, categoría y rango de stock. */
+  async inventarioFlexible(scope: ReportScope, o: OpcionesInventarioFlexible) {
+    const qb = this.inventarioRepo.createQueryBuilder('i').innerJoin('i.variante', 'vr').innerJoin('vr.producto', 'p').leftJoin('p.categoria', 'cat')
+      .leftJoin('vr.talla', 'ta').leftJoin('vr.color', 'co').innerJoin('i.sucursal', 's').innerJoin('i.almacen', 'a');
+    this.applyBranchScope(qb, 'i', o.idSucursal, scope);
+    this.filtrosFlexibles(qb, o, 'vr');
+    if (o.stockMinimo !== undefined) qb.andHaving('SUM(i.stock_disponible)>=:stockMin', { stockMin: o.stockMinimo });
+    if (o.stockMaximo !== undefined) qb.andHaving('SUM(i.stock_disponible)<=:stockMax', { stockMax: o.stockMaximo });
+    return this.ejecutarFlexible(qb, DIMENSIONES_INVENTARIO, METRICAS_INVENTARIO, o);
+  }
+
+  /** Filtros por nombre (ya validados contra el catálogo): siempre como parámetros, nunca en el SQL. */
+  private filtrosFlexibles<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>, o: OpcionesVentasFlexibles | OpcionesInventarioFlexible, _alias: string) {
+    const minus = (l?: string[]) => (l ?? []).map((x) => x.toLowerCase());
+    if (o.categorias?.length) qb.andWhere('LOWER(cat.nombre) IN (:...catFlex)', { catFlex: minus(o.categorias) });
+    if (o.tallas?.length) qb.andWhere('LOWER(ta.nombre) IN (:...tallaFlex)', { tallaFlex: minus(o.tallas) });
+    if (o.colores?.length) qb.andWhere('LOWER(co.nombre) IN (:...colorFlex)', { colorFlex: minus(o.colores) });
+    if (o.productos?.length) {
+      const cond = o.productos.map((_, i) => `p.nombre ILIKE :prodFlex${i}`).join(' OR ');
+      const params = Object.fromEntries(o.productos.map((x, i) => [`prodFlex${i}`, `%${x.replace(/[%_\\]/g, (c) => `\\${c}`)}%`]));
+      qb.andWhere(`(${cond})`, params);
+    }
+  }
+
+  private async ejecutarFlexible<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>, dims: Record<string, DefinicionColumna>, mets: Record<string, DefinicionColumna>, o: OpcionesVentasFlexibles | OpcionesInventarioFlexible,
+  ) {
+    const fecha = `(v.fecha AT TIME ZONE ${zonaSql()})`;
+    const sql = (d: DefinicionColumna) => d.sql.split(FECHA_TIENDA).join(fecha);
+    qb.select([]);
+    for (const k of o.agrupar) {
+      const d = dims[k];
+      qb.addSelect(sql(d), k);
+      for (const g of d.grupo ?? [sql(d)]) qb.addGroupBy(g);
+    }
+    for (const k of o.metricas) qb.addSelect(sql(mets[k]), k);
+    qb.orderBy(`"${o.ordenarPor}"`, o.direccion, o.direccion === 'ASC' ? 'NULLS FIRST' : 'NULLS LAST');
+    // Desempate estable por las demás columnas, en el orden en que se pidieron.
+    for (const k of [...o.agrupar, ...o.metricas]) if (k !== o.ordenarPor) qb.addOrderBy(`"${k}"`, 'ASC');
+    const filas = await qb.limit(o.limite + 1).getRawMany();
+    const numericas = new Set(Object.keys(mets).filter((k) => o.metricas.includes(k)));
+    const limpias = filas.slice(0, o.limite).map((x) =>
+      Object.fromEntries([...o.agrupar, ...o.metricas].map((k) => [k, numericas.has(k) ? Number(x[k] ?? 0) : x[k]])),
+    );
+    return { filas: limpias, recortado: filas.length > o.limite };
   }
 
   async inventory(f: InventoryReportFiltersDto, scope: ReportScope) {

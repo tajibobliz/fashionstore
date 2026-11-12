@@ -15,6 +15,8 @@ import { ConsultaIa } from './reports/entities/consulta-ia.entity';
 import { AiReportsController } from './reports/ai-reports.controller';
 import { AiReportsService } from './reports/ai-reports.service';
 import { ReportToolsService } from './reports/report-tools';
+import { Talla } from '../catalog/entities/talla.entity';
+import { Color } from '../catalog/entities/color.entity';
 import { PROVEEDOR_LLM } from './reports/llm/llm.types';
 import { crearProveedorLlm } from './reports/llm/proveedor.factory';
 
@@ -25,6 +27,8 @@ import { crearProveedorLlm } from './reports/llm/proveedor.factory';
       Producto,
       DetalleVenta,
       Categoria,
+      Talla,
+      Color,
       ConsultaIa,
       Sucursal,
       Empresa,

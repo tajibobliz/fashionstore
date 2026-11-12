@@ -38,6 +38,8 @@ const EJEMPLOS = [
   'Cobros por método de pago de esta semana',
   'Prendas más devueltas y cambiadas este mes',
   '¿Por qué cambian o devuelven las prendas?',
+  'Ventas por talla y color de este mes, solo la cantidad, de menor a mayor',
+  'Stock por producto y talla, ordenado de menor a mayor',
 ]
 
 const ESTADO_HISTORIAL: Record<string, string> = { OK: 'Reporte', ACLARACION: 'Aclaración', SIN_REPORTE: 'Sin reporte', ERROR: 'Error' }

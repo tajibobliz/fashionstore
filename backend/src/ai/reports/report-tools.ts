@@ -3,6 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -16,6 +19,12 @@ import {
 } from 'class-validator';
 import { Repository } from 'typeorm';
 import { Categoria } from '../../catalog/entities/categoria.entity';
+import { Color } from '../../catalog/entities/color.entity';
+import { Talla } from '../../catalog/entities/talla.entity';
+import {
+  DIMENSIONES_INVENTARIO, DIMENSIONES_VENTAS, MAX_FILAS_FLEXIBLE, METRICAS_INVENTARIO, METRICAS_VENTAS, PERIODOS,
+  type DefinicionColumna, type OpcionesFlexibles,
+} from '../../reports/consulta-flexible';
 import {
   InventoryReportFiltersDto,
   ReportFiltersDto,
@@ -142,6 +151,72 @@ class MotivosDevolucionCambio extends ConSucursal {
   tipo?: 'devoluciones' | 'cambios' | 'ambos';
 }
 
+// Reportes a medida: columnas, métricas, filtros y orden de un menú cerrado (consulta-flexible.ts).
+const DIMS_V = Object.keys(DIMENSIONES_VENTAS);
+const METS_V = Object.keys(METRICAS_VENTAS);
+const DIMS_I = Object.keys(DIMENSIONES_INVENTARIO);
+const METS_I = Object.keys(METRICAS_INVENTARIO);
+
+class FiltrosFlexibles {
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @Length(1, 60, { each: true })
+  categorias?: string[];
+
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @Length(1, 30, { each: true })
+  tallas?: string[];
+
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @Length(1, 40, { each: true })
+  colores?: string[];
+
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) @Length(2, 60, { each: true })
+  productos?: string[];
+
+  @IsOptional() @IsString() @Length(1, 40)
+  ordenarPor?: string;
+
+  @IsOptional() @IsIn(['asc', 'desc'])
+  direccion?: 'asc' | 'desc';
+
+  @IsOptional() @IsInt() @Min(1) @Max(MAX_FILAS_FLEXIBLE)
+  limite?: number;
+}
+
+class ConsultaVentas extends FiltrosFlexibles {
+  @IsOptional() @IsString() @Matches(FECHA, { message: `desde ${MSG_FECHA}` })
+  desde?: string;
+
+  @IsOptional() @IsString() @Matches(FECHA, { message: `hasta ${MSG_FECHA}` })
+  hasta?: string;
+
+  @IsOptional() @IsInt() @Min(1)
+  idSucursal?: number;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(DIMS_V, { each: true })
+  agrupar?: string[];
+
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(4) @IsIn(METS_V, { each: true })
+  metricas?: string[];
+
+  @IsOptional() @IsIn(['DIGITAL', 'PRESENCIAL'])
+  canal?: 'DIGITAL' | 'PRESENCIAL';
+}
+
+class ConsultaInventario extends FiltrosFlexibles {
+  @IsOptional() @IsInt() @Min(1)
+  idSucursal?: number;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(DIMS_I, { each: true })
+  agrupar?: string[];
+
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(3) @IsIn(METS_I, { each: true })
+  metricas?: string[];
+
+  @IsOptional() @IsInt() @Min(0)
+  stockMinimo?: number;
+
+  @IsOptional() @IsInt() @Min(0)
+  stockMaximo?: number;
+}
+
 class PedirAclaracion {
   @IsString() @Length(3, 300)
   pregunta: string;
@@ -234,6 +309,47 @@ export const HERRAMIENTAS: DefinicionHerramienta[] = [
     }),
   },
   {
+    nombre: 'consulta_ventas',
+    descripcion:
+      'Reporte de VENTAS A MEDIDA. Úsala cuando el usuario pida columnas concretas, filtros por talla, color, categoría o nombre de producto, ' +
+      'un orden (ascendente/descendente) o combinaciones que las otras herramientas no cubren. Pon en "agrupar" y "metricas" SOLO las columnas ' +
+      'que pidió, en el orden en que deben mostrarse (p. ej. "solo la cantidad" = metricas ["unidades"]). Los filtros aceptan varios valores.',
+    parametros: objeto({
+      ...rango,
+      ...sucursal,
+      agrupar: { type: 'array', items: { type: 'string', enum: DIMS_V }, description: 'Columnas para agrupar, en orden (máx. 4). Solo una de dia/semana/mes. Vacío = una fila de totales.' },
+      metricas: { type: 'array', items: { type: 'string', enum: METS_V }, description: 'Métricas a mostrar (1 a 4). Por defecto ["unidades","ingreso"].' },
+      categorias: { type: 'array', items: { type: 'string' }, description: 'Nombres de categoría (p. ej. "Vestidos").' },
+      tallas: { type: 'array', items: { type: 'string' }, description: 'Tallas (p. ej. "M", "36").' },
+      colores: { type: 'array', items: { type: 'string' }, description: 'Colores (p. ej. "Negro", "Blanco").' },
+      productos: { type: 'array', items: { type: 'string' }, description: 'Texto que debe contener el nombre del producto.' },
+      canal: { type: 'string', enum: ['DIGITAL', 'PRESENCIAL'], description: 'DIGITAL = tienda online/app, PRESENCIAL = caja (POS).' },
+      ordenarPor: { type: 'string', description: 'Clave de UNA de las columnas elegidas (de agrupar o metricas). Por defecto la primera métrica.' },
+      direccion: { type: 'string', enum: ['asc', 'desc'], description: 'asc = de menor a mayor / A-Z; desc = de mayor a menor. Por defecto desc.' },
+      limite: { type: 'integer', minimum: 1, maximum: MAX_FILAS_FLEXIBLE, description: 'Máximo de filas. Por defecto 100.' },
+    }),
+  },
+  {
+    nombre: 'consulta_inventario',
+    descripcion:
+      'Reporte de INVENTARIO (stock actual) A MEDIDA: elige las columnas, filtra por talla, color, categoría, producto, sucursal o rango de stock ' +
+      'y ordena por cualquier columna. No usa fechas. Pon solo las columnas que pidió el usuario.',
+    parametros: objeto({
+      ...sucursal,
+      agrupar: { type: 'array', items: { type: 'string', enum: DIMS_I }, description: 'Columnas para agrupar, en orden (máx. 4). Vacío = una fila de totales.' },
+      metricas: { type: 'array', items: { type: 'string', enum: METS_I }, description: 'Métricas (1 a 3). Por defecto ["stockDisponible"].' },
+      categorias: { type: 'array', items: { type: 'string' }, description: 'Nombres de categoría.' },
+      tallas: { type: 'array', items: { type: 'string' }, description: 'Tallas.' },
+      colores: { type: 'array', items: { type: 'string' }, description: 'Colores.' },
+      productos: { type: 'array', items: { type: 'string' }, description: 'Texto que debe contener el nombre del producto.' },
+      stockMinimo: { type: 'integer', minimum: 0, description: 'Solo filas con stock disponible >= este valor.' },
+      stockMaximo: { type: 'integer', minimum: 0, description: 'Solo filas con stock disponible <= este valor.' },
+      ordenarPor: { type: 'string', description: 'Clave de UNA de las columnas elegidas. Por defecto la primera métrica.' },
+      direccion: { type: 'string', enum: ['asc', 'desc'], description: 'asc = de menor a mayor; desc = de mayor a menor. Por defecto desc.' },
+      limite: { type: 'integer', minimum: 1, maximum: MAX_FILAS_FLEXIBLE, description: 'Máximo de filas. Por defecto 100.' },
+    }),
+  },
+  {
     nombre: 'pedir_aclaracion',
     descripcion: 'Usar SOLO si la pregunta es ambigua o no se puede responder con las otras herramientas. Hace una pregunta corta al usuario.',
     parametros: objeto({ pregunta: { type: 'string', description: 'Pregunta corta en español.' } }, ['pregunta']),
@@ -253,6 +369,8 @@ const CLASES: Record<string, new () => object> = {
   ventas_por_metodo_pago: ConSucursal,
   devoluciones_y_cambios_por_producto: DevolucionesYCambios,
   motivos_devolucion_y_cambio: MotivosDevolucionCambio,
+  consulta_ventas: ConsultaVentas,
+  consulta_inventario: ConsultaInventario,
   pedir_aclaracion: PedirAclaracion,
 };
 
@@ -267,6 +385,10 @@ export class ReportToolsService {
     private readonly reports: ReportsService,
     @InjectRepository(Categoria)
     private readonly categorias: Repository<Categoria>,
+    @InjectRepository(Talla)
+    private readonly tallas: Repository<Talla>,
+    @InjectRepository(Color)
+    private readonly colores: Repository<Color>,
   ) {}
 
   /**
@@ -316,6 +438,8 @@ export class ReportToolsService {
       case 'ventas_por_metodo_pago': return this.ventasPorMetodo(await this.validar(nombre, entrada), ctx);
       case 'devoluciones_y_cambios_por_producto': return this.devolucionesYCambios(await this.validar(nombre, entrada), ctx);
       case 'motivos_devolucion_y_cambio': return this.motivos(await this.validar(nombre, entrada), ctx);
+      case 'consulta_ventas': return this.consultaVentas(await this.validar(nombre, entrada), ctx);
+      case 'consulta_inventario': return this.consultaInventario(await this.validar(nombre, entrada), ctx);
       default: throw new ErrorHerramienta(`La herramienta "${nombre}" no genera reportes.`);
     }
   }
@@ -434,6 +558,94 @@ export class ReportToolsService {
       { clave: 'almacen', etiqueta: 'Almacén', formato: 'texto' },
       { clave: 'stockDisponible', etiqueta: 'Stock', formato: 'numero' },
     ], filas, null, filtros, { variantes: r.total, agotadas: filas.filter((x) => x.stockDisponible === 0).length });
+  }
+
+  /** Ventas a medida: solo las columnas, filtros y orden que se pidieron. */
+  private async consultaVentas(p: ConsultaVentas, ctx: ContextoHerramientas) {
+    const { f, filtros } = this.filtrosVentas(p, ctx);
+    const o = await this.opcionesFlexibles(p, DIMENSIONES_VENTAS, METRICAS_VENTAS, ['unidades', 'ingreso'], filtros);
+    if (p.canal) filtros['Canal'] = p.canal === 'DIGITAL' ? 'Digital' : 'Presencial';
+    const r = await this.reports.ventasFlexibles(f, ctx.scope, { ...o, canal: p.canal });
+    return this.reporteFlexible('consulta_ventas', 'Ventas', o, r, filtros, DIMENSIONES_VENTAS, METRICAS_VENTAS);
+  }
+
+  /** Inventario a medida (stock actual): sin fechas. */
+  private async consultaInventario(p: ConsultaInventario, ctx: ContextoHerramientas) {
+    const filtros: Record<string, string> = {};
+    const idSucursal = p.idSucursal ? this.sucursalPermitida(p.idSucursal, ctx) : undefined;
+    filtros['Sucursal'] = p.idSucursal ? this.nombreSucursal(p.idSucursal, ctx) : this.todasLasSucursales(ctx);
+    if (p.stockMinimo !== undefined && p.stockMaximo !== undefined && p.stockMinimo > p.stockMaximo)
+      throw new ErrorHerramienta('"stockMinimo" no puede ser mayor que "stockMaximo".');
+    if (p.stockMinimo !== undefined) filtros['Stock desde'] = String(p.stockMinimo);
+    if (p.stockMaximo !== undefined) filtros['Stock hasta'] = String(p.stockMaximo);
+    const o = await this.opcionesFlexibles(p, DIMENSIONES_INVENTARIO, METRICAS_INVENTARIO, ['stockDisponible'], filtros);
+    const r = await this.reports.inventarioFlexible(ctx.scope, { ...o, idSucursal, stockMinimo: p.stockMinimo, stockMaximo: p.stockMaximo });
+    return this.reporteFlexible('consulta_inventario', 'Inventario', o, r, filtros, DIMENSIONES_INVENTARIO, METRICAS_INVENTARIO);
+  }
+
+  /** Valida la combinación de columnas y orden, y resuelve los nombres de los filtros contra el catálogo. */
+  private async opcionesFlexibles(
+    p: FiltrosFlexibles & { agrupar?: string[]; metricas?: string[] },
+    dims: Record<string, DefinicionColumna>, mets: Record<string, DefinicionColumna>, porDefecto: string[], filtros: Record<string, string>,
+  ): Promise<OpcionesFlexibles> {
+    const agrupar = [...new Set(p.agrupar ?? [])];
+    const metricas = [...new Set(p.metricas ?? porDefecto)];
+    const periodos = agrupar.filter((k) => PERIODOS.includes(k));
+    if (periodos.length > 1) throw new ErrorHerramienta('Agrupa por un solo periodo: dia, semana o mes.');
+    const columnas = [...agrupar, ...metricas];
+    const ordenarPor = p.ordenarPor ?? (periodos[0] ?? metricas[0]);
+    if (!columnas.includes(ordenarPor))
+      throw new ErrorHerramienta(`"ordenarPor" debe ser una de las columnas elegidas: ${columnas.join(', ')}.`);
+    const direccion = p.direccion ? (p.direccion.toUpperCase() as 'ASC' | 'DESC') : ordenarPor in mets ? 'DESC' : 'ASC';
+    const limite = p.limite ?? 100;
+
+    const categorias = await this.resolverNombres('la categoría', p.categorias, () => this.categorias.find({ order: { nombre: 'ASC' }, take: 300 }));
+    const tallas = await this.resolverNombres('la talla', p.tallas, () => this.tallas.find({ order: { nombre: 'ASC' }, take: 300 }));
+    const colores = await this.resolverNombres('el color', p.colores, () => this.colores.find({ order: { nombre: 'ASC' }, take: 300 }));
+    if (categorias?.length) filtros['Categorías'] = categorias.join(', ');
+    if (tallas?.length) filtros['Tallas'] = tallas.join(', ');
+    if (colores?.length) filtros['Colores'] = colores.join(', ');
+    if (p.productos?.length) filtros['Producto contiene'] = p.productos.join(', ');
+    const etiqueta = (dims[ordenarPor] ?? mets[ordenarPor]).etiqueta;
+    filtros['Orden'] = `${etiqueta} (${direccion === 'ASC' ? 'ascendente' : 'descendente'})`;
+    filtros['Límite'] = `${limite} filas`;
+    return { agrupar, metricas, categorias, tallas, colores, productos: p.productos, ordenarPor, direccion, limite };
+  }
+
+  /** "negro" → "Negro" (nombre exacto del catálogo). Un valor inexistente se rechaza listando los disponibles. */
+  private async resolverNombres(tipo: string, valores: string[] | undefined, lista: () => Promise<{ nombre: string }[]>) {
+    if (!valores?.length) return undefined;
+    const disponibles = (await lista()).map((x) => x.nombre);
+    return [...new Set(valores.map((v) => {
+      const buscado = normalizar(v);
+      const exacto = disponibles.find((n) => normalizar(n) === buscado) ?? disponibles.find((n) => normalizar(n).includes(buscado));
+      if (!exacto)
+        throw new ErrorHerramienta(`No existe ${tipo} "${v}". Disponibles: ${disponibles.slice(0, 40).join(', ') || 'ninguna'}.`);
+      return exacto;
+    }))];
+  }
+
+  private reporteFlexible(
+    herramienta: string, base: string, o: OpcionesFlexibles, r: { filas: Record<string, unknown>[]; recortado: boolean },
+    filtros: Record<string, string>, dims: Record<string, DefinicionColumna>, mets: Record<string, DefinicionColumna>,
+  ) {
+    const columnas: ColumnaReporte[] = [
+      ...o.agrupar.map((k) => ({ clave: k, etiqueta: dims[k].etiqueta, formato: dims[k].formato })),
+      ...o.metricas.map((k) => ({ clave: k, etiqueta: mets[k].etiqueta, formato: mets[k].formato })),
+    ];
+    const titulo = o.agrupar.length
+      ? `${base} por ${unirConY(o.agrupar.map((k) => dims[k].etiqueta.toLowerCase()))}`
+      : `${base}: totales`;
+    if (r.recortado) filtros['Aviso'] = `Se muestran las primeras ${o.limite} filas; agrega filtros para ver el resto.`;
+    let grafico: GraficoReporte | null = null;
+    if (o.agrupar.length === 1 && r.filas.length > 1) {
+      const x = o.agrupar[0];
+      if (PERIODOS.includes(x)) grafico = { tipo: 'linea', x, y: [o.metricas[0]] };
+      else if (r.filas.length <= 30) grafico = { tipo: 'barras', x, y: [o.metricas[0]] };
+    }
+    const sumables = o.metricas.filter((k) => k !== 'precioPromedio');
+    const resumen = { ...this.sumas(r.filas, sumables), recortado: r.recortado ? 1 : 0 };
+    return this.reporte(herramienta, titulo, columnas, r.filas, grafico, filtros, resumen);
   }
 
   private async reservasPorEstado(p: ConSucursal, ctx: ContextoHerramientas) {
@@ -581,6 +793,11 @@ function fechaValida(f: string) {
   const d = new Date(`${f}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === f;
 }
+/** ["producto", "talla", "color"] → "producto, talla y color". */
+function unirConY(partes: string[]) {
+  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : partes[0];
+}
+
 export function normalizar(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
